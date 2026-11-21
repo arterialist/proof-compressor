@@ -60,6 +60,21 @@ def _human_title(raw: str) -> str:
     return s
 
 
+def _format_math_block(tex_stmt: str) -> str:
+    """Render short statements in `\\[ ... \\]` and long statements in a line-wrapping math block."""
+    s = tex_stmt.strip()
+    if len(s) <= 95:
+        return f"\\[\n{s}\n\\]"
+    # Insert soft line-break hints at top-level binder boundaries and logical arrows
+    wrapped = s.replace(") (", r") \allowbreak (")
+    wrapped = wrapped.replace(r"\to ", r"\to \allowbreak ")
+    wrapped = wrapped.replace(r"\longrightarrow ", r"\longrightarrow \allowbreak ")
+    wrapped = wrapped.replace(r"\land ", r"\land \allowbreak ")
+    wrapped = wrapped.replace(r"\lor ", r"\lor \allowbreak ")
+    wrapped = wrapped.replace(", ", r", \allowbreak ")
+    return f"\\begin{{quote}}\\small\\raggedright$\\displaystyle {wrapped}$\\end{{quote}}"
+
+
 def _clean_docstring_for_prose(doc: str | None) -> str:
     """Sanitize a Lean docstring for inclusion in mathematical prose (no bookkeeping leaks)."""
     if not doc:
@@ -376,7 +391,7 @@ def _build_proof_sketch(
     if def_deps:
         top_defs = def_deps[:4]
         def_refs = ", ".join(
-            f"{escape_latex_text(_human_title(d['short_name']))}~\\leanlink{{{d['name']}}}"
+            f"{escape_latex_text(_human_title(d['short_name']))} \\leanlink{{{d['name']}}}"
             for d in top_defs
         )
         sentences.append(
@@ -390,16 +405,16 @@ def _build_proof_sketch(
             d = cited[0]
             sentences.append(
                 f"The claim follows directly from "
-                f"\\emph{{{escape_latex_text(_human_title(d['short_name']))}}}~\\leanlink{{{d['name']}}}."
+                f"\\emph{{{escape_latex_text(_human_title(d['short_name']))}}} \\leanlink{{{d['name']}}}."
             )
         else:
             lead = cited[:-1]
             final = cited[-1]
             lead_str = ", ".join(
-                f"\\emph{{{escape_latex_text(_human_title(d['short_name']))}}}~\\leanlink{{{d['name']}}}"
+                f"\\emph{{{escape_latex_text(_human_title(d['short_name']))}}} \\leanlink{{{d['name']}}}"
                 for d in lead
             )
-            final_str = f"\\emph{{{escape_latex_text(_human_title(final['short_name']))}}}~\\leanlink{{{final['name']}}}"
+            final_str = f"\\emph{{{escape_latex_text(_human_title(final['short_name']))}}} \\leanlink{{{final['name']}}}"
             sentences.append(
                 f"Combining {lead_str} with {final_str} yields the stated result."
             )
@@ -665,7 +680,7 @@ def generate_latex(
             r"""\documentclass[11pt,reqno]{amsart}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{amsmath,amssymb,amsthm,mathtools,array}
 \usepackage{booktabs}
 \usepackage[margin=1in]{geometry}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
@@ -680,14 +695,17 @@ def generate_latex(
 \newtheorem{definition}[theorem]{Definition}
 \newtheorem{remark}[theorem]{Remark}
 
-% Exact formal verification anchor (safe with underscores via \detokenize)
-\newcommand{\leanlink}[1]{\textsuperscript{\tiny[\texttt{\detokenize{#1}}]}}
-\newcommand{\leanmod}[1]{\texttt{\scriptsize\detokenize{#1}}}
+% Exact formal verification anchor (safe with underscores and line-breakable via \nolinkurl)
+\newcommand{\leanlink}[1]{\allowbreak{\tiny\texttt{[\expandafter\nolinkurl\expandafter{\detokenize{#1}}]}}}
+\newcommand{\leanmod}[1]{\allowbreak{\scriptsize\texttt{\expandafter\nolinkurl\expandafter{\detokenize{#1}}}}}
+\emergencystretch=3em
+\sloppy
 """
         )
         parts.append(registry.render_preamble())
+        short_running_title = escape_latex_text(doc_title[:58] + ("..." if len(doc_title) > 58 else ""))
         parts.append(
-            f"\n\\title{{{escape_latex_text(doc_title)}}}\n"
+            f"\n\\title[{short_running_title}]{{{escape_latex_text(doc_title)}}}\n"
             r"\author{Synthesized by \texttt{proof-compressor}}" "\n"
             r"\date{\today}" "\n\n"
             r"\begin{document}" "\n"
@@ -699,7 +717,7 @@ def generate_latex(
             f"({stats['reachable_loc']:,}~lines, compression ratio {stats['compression_ratio']:.2f}$\\times$) "
             f"and {stats['mathematical_declarations']:,}~substantive mathematical declarations. "
             f"Every definition, theorem, and proof citation below is anchored to its verified Lean constant "
-            f"via \\texttt{{\\textbackslash leanlink{{...}}}}.\n"
+            f"via \\texttt{{\\textbackslash leanlink\\{{...\\}}}}.\n"
             r"\end{abstract}" "\n"
             r"\maketitle" "\n"
             r"\tableofcontents" "\n"
@@ -750,7 +768,7 @@ def generate_latex(
                 sec1.append(
                     f"\\begin{{theorem}}[{escape_latex_text(_human_title(rec['short_name']))}]"
                     f"\\leanlink{{{rec['name']}}}\n"
-                    f"\\[\n{tex_stmt}\n\\]\n"
+                    f"{_format_math_block(tex_stmt)}\n"
                     f"\\end{{theorem}}"
                 )
                 deps = _get_direct_math_deps(conn, int(rec["id"]), limit=10)
@@ -768,7 +786,7 @@ def generate_latex(
             sec1.append(r"\centering")
             sec1.append(r"\caption{Top Mathematical Bottleneck Pillars}\label{tab:bottlenecks}")
             sec1.append(r"\small")
-            sec1.append(r"\begin{tabular}{rlrr}")
+            sec1.append(r"\begin{tabular}{rp{0.56\textwidth}rr}")
             sec1.append(r"\toprule")
             sec1.append(r"\# & Pillar Theorem & Body LOC & Bottleneck Score \\")
             sec1.append(r"\midrule")
@@ -777,7 +795,7 @@ def generate_latex(
                 if len(disp) > 48:
                     disp = disp[:45] + "..."
                 sec1.append(
-                    f"{idx} & {disp}~\\leanlink{{{b['name']}}} & "
+                    f"{idx} & \\raggedright {disp} \\leanlink{{{b['name']}}} & "
                     f"{int(b['body_loc'] or 0):,} & {float(b['bottleneck_score'] or 0.0):.2f} \\\\"
                 )
             sec1.append(r"\bottomrule")
@@ -887,20 +905,31 @@ def generate_latex(
                 f"This chapter encompasses {int(chap['decl_count'] or len(chap_decls)):,} formal declarations "
                 f"({int(chap['total_loc'] or 0):,}~LOC).{idiom_clause}"
             )
-            chap_summary = _clean_docstring_for_prose(chap.get("summary"))
-            if chap_summary:
-                chap_lines.append(chap_summary)
+            raw_chap_summary = str(chap.get("summary") or "").strip()
+            if raw_chap_summary and not re.match(r"^\d[\d,]*\s+declarations\b", raw_chap_summary):
+                chap_summary = _clean_docstring_for_prose(raw_chap_summary)
+                if chap_summary:
+                    chap_lines.append(chap_summary)
 
             iface_tex = _format_interface_summary(in_items, out_items, valid_names)
             if iface_tex:
                 chap_lines.append(iface_tex)
             chap_lines.append("")
 
-            # Key definitions in this chapter
-            key_defs = [
+            # Key definitions in this chapter (prefer rich signatures ahead of bare `: Prop` bundles)
+            all_chap_defs = [
                 d for d in chap_decls
                 if d["kind"] in ("def", "structure", "class", "inductive", "abbrev")
-            ][:max_defs_per_cluster]
+            ]
+            all_chap_defs.sort(
+                key=lambda d: (
+                    0 if str(d.get("type_sig") or "").strip().lstrip(":").strip() in ("Prop", "") else 1,
+                    float(d.get("bottleneck_score") or 0.0),
+                    int(d.get("in_degree") or 0),
+                ),
+                reverse=True,
+            )
+            key_defs = all_chap_defs[:max_defs_per_cluster]
 
             if key_defs:
                 chap_lines.append(r"\subsection{Core Definitions and Structures}")
@@ -913,7 +942,7 @@ def generate_latex(
                     )
                     if doc_note:
                         chap_lines.append(doc_note)
-                    chap_lines.append(f"\\[\n{tex_sig}\n\\]")
+                    chap_lines.append(_format_math_block(tex_sig))
                     chap_lines.append(r"\end{definition}")
                     chap_lines.append("")
 
@@ -943,7 +972,7 @@ def generate_latex(
                     )
                     if doc_note:
                         chap_lines.append(doc_note)
-                    chap_lines.append(f"\\[\n{tex_stmt}\n\\]")
+                    chap_lines.append(_format_math_block(tex_stmt))
                     chap_lines.append(f"\\end{{{env}}}")
 
                     deps = _get_direct_math_deps(conn, int(thm["id"]), limit=10)
@@ -992,11 +1021,11 @@ def generate_latex(
             app.append(r"\centering")
             app.append(r"\caption{Global Symbol Registry}\label{tab:glossary}")
             app.append(r"\small")
-            app.append(r"\begin{tabular}{llll}")
+            app.append(r"\begin{tabular}{llp{0.34\textwidth}p{0.30\textwidth}}")
             app.append(r"\toprule")
             app.append(r"Symbol & Macro & Lean Constant & Module \\")
             app.append(r"\midrule")
-            for entry in registry.entries[:60]:
+            for entry in registry.entries[:40]:
                 # Only emit \leanlink for reachable/valid project decls
                 link_cell = (
                     f"\\leanlink{{{entry.lean_name}}}"
@@ -1006,7 +1035,7 @@ def generate_latex(
                 mod_cell = f"\\leanmod{{{entry.module_path}}}" if entry.module_path else "---"
                 app.append(
                     f"${entry.latex_macro}$ & \\texttt{{\\detokenize{{{entry.latex_macro}}}}} & "
-                    f"{link_cell} & {mod_cell} \\\\"
+                    f"\\raggedright {link_cell} & \\raggedright\\arraybackslash {mod_cell} \\\\"
                 )
             app.append(r"\bottomrule")
             app.append(r"\end{tabular}")

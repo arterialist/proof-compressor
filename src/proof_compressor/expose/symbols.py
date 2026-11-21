@@ -84,6 +84,22 @@ _STANDARD_LEAN_TRANSLATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bcompletedRiemannZeta\b"), r"\\Lambda"),
     (re.compile(r"\briemannZeta\b"), r"\\zeta"),
     (re.compile(r"\bRiemannHypothesis\b"), r"\\mathrm{RH}"),
+    (
+        re.compile(r"\bRiemannZetaZerosOnLine\b"),
+        r"\\forall s \\in \\mathbb{C},\\; \\zeta(s) = 0 \\land 0 < \\operatorname{Re}(s) < 1 \\to \\operatorname{Re}(s) = 1 / 2",
+    ),
+    (
+        re.compile(r"\bDirichletLZerosOnLine\b"),
+        r"\\forall N \\ge 1,\\; \\forall \\chi \\pmod{N},\\; \\forall s \\in \\mathbb{C},\\; L(s, \\chi) = 0 \\land 0 < \\operatorname{Re}(s) < 1 \\to \\operatorname{Re}(s) = 1 / 2",
+    ),
+    (
+        re.compile(r"\bPrimitiveDirichletLZerosOnLine\b"),
+        r"\\forall N \\ge 1,\\; \\forall \\chi\\;\\mathrm{primitive} \\pmod{N},\\; \\forall s \\in \\mathbb{C},\\; L(s, \\chi) = 0 \\land 0 < \\operatorname{Re}(s) < 1 \\to \\operatorname{Re}(s) = 1 / 2",
+    ),
+    (
+        re.compile(r"\bDirichletLNonvanishingRightOfHalf\b"),
+        r"\\forall N \\ge 1,\\; \\forall \\chi \\pmod{N},\\; \\forall s \\in \\mathbb{C},\\; \\operatorname{Re}(s) > 1 / 2 \\to L(s, \\chi) \\neq 0",
+    ),
     (re.compile(r"\bLFunction\b"), r"L"),
     (re.compile(r"\bNat\.Prime\b"), r"\\mathrm{Prime}"),
     (re.compile(r"\bPrime\b"), r"\\mathrm{Prime}"),
@@ -188,20 +204,53 @@ _UNICODE_TO_LATEX: tuple[tuple[str, str], ...] = (
     ("‖", r"\| "),
     ("⟨", r"\langle "),
     ("⟩", r"\rangle "),
-    ("⁻¹", r"^{-1}"),
-    ("²", r"^2"),
-    ("³", r"^3"),
-    ("†", r"^{\dagger}"),
-    ("₀", r"_0"),
-    ("₁", r"_1"),
-    ("₂", r"_2"),
-    ("₃", r"_3"),
-    ("₄", r"_4"),
-    ("₅", r"_5"),
-    ("₆", r"_6"),
-    ("₇", r"_7"),
-    ("₈", r"_8"),
-    ("₉", r"_9"),
+    ("⁻¹'", r"^{-1} "),
+    ("⁻¹", r"^{-1} "),
+    ("ᵒᵖ", r"^{\mathrm{op}} "),
+    ("ˣ", r"^{\times} "),
+    ("²", r"^2 "),
+    ("³", r"^3 "),
+    ("†", r"^{\dagger} "),
+    ("ᴴ", r"^{\mathrm{H}} "),
+    ("ᵀ", r"^{\mathrm{T}} "),
+    ("ᵁ", r"^{\mathrm{U}} "),
+    ("ᵐ", r"^{m} "),
+    ("ᵒ", r"^{o} "),
+    ("ᵖ", r"^{p} "),
+    ("ᶠ", r"^{f} "),
+    ("⁻", r"^{-} "),
+    ("₀", r"_0 "),
+    ("₁", r"_1 "),
+    ("₂", r"_2 "),
+    ("₃", r"_3 "),
+    ("₄", r"_4 "),
+    ("₅", r"_5 "),
+    ("₆", r"_6 "),
+    ("₇", r"_7 "),
+    ("₈", r"_8 "),
+    ("₉", r"_9 "),
+    ("ₐ", r"_{a} "),
+    ("ₑ", r"_{e} "),
+    ("ₕ", r"_{h} "),
+    ("ᵢ", r"_{i} "),
+    ("ⱼ", r"_{j} "),
+    ("ₖ", r"_{k} "),
+    ("ₗ", r"_{l} "),
+    ("ₘ", r"_{m} "),
+    ("ₙ", r"_{n} "),
+    ("ₒ", r"_{o} "),
+    ("ₚ", r"_{p} "),
+    ("ᵣ", r"_{r} "),
+    ("ₛ", r"_{s} "),
+    ("ₜ", r"_{t} "),
+    ("ᵤ", r"_{u} "),
+    ("ᵥ", r"_{v} "),
+    ("ₓ", r"_{x} "),
+    ("Σ", r"\Sigma "),
+    ("η", r"\eta "),
+    ("ι", r"\iota "),
+    ("ξ", r"\xi "),
+    ("κ", r"\kappa "),
     ("≃", r"\simeq "),
     ("≅", r"\cong "),
     ("≈", r"\approx "),
@@ -209,10 +258,28 @@ _UNICODE_TO_LATEX: tuple[tuple[str, str], ...] = (
     ("±", r"\pm "),
     ("⊢", r"\vdash "),
     ("•", r"\cdot "),
+    ("⬝", r"\cdot "),
     ("∗", r"\ast "),
     ("⋆", r"\star "),
     ("ℓ", r"\ell "),
     ("⧸", r"/"),
+    ("↥", ""),
+    ("↓", ""),
+    ("∂", r"\partial "),
+    ("≫", r"\gg "),
+    ("≪", r"\ll "),
+    ("⊓", r"\sqcap "),
+    ("⊔", r"\sqcup "),
+    ("⊤", r"\top "),
+    ("⊥", r"\bot "),
+    ("⟦", r"[\![ "),
+    ("⟧", r"]\!] "),
+    ("⟶", r"\longrightarrow "),
+    ("⟵", r"\longleftarrow "),
+    ("⥤", r"\Rightarrow "),
+    ("𝓝", r"\mathcal{N} "),
+    ("𝓞", r"\mathcal{O} "),
+    ("𝟙", r"\mathbf{1} "),
 )
 
 # Glue binders / clauses to strip from Lean types before exposing math
@@ -404,7 +471,9 @@ def build_symbol_registry(
                   AND d.is_mathlib = 0
                   AND d.is_bookkeeping = 0
                   AND d.kind IN ({placeholders})
-                ORDER BY (COALESCE(m.in_degree, 0) * 2.0 + COALESCE(m.bottleneck_score, 0.0) + MIN(d.body_loc, 100) * 0.1) DESC,
+                ORDER BY CASE WHEN LENGTH(COALESCE(d.short_name, '')) >= 3 THEN 1 ELSE 0 END DESC,
+                         CASE WHEN TRIM(LTRIM(COALESCE(d.type_sig, ''), ':')) IN ('Prop', '') THEN 0 ELSE 1 END DESC,
+                         (COALESCE(m.in_degree, 0) * 2.0 + COALESCE(m.bottleneck_score, 0.0) + MIN(d.body_loc, 100) * 0.1) DESC,
                          d.id ASC
                 LIMIT ?
                 """,
@@ -525,6 +594,10 @@ def escape_latex_text(text: str) -> str:
     """Escape plain prose text safely for LaTeX (outside math mode)."""
     if not text:
         return ""
+    import unicodedata
+
+    # Normalize any non-ASCII chars in prose/titles to ASCII equivalents
+    normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     replacements = (
         ("\\", r"\textbackslash{}"),
         ("&", r"\&"),
@@ -537,7 +610,7 @@ def escape_latex_text(text: str) -> str:
         ("~", r"\textasciitilde{}"),
         ("^", r"\textasciicircum{}"),
     )
-    out = text
+    out = normalized
     for old, new in replacements:
         out = out.replace(old, new)
     return out
@@ -616,9 +689,9 @@ def lean_type_to_latex(
     s = s.replace("<=", r"\le ")
     s = s.replace(">=", r"\ge ")
     s = s.replace("!=", r"\neq ")
-    s = re.sub(r"\bforall\b", r"\\forall ", s)
-    s = re.sub(r"\bexists\b", r"\\exists ", s)
-    s = re.sub(r"\bfun\b", r"\\lambda ", s)
+    s = re.sub(r"(?<!\\)\bforall\b", r"\\forall ", s)
+    s = re.sub(r"(?<!\\)\bexists\b", r"\\exists ", s)
+    s = re.sub(r"(?<!\\)\bfun\b", r"\\lambda ", s)
 
     # Unicode symbols -> LaTeX
     for uni, tex in _UNICODE_TO_LATEX:
@@ -627,19 +700,48 @@ def lean_type_to_latex(
 
     # Clean up remaining dotted / snake_case Lean identifiers so TeX math mode never chokes on `_`
     def _clean_ident(m: re.Match[str]) -> str:
-        tok = m.group(0)
-        # Skip LaTeX commands
+        tok = m.group(0).strip(".")
+        if not tok:
+            return ""
         if tok.startswith("\\"):
             return tok
-        if "_" in tok or "." in tok:
-            tail = tok.rsplit(".", 1)[-1]
-            safe = tail.replace("_", r"\_")
-            return rf"\mathrm{{{safe}}}"
-        return tok
+        parts = [p for p in tok.split(".") if p]
+        if not parts:
+            return ""
+        if len(parts) == 2 and len(parts[0]) <= 3 and "_" not in parts[0]:
+            # Short variable field projection like `j.val` or `s.re`
+            tail_safe = parts[1].replace("_", r"\_")
+            return rf"{parts[0]}.\mathrm{{{tail_safe}}}"
+        tail = parts[-1].replace("_", r"\_")
+        return rf"\mathrm{{{tail}}}"
 
-    s = re.sub(r"(?<!\\)\b[A-Za-z][A-Za-z0-9_.]*(?:_[A-Za-z0-9_]+|\.[A-Za-z0-9_]+)+\b", _clean_ident, s)
+    s = re.sub(
+        r"(?<!\\)\b[A-Za-z][A-Za-z0-9_.]*(?:_[A-Za-z0-9_.]*|\.[A-Za-z0-9_.]*)+\b\.?",
+        _clean_ident,
+        s,
+    )
+    # Also wrap standalone multi-letter CamelCase identifiers (>= 3 letters, not TeX commands) in \mathrm{...}
+    s = re.sub(
+        r"(?<![\\{A-Za-z0-9_])\b([A-Za-z][A-Za-z0-9]{2,})\b(?!\})",
+        r"\\mathrm{\1}",
+        s,
+    )
     # Remove any stray standalone underscores not escaped
     s = re.sub(r"(?<!\\)_(?![{A-Za-z0-9])", r"\_", s)
+
+    # Normalize any remaining non-ASCII characters to ASCII so TeX fonts never miss glyphs
+    import unicodedata
+
+    if any(ord(ch) > 127 for ch in s):
+        s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+
+    # Prevent TeX double superscripts (`^{...}'`, `^a'`, `^a ^b`) and double subscripts (`_a _b`)
+    s = re.sub(r"(\^\{[^}]*\}|\^[A-Za-z0-9])\s*'+", r"\1", s)
+    s = re.sub(r"'+(\s*\^)", r"\1", s)
+    while re.search(r"(\^\{[^}]*\}|\^\\[A-Za-z]+|\^[A-Za-z0-9])\s*\^", s):
+        s = re.sub(r"(\^\{[^}]*\}|\^\\[A-Za-z]+|\^[A-Za-z0-9])\s*\^", r"\1 \\cdot ", s)
+    while re.search(r"(_\{[^}]*\}|_\\[A-Za-z]+|_[A-Za-z0-9])\s*_", s):
+        s = re.sub(r"(_\{[^}]*\}|_\\[A-Za-z]+|_[A-Za-z0-9])\s*_", r"\1 ", s)
 
     # Balance parentheses defensively
     open_p = s.count("(")

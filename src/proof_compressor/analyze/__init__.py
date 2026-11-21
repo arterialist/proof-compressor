@@ -8,6 +8,14 @@ from typing import Any, Sequence
 
 from proof_compressor.analyze.cluster import ClusterReport, cluster_graph
 from proof_compressor.analyze.dedup import DedupReport, analyze_dedup, normalize_signature
+from proof_compressor.analyze.materialize import (
+     VALID_MATERIALIZE_MODES,
+    MaterializeReport,
+    PrunePlan,
+    compute_prune_plan,
+    materialize_project,
+    transform_lean_source,
+)
 from proof_compressor.analyze.prune import PruneStats, prune_reachability, resolve_roots
 from proof_compressor.analyze.topology import (
     TopologyReport,
@@ -23,6 +31,9 @@ __all__ = [
     "DedupReport",
     "TopologyReport",
     "ClusterReport",
+    "PrunePlan",
+    "MaterializeReport",
+    "VALID_MATERIALIZE_MODES",
     "resolve_roots",
     "prune_reachability",
     "analyze_dedup",
@@ -32,6 +43,9 @@ __all__ = [
     "compute_dominators_chk",
     "transitive_reduction",
     "cluster_graph",
+    "compute_prune_plan",
+    "transform_lean_source",
+    "materialize_project",
     "run_analysis",
 ]
 

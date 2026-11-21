@@ -2,7 +2,7 @@
 
 - **Source:** `<inline>`
 - **Fidelity Score:** `1.0000`
-- **Verified `\leanlink` anchors:** 757 unique (1128 total)
+- **Verified `\leanlink` anchors:** 752 unique (1108 total)
 - **Audited theorems / proofs:** 149 / 149
 
 ## Issue Summary

@@ -300,7 +300,11 @@ def cluster_graph(
         for did, info in proj_decls.items():
             if use_namespace:
                 ns_parts = info["name"].split(".")[:-1]
-                key = tuple(ns_parts[:2]) if ns_parts else _clean_module_parts(info["module_path"])[:2]
+                key = (
+                    tuple(ns_parts[:2])
+                    if ns_parts
+                    else tuple(_clean_module_parts(info["module_path"])[:2])
+                )
             else:
                 parts = _clean_module_parts(info["module_path"])
                 # Use up to 3 directory/module levels so huge repos start with manageable sections

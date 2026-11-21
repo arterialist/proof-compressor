@@ -10,7 +10,9 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from proof_compressor.analyze import (
+    VALID_MATERIALIZE_MODES,
     analyze_topology,
+    materialize_project,
     run_analysis,
 )
 from proof_compressor.schema import connect_db, get_db_summary, get_meta
@@ -571,6 +573,81 @@ def _cmd_refactor_plan(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_materialize(args: argparse.Namespace) -> int:
+    db_path = _resolve_db_arg(args)
+    roots = _parse_roots(args.roots)
+    t0 = time.perf_counter()
+
+    rep = materialize_project(
+        db_path,
+        source=args.source,
+        output_dir=args.out,
+        roots=roots,
+        mode=args.mode,
+        strip_dead_decls=not args.no_strip_decls,
+        rewrite_imports=not args.no_rewrite_imports,
+        dry_run=args.dry_run or (args.source is None or args.out is None),
+        max_files=args.max_files,
+    )
+    elapsed = round(time.perf_counter() - t0, 2)
+    payload = rep.to_dict()
+    payload["elapsed_s"] = elapsed
+
+    if args.json:
+        _print_json(payload)
+        return 0
+
+    print(f"=== proof-compressor materialize ({rep.mode}, {elapsed:.2f}s) ===")
+    print(f"  Roots ({len(rep.root_names)}): {', '.join(rep.root_names[:8])}")
+    print(
+        f"  Modules: {rep.raw_modules:,} raw | {rep.import_closure_modules:,} import-closure | "
+        f"{rep.decl_reachable_modules:,} decl-reachable | "
+        f"+{rep.instance_support_modules:,} instance-support | "
+        f"+{rep.barrel_bridge_modules:,} barrel-bridge -> "
+        f"{rep.kept_modules:,} kept (-{rep.module_reduction_pct:.1f}%)"
+    )
+    print(
+        f"  LOC:     {rep.raw_loc:,} raw -> {rep.kept_modules_raw_loc:,} kept-module LOC -> "
+        f"{rep.materialized_loc:,} after intra-module strip "
+        f"(-{rep.intra_module_stripped_loc:,} intra-module LOC, -{rep.total_loc_reduction_pct:.1f}% total)"
+    )
+    print(
+        f"  Decls:   {rep.raw_declarations:,} raw -> {rep.kept_declarations:,} kept "
+        f"({rep.stripped_intra_module_declarations:,} dead intra-module theorems/lemmas stripped)"
+    )
+    print(
+        f"  Imported-not-decl-reached audit ({rep.imported_not_decl_reached_modules:,} mods / "
+        f"{rep.imported_not_decl_reached_loc:,} LOC):"
+    )
+    print(
+        f"    - zero-decl barrels:      {rep.imported_zero_decl_barrel_modules:,} mods "
+        f"({rep.imported_zero_decl_barrel_loc:,} LOC)"
+    )
+    print(
+        f"    - instance/class mods:    {rep.imported_instance_class_modules:,} mods "
+        f"({rep.imported_instance_class_loc:,} LOC)"
+    )
+    print(
+        f"    - def/structure mods:     {rep.imported_def_structure_modules:,} mods "
+        f"({rep.imported_def_structure_loc:,} LOC)"
+    )
+    print(
+        f"    - bookkeeping lemma mods: {rep.imported_bookkeeping_lemma_modules:,} mods "
+        f"({rep.imported_bookkeeping_lemma_loc:,} LOC)"
+    )
+    print(
+        f"    - pure unused thm mods:   {rep.imported_unused_theorem_modules:,} mods "
+        f"({rep.imported_unused_theorem_loc:,} LOC)"
+    )
+    if rep.output_dir:
+        print(
+            f"  Materialized {rep.files_written:,} .lean files "
+            f"(+{rep.config_files_copied} config files) into {rep.output_dir} "
+            f"(dropped {rep.dropped_import_lines:,} imports, rewrote {rep.rewritten_import_lines:,} barrel imports)"
+        )
+    return 0
+
+
 def _cmd_run_all(args: argparse.Namespace) -> int:
     t_total = time.perf_counter()
     db_path = Path(args.db)
@@ -843,6 +920,34 @@ def build_parser() -> argparse.ArgumentParser:
     p_rf.add_argument("--no-lake", action="store_true", help="Skip lake build when running verification gate.")
     p_rf.add_argument("--json", action="store_true", help="Emit JSON output.")
     p_rf.set_defaults(func=_cmd_refactor_plan)
+
+    # materialize
+    p_mt = sub.add_parser(
+        "materialize",
+        help="Compute import-safe / instance-aware pruning plan and materialize a compilable Lean 4 project.",
+    )
+    p_mt.add_argument("db_pos", nargs="?", default=None, help="SQLite DB path (or use --db).")
+    p_mt.add_argument("--db", default=None, help="SQLite database path.")
+    p_mt.add_argument("--source", default=None, help="Source dir, .tar.gz, or .part01/glob to stream files from.")
+    p_mt.add_argument("--out", default=None, help="Target directory for materialized Lean project.")
+    p_mt.add_argument(
+        "--mode",
+        choices=VALID_MATERIALIZE_MODES,
+        default="instance-aware",
+        help="Pruning mode: instance-aware (default), import-closure, or decl-exact.",
+    )
+    p_mt.add_argument(
+        "--roots",
+        action="append",
+        default=None,
+        help="Root theorem name(s) or module(s), comma-separated or repeatable.",
+    )
+    p_mt.add_argument("--no-strip-decls", action="store_true", help="Do not strip dead intra-module theorems/lemmas.")
+    p_mt.add_argument("--no-rewrite-imports", action="store_true", help="Do not rewrite/prune import headers.")
+    p_mt.add_argument("--dry-run", action="store_true", help="Compute pruning plan & stats without writing files.")
+    p_mt.add_argument("--max-files", type=int, default=None, help="Optional cap on streamed .lean files.")
+    p_mt.add_argument("--json", action="store_true", help="Emit JSON output.")
+    p_mt.set_defaults(func=_cmd_materialize)
 
     # run-all
     p_all = sub.add_parser("run-all", help="Run full pipeline: ingest -> analyze -> expose -> audit -> refactor-plan.")

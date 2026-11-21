@@ -37,6 +37,9 @@ _STANDARD_TEX_MACROS = frozenset(
         # Definitions & macros
         "newcommand", "renewcommand", "providecommand", "DeclareMathOperator",
         "newtheorem", "theoremstyle", "detokenize", "leanlink", "leanmod",
+        "allowbreak", "nolinkurl", "expandafter", "emergencystretch", "sloppy",
+        "fussy", "flushleft", "center", "leftskip", "rightskip", "raggedright",
+        "arraybackslash", "textwidth",
         # Text styling
         "textbf", "textit", "texttt", "textrm", "textsf", "textsc", "textup",
         "emph", "text", "mbox", "hbox", "vbox", "tiny", "scriptsize", "footnotesize",
