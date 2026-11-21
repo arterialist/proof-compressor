@@ -1,0 +1,26 @@
+{
+  "source": "<inline>",
+  "passed": true,
+  "fidelity_score": 1.0,
+  "summary": {
+    "total_leanlinks": 1128,
+    "unique_leanlinks": 757,
+    "audited_theorems": 149,
+    "audited_proofs": 149,
+    "unknown_leanlinks": 0,
+    "unreachable_leanlinks": 0,
+    "invented_citations": 0,
+    "omitted_bottlenecks": 0,
+    "dropped_hypotheses": 0,
+    "symbol_drift": 0,
+    "bookkeeping_leaks": 0,
+    "total_issues": 0
+  },
+  "unknown_leanlinks": [],
+  "unreachable_leanlinks": [],
+  "invented_citations": [],
+  "omitted_bottlenecks": [],
+  "dropped_hypotheses": [],
+  "symbol_drift": [],
+  "bookkeeping_leaks": []
+}

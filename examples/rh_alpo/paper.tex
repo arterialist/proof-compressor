@@ -1,0 +1,2215 @@
+\documentclass[11pt,reqno]{amsart}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs}
+\usepackage[margin=1in]{geometry}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+
+% Exact formal verification anchor (safe with underscores via \detokenize)
+\newcommand{\leanlink}[1]{\textsuperscript{\tiny[\texttt{\detokenize{#1}}]}}
+\newcommand{\leanmod}[1]{\texttt{\scriptsize\detokenize{#1}}}
+
+% --- Global Symbol Registry Macros (anchored to Lean declarations) ---
+\providecommand{\pcSp}{\operatorname{Sp}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.Sp
+\providecommand{\pcLB}{\operatorname{LB}} % ReciprocityTheory.ChartRestriction.G.Semi.LB
+\providecommand{\pcK}{\operatorname{K}} % Formalism.BasicNotions.ColumnChain.K
+\providecommand{\pcSpMap}{\operatorname{SpMap}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.spMap
+\providecommand{\pcOver}{\operatorname{Over}} % GlobalTheory.Ex.ArcF.Over
+\providecommand{\pcD}{\operatorname{D}} % Formalism.MainNotions.S.RowsAut.D
+\providecommand{\pcHw}{\operatorname{Hw}} % Formalism.GradedWeylDivisibility.hw
+\providecommand{\pcF}{\operatorname{F}} % Formalism.HC.HostRaw.F
+\providecommand{\pcPl}{\operatorname{Pl}} % GlobalTheory.BCT.Pl
+\providecommand{\pcX}{\operatorname{X}} % Formalism.BasicNotions.LocWach.X
+\providecommand{\pcGA}{\operatorname{GA}} % GlobalTheory.CuspRep.GA
+\providecommand{\pcSm}{\operatorname{Sm}} % GlobalTheory.CuspRep.Sm
+\providecommand{\pcIsAbelianScheme}{\operatorname{IsAbelianSch}} % ReciprocityTheory.ChartRestriction.G.Semi.IsAbelianScheme
+\providecommand{\pcM}{\operatorname{M}} % Formalism.MainNotions.G.Level.M
+\providecommand{\pcMat}{\operatorname{Mat}} % PositivityTheory.RgTw.Mat
+\providecommand{\pcA}{\operatorname{A}} % GlobalTheory.Ex.Match.A
+\providecommand{\pcAA}{\operatorname{A}} % Formalism.BasicNotions.Scale.A
+\providecommand{\pcHu}{\operatorname{Hu}} % Formalism.L2.DIV.RecNums.hu
+\providecommand{\pcMRing}{\operatorname{MRing}} % ReciprocityTheory.ChartRestriction.G.Geo.MRing
+\providecommand{\pcV}{\operatorname{V}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.Coeff.V
+\providecommand{\pcLinComb}{\operatorname{LinComb}} % ReciprocityTheory.ChartRestriction.G.Semi.LB.LinComb
+\providecommand{\pcL}{\operatorname{L}} % GlobalTheory.LGrp.LeviDatum.L
+\providecommand{\pcW}{\operatorname{W}} % Formalism.MainNotions.Lnk.Mod.w
+\providecommand{\pcFinExt}{\operatorname{FinExt}} % Formalism.BasicNotions.Loc.FinExt
+\providecommand{\pcLA}{\operatorname{L}} % Formalism.BasicNotions.Scale.L
+\providecommand{\pcVA}{\operatorname{V}} % Formalism.BasicNotions.Host.v
+\providecommand{\pcShv}{\operatorname{Shv}} % GlobalTheory.EtC.Shv
+\providecommand{\pcGen}{\operatorname{Gen}} % ReciprocityTheory.ChartRestriction.G.Semi.LB.Gen
+\providecommand{\pcGLw}{\operatorname{GLw}} % GlobalTheory.BCT.GLw
+\providecommand{\pcSec}{\operatorname{Sec}} % ReciprocityTheory.ChartRestriction.G.Semi.LB.Sec
+\providecommand{\pcAf}{\operatorname{Af}} % GlobalTheory.CuspRep.Af
+\providecommand{\pcSecA}{\operatorname{Sec}} % GlobalTheory.EtC.Sec
+\providecommand{\pcIsGrpPullback}{\operatorname{IsGrpPullbac}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.IsGrpPullback
+\providecommand{\pcAd}{\operatorname{Ad}} % GlobalTheory.CuspRep.Ad
+\providecommand{\pcLBIso}{\operatorname{LBIso}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.LBIso
+\providecommand{\pcGood}{\operatorname{Good}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.Good
+\providecommand{\pcIrrGL}{\operatorname{IrrGL}} % GlobalTheory.LocGL.IrrGL
+\providecommand{\pcWA}{\operatorname{W}} % Formalism.L2.Pj.DeltaDat.w
+\providecommand{\pcSpc}{\operatorname{Spc}} % GlobalTheory.EtC.Spc
+\providecommand{\pcC}{\operatorname{C}} % Formalism.L2.Indef.Tree.OnObj.C
+\providecommand{\pcB}{\operatorname{B}} % GlobalTheory.Ex.Match.B
+\providecommand{\pcIsSmooth}{\operatorname{IsSmooth}} % GlobalTheory.PRep.IsSmooth
+\providecommand{\pcGs}{\operatorname{Gs}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.gs
+\providecommand{\pcOm}{\operatorname{Om}} % Formalism.BasicNotions.Loc.Om
+\providecommand{\pcGLs}{\operatorname{GLs}} % PositivityTheory.RgBcC.GLs
+\providecommand{\pcN}{\operatorname{N}} % GlobalTheory.AnArc.N
+\providecommand{\pcGm}{\operatorname{Gm}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.gm
+\providecommand{\pcMarkedIdealWithBoundary}{\operatorname{MarkedIdealW}} % FunctorialResolution.EmbeddedResolution.MarkedIdealWithBoundary
+\providecommand{\pcG}{\operatorname{G}} % Formalism.ConjugateSelfDual.G
+\providecommand{\pcR}{\operatorname{R}} % Formalism.BasicNotions.DivData.R
+\providecommand{\pcNA}{\operatorname{N}} % Formalism.BasicNotions.Ranks.N
+\providecommand{\pcSch}{\operatorname{Sch}} % GlobalTheory.EtC.sch
+\providecommand{\pcCinf}{\operatorname{Cinf}} % GlobalTheory.CuspRep.Cinf
+\providecommand{\pcVB}{\operatorname{V}} % Formalism.L2.Col.CoefPk.V
+\providecommand{\pcDatum}{\operatorname{Datum}} % ReciprocityTheory.ChartRestriction.G.Geo.Tor.Datum
+\providecommand{\pcHTGroup}{\operatorname{HTGroup}} % GlobalTheory.LKTrip.HTGroup
+\providecommand{\pcIso}{\operatorname{Iso}} % ReciprocityTheory.ChartRestriction.G.Semi.LB.Iso
+\providecommand{\pcIsSplitAt}{\operatorname{IsSplitAt}} % GlobalTheory.UnitaryBC.IsSplitAt
+\providecommand{\pcGK}{\operatorname{GK}} % Formalism.BasicNotions.Loc.GK
+\providecommand{\pcRes}{\operatorname{Res}} % GlobalTheory.EtC.Sec.res
+\providecommand{\pcCA}{\operatorname{C}} % ReciprocityTheory.ChartRestriction.G.FD.Data.c
+\providecommand{\pcKGL}{\operatorname{KGL}} % GlobalTheory.LFun.KGL
+\providecommand{\pcNB}{\operatorname{N}} % GlobalTheory.RootEx.N
+\providecommand{\pcUA}{\operatorname{UA}} % GlobalTheory.UnitaryBC.UA
+\providecommand{\pcIsMultiHomog}{\operatorname{IsMultiHomog}} % ReciprocityTheory.ChartRestriction.G.Geo.IsMultiHomog
+\providecommand{\pcDA}{\operatorname{D}} % Formalism.BasicNotions.D7
+\providecommand{\pcResA}{\operatorname{Res}} % ReciprocityTheory.ChartRestriction.G.Semi.res
+\providecommand{\pcMRingOver}{\operatorname{MRingOver}} % ReciprocityTheory.ChartRestriction.G.Geo.MRingOver
+\providecommand{\pcFixed}{\operatorname{Fixed}} % GlobalTheory.PRep.fixed
+\providecommand{\pcGQ}{\operatorname{GQ}} % Formalism.BasicNotions.Loc.GQ
+\providecommand{\pcWchart}{\operatorname{Wchart}} % ReciprocityTheory.ChartRestriction.G.Semi.LB.wchart
+\providecommand{\pcH}{\operatorname{H}} % PI.TailWork.h
+\providecommand{\pcRA}{\operatorname{R}} % GlobalTheory.Reg.PChart.R
+\providecommand{\pcCx}{\operatorname{Cx}} % GlobalTheory.EtC.Cx
+\providecommand{\pcPolAV}{\operatorname{PolAV}} % ReciprocityTheory.ChartRestriction.G.Out.PolAV
+\providecommand{\pcMap}{\operatorname{Map}} % GlobalTheory.EtC.Sec.map
+\providecommand{\pcTw}{\operatorname{Tw}} % GlobalTheory.EtC.tw
+\providecommand{\pcE}{\operatorname{E}} % ReciprocityTheory.ChartRestriction.G.FD.e1
+\providecommand{\pcOp}{\operatorname{Op}} % GlobalTheory.EtC.SemiMap.op
+\providecommand{\pcThick}{\operatorname{Thick}} % GlobalTheory.LogCris.Thick
+\providecommand{\pcCuspSub}{\operatorname{CuspSub}} % GlobalTheory.CuspRep.CuspSub
+\providecommand{\pcHP}{\operatorname{HP}} % Formalism.DegreeFormula.hP
+\providecommand{\pcMir}{\operatorname{Mir}} % GlobalTheory.BZMir.Mir
+\providecommand{\pcNC}{\operatorname{N}} % GlobalTheory.IndefiniteRowSideFullHecke.BesselData.BesselDatum.N
+\providecommand{\pcLocPrime}{\operatorname{LocPrime}} % Formalism.BasicNotions.LocPrime
+\providecommand{\pcKinf}{\operatorname{Kinf}} % GlobalTheory.CuspRep.Kinf
+\providecommand{\pcHA}{\operatorname{H}} % Formalism.HC.Frame.h
+\providecommand{\pcChains}{\operatorname{Chains}} % GlobalTheory.EtC.chains
+\providecommand{\pcHChar}{\operatorname{HChar}} % Formalism.L2.Host.HChar
+\providecommand{\pcLC}{\operatorname{L}} % Formalism.MainNotions.GL3Theta.G1.l
+\providecommand{\pcY}{\operatorname{Y}} % Formalism.L2.Indef.Tree.OnObj.Y
+\providecommand{\AdeleRing}{\mathbb{A}} % GroundTheory.Automorphic.AdelicGLn.AdelicGL
+\providecommand{\pcHG}{\operatorname{HG}} % Formalism.MainNotions.G.hG
+\providecommand{\pcAB}{\operatorname{A}} % Formalism.HC.Frame.A
+\providecommand{\pcGB}{\operatorname{G}} % PositivityTheory.RgTw.G
+\providecommand{\pcHC}{\operatorname{HC}} % GlobalTheory.IndefiniteRowSideFullHecke.FockOrthogonalDecomposition.hC
+\providecommand{\pcHB}{\operatorname{H}} % Formalism.L2.DIV.CSD.H
+\providecommand{\pcMA}{\operatorname{M}} % GlobalTheory.Mem.Fld.FieldDat.M
+\providecommand{\pcNonzeroLocus}{\operatorname{NonzeroLocus}} % ReciprocityTheory.ChartRestriction.G.Out.nonzeroLocus
+\providecommand{\pcIsPlaceOver}{\operatorname{IsPlaceOver}} % Formalism.ConjugateSelfDual.IsPlaceOver
+\providecommand{\pcHh}{\operatorname{Hh}} % Formalism.REAL.hh
+\providecommand{\pcHR}{\operatorname{HR}} % Formalism.MainNotions.GlobalTheoryTheory.GenusMassVolumes.hR
+\providecommand{\pcHBA}{\operatorname{HB}} % Formalism.L2.Col.GSD.hB
+\providecommand{\pcInfGL}{\operatorname{InfGL}} % GlobalTheory.CuspRep.infGL
+\providecommand{\pcHD}{\operatorname{H}} % PositivityTheory.Rg.BcB.E.H
+\providecommand{\pcFA}{\operatorname{F}} % GlobalTheory.FrameCmp.Probes.F
+\providecommand{\pcXA}{\operatorname{X}} % GlobalTheory.LocM.Pre.X
+\providecommand{\pcModel}{\operatorname{Model}} % CrystallineSemistableComparison.Model
+\providecommand{\pcEquiv}{\operatorname{Equiv}} % ReciprocityTheory.ChartRestriction.G.Out.QkPt.Equiv
+\providecommand{\pcLie}{\operatorname{Lie}} % GlobalTheory.CuspRep.Lie
+\providecommand{\pcEA}{\operatorname{E}} % Formalism.MainNotions.Lnk.Mod.e
+\providecommand{\pcPlA}{\operatorname{Pl}} % UpperTheory.ConvolutionTheory.Pl
+\providecommand{\pcGC}{\operatorname{G}} % PI.TailWork.g
+\providecommand{\pcAfP}{\operatorname{AfP}} % GlobalTheory.LKTrip.AfP
+\providecommand{\pcP}{\operatorname{P}} % Formalism.IndefR.IndefiniteWeightData.WeightData.p
+\providecommand{\pcPAlg}{\operatorname{PAlg}} % CrystallineSemistableComparison.PAlg
+\providecommand{\pcSplitTorus}{\operatorname{SplitTorus}} % ReciprocityTheory.ChartRestriction.G.Semi.splitTorus
+\providecommand{\pcLaws}{\operatorname{Laws}} % ReciprocityTheory.ChartRestriction.G.Out.Laws
+\providecommand{\pcUnr}{\operatorname{Unr}} % GlobalTheory.BCT.Unr
+\providecommand{\pcBA}{\operatorname{B}} % Formalism.BasicNotions.Scale.b
+
+\title{A Compressed Mathematical Exposition of the Lean 4 Proof of the Generalized Riemann Hypothesis}
+\author{Synthesized by \texttt{proof-compressor}}
+\date{\today}
+
+\begin{document}
+\begin{abstract}
+We present a compressed, self-contained mathematical exposition extracted directly from a formal Lean~4 proof corpus comprising 175,187~modules (15,531,759~lines of code) and 1,061,425~declarations. Exact reverse-dependency pruning isolates 35,669~reachable modules (3,534,659~lines, compression ratio 4.39$\times$) and 162,212~substantive mathematical declarations. Every definition, theorem, and proof citation below is anchored to its verified Lean constant via \texttt{\textbackslash leanlink{...}}.
+\end{abstract}
+\maketitle
+\tableofcontents
+
+\section{Proof Overview and Quantitative Architecture}
+
+The formal repository contains 1,061,425 project declarations across 175,187 modules (15,531,759 lines) connected by 7,541,179 dependency edges. Pruning all declarations unreachable from the target theorem(s) eliminates 877,924 dead declarations across 139,518 unused modules, leaving 183,501 reachable declarations (162,212 substantive mathematical results after collapsing routine formalization glue).
+
+\begin{table}[ht]
+\centering
+\caption{Quantitative Compression Summary}
+\begin{tabular}{lr}
+\toprule
+Metric & Value \\
+\midrule
+Raw project modules & 175,187 \\
+Reachable project modules & 35,669 \\
+Raw project LOC & 15,531,759 \\
+Reachable project LOC & 3,534,659 \\
+Dead-code compression ratio & 4.39$\times$ \\
+Reachable declarations & 183,501 \\
+Substantive mathematical declarations & 162,212 \\
+Canonical duplicate groups & 13,704 \\
+Estimated redundant duplicate LOC & 367,906 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Target Main Theorems}
+\begin{theorem}[LFunction eq zero re]\leanlink{LFunction_eq_zero_re}
+\[
+DirichletLZerosOnLine
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Dirichlet LZeros On Line~\leanlink{DirichletLZerosOnLine}. The claim follows directly from \emph{claim All}~\leanlink{claimAll}.
+\end{proof}
+
+\begin{theorem}[LFunction eq zero re of is Primitive]\leanlink{LFunction_eq_zero_re_of_isPrimitive}
+\[
+PrimitiveDirichletLZerosOnLine
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Primitive Dirichlet LZeros On Line~\leanlink{PrimitiveDirichletLZerosOnLine}. The claim follows directly from \emph{crit All}~\leanlink{critAll}.
+\end{proof}
+
+\begin{theorem}[LFunction ne zero of half lt re]\leanlink{LFunction_ne_zero_of_half_lt_re}
+\[
+DirichletLNonvanishingRightOfHalf
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Dirichlet LNonvanishing Right Of Half~\leanlink{DirichletLNonvanishingRightOfHalf}. The claim follows directly from \emph{all Chi}~\leanlink{allChi}.
+\end{proof}
+
+\begin{theorem}[riemann Hypothesis]\leanlink{riemannHypothesis}
+\[
+\mathrm{RH}
+\]
+\end{theorem}
+\begin{proof}
+The claim follows directly from \emph{rh Of All}~\leanlink{rhOfAll}.
+\end{proof}
+
+\begin{theorem}[riemann Zeta eq zero re]\leanlink{riemannZeta_eq_zero_re}
+\[
+RiemannZetaZerosOnLine
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Riemann Zeta Zeros On Line~\leanlink{RiemannZetaZerosOnLine}. The claim follows directly from \emph{rh Of All}~\leanlink{rhOfAll}.
+\end{proof}
+
+\subsection{Bottleneck Pillar Theorems}
+The global proof dependency DAG factors through a narrow spine of high-leverage bottleneck theorems separating large upstream developments from downstream applications. Table~\ref{tab:bottlenecks} summarizes the highest-scoring formal bottlenecks.
+\begin{table}[ht]
+\centering
+\caption{Top Mathematical Bottleneck Pillars}\label{tab:bottlenecks}
+\small
+\begin{tabular}{rlrr}
+\toprule
+\# & Pillar Theorem & Body LOC & Bottleneck Score \\
+\midrule
+1 & cube Theorem~\leanlink{GlobalTheory.CubeTop.cubeTheorem} & 1 & 11.18 \\
+2 & jacquet Rallis Unit Match all ranks~\leanlink{GlobalTheory.T.jacquetRallisUnitMatch_all_ranks} & 2 & 10.62 \\
+3 & a0~\leanlink{ReciprocityTheory.PGsh.a0} & 14 & 9.75 \\
+4 & cube Theorem holds~\leanlink{GlobalTheory.SpreadingModels.cubeTheorem_holds} & 2 & 9.54 \\
+5 & pt All holds~\leanlink{UpperTheory.Gal.FiniteEtaleModels.ptAll_holds} & 17 & 9.53 \\
+6 & mul isogeny~\leanlink{GlobalTheory.MulIsogeny.mul_isogeny} & 12 & 9.28 \\
+7 & unit Match all~\leanlink{GlobalTheory.JR.unitMatch_all} & 2 & 9.06 \\
+8 & card torsion pt~\leanlink{GlobalTheory.AV.AbVar.card_torsion_pt} & 14 & 8.97 \\
+9 & is Proj By of is Abelian Scheme~\leanlink{GlobalTheory.ProjField.isProjBy_of_isAbelianScheme} & 16 & 8.86 \\
+10 & exists nsmul eq of kills torsion~\leanlink{GlobalTheory.AV.AbVar.exists_nsmul_eq_of_kills_torsion} & 17 & 8.83 \\
+11 & is Proj By of is Abelian Scheme~\leanlink{GlobalTheory.AbelianProjective.isProjBy_of_isAbelianScheme} & 22 & 8.77 \\
+12 & etale Orbital Fourier rank One transfer~\leanlink{GlobalTheory.T.etaleOrbitalFourier_rankOne_transfer} & 2 & 8.75 \\
+13 & rank One~\leanlink{GlobalTheory.JR.RankOneTransfer.rankOne} & 117 & 8.75 \\
+14 & exists symm ample~\leanlink{GlobalTheory.AV.AbVar.exists_symm_ample} & 11 & 8.71 \\
+15 & hom torsion Free~\leanlink{GlobalTheory.AV.AbVar.hom_torsionFree} & 5 & 8.59 \\
+16 & exists quasi Inverse isogeny~\leanlink{GlobalTheory.AV.AbVar.exists_quasiInverse_isogeny} & 17 & 8.58 \\
+17 & jacquet Rallis Unit Match of weil Rep quadratic~\leanlink{GlobalTheory.T.jacquetRallisUnitMatch_of_weilRep_quadratic} & 2 & 8.44 \\
+18 & unit Match of weil Field~\leanlink{GlobalTheory.JR.unitMatch_of_weilField} & 5 & 8.44 \\
+19 & key Origin~\leanlink{GlobalTheory.KeyOriginCut.keyOrigin} & 14 & 8.34 \\
+20 & abelian Variety End Charpoly spec~\leanlink{GlobalTheory.T.abelianVarietyEndCharpoly_spec} & 2 & 8.29 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Chapter Dependency Architecture}
+The reachable proof graph decomposes into 12 major chapters ordered topologically from foundational structures to the main conclusions:
+\begin{enumerate}
+\item \textbf{Development / Resolution Of Singularities: exists is Blowup Along Ideal Sheaf} (5,961 declarations, 96,926~LOC).
+\item \textbf{Reciprocity Theory / Reduced Bases: prefix prod ge one} (75 declarations, 1,025~LOC).
+\item \textbf{Formalism / Successive Minima: exists Successive Minima Vectors} (44 declarations, 913~LOC).
+\item \textbf{Ground Theory / Brauer: exists one tmul mem of ne bot} (43 declarations, 406~LOC).
+\item \textbf{Formalism / Log Sum Exp Bounds: key cval} (36 declarations, 220~LOC).
+\item \textbf{Development / Abelian Variety Theory: cube Theorem} (70,260 declarations, 919,447~LOC) (builds on Ground Theory: hy, Formalism: cube Theorem holds, Formalism: a0).
+\item \textbf{Formalism: a0} (39,989 declarations, 465,611~LOC) (builds on Ground Theory: hy, Development / Abelian Variety Theory: cube Theorem, Development / Etale Cohomology: graph Patch, Formalism: cube Theorem holds).
+\item \textbf{Formalism: cube Theorem holds} (38,751 declarations, 439,682~LOC) (builds on Ground Theory: hy, Development / Abelian Variety Theory: cube Theorem, Formalism: a0).
+\item \textbf{Ground Theory: hy} (23,346 declarations, 284,404~LOC) (builds on Reciprocity Theory / Reduced Bases: prefix prod ge one, Ground Theory / Brauer: exists one tmul mem of ne bot, Formalism: cube Theorem holds, Formalism: a0).
+\item \textbf{Development / Etale Cohomology: graph Patch} (4,740 declarations, 40,705~LOC) (builds on Ground Theory: hy, Development / Abelian Variety Theory: cube Theorem, Formalism: cube Theorem holds, Formalism: a0).
+\item \textbf{Formalism / Unipotent Adelic Quotients: regularity inductive step} (214 declarations, 2,827~LOC) (builds on Formalism: a0).
+\item \textbf{Reciprocity Theory: mem pow comap constant Coeff iff} (42 declarations, 233~LOC) (builds on Formalism: a0).
+\end{enumerate}
+
+\section{Development / Resolution Of Singularities: exists is Blowup Along Ideal Sheaf}
+
+This chapter encompasses 5,961 formal declarations (96,926~LOC). Primary proof idioms detected: \emph{abelian varieties \& heights, p-adic / local harmonic analysis, automorphic / spectral theory}.
+5961 declarations (96,926 LOC) across 1 section(s); interface 0 in -> 79 out; key exports: chartFraction, IsBlowupAlongIdealSheaf, reesGrading
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Outputs:} chart Fraction~\leanlink{FunctorialResolution.Blowup.chartFraction}, Is Blowup Along Ideal Sheaf~\leanlink{FunctorialResolution.Blowup.IsBlowupAlongIdealSheaf}, rees Grading~\leanlink{FunctorialResolution.Blowup.reesGrading}, Blowup Sequence~\leanlink{FunctorialResolution.BlowupSequence}, chart Ring Hom~\leanlink{FunctorialResolution.Blowup.chartRingHom}, affine Blowup Chart~\leanlink{FunctorialResolution.Blowup.affineBlowupChart}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[blowup Glue Data]\leanlink{FunctorialResolution.Blowup.blowupGlueData}
+\[
+(I : \mathrm{IdealSheafData}) : \mathrm{GlueData}
+\]
+\end{definition}
+
+\begin{definition}[glued Blowup Projection]\leanlink{FunctorialResolution.Blowup.gluedBlowupProjection}
+\[
+(I : \mathrm{IdealSheafData}) : gluedBlowup I ⟶ X
+\]
+\end{definition}
+
+\begin{definition}[glued Blowup Lift]\leanlink{FunctorialResolution.Blowup.gluedBlowupLift}
+\[
+(I : \mathrm{IdealSheafData}) (g : W ⟶ X) (hg : IsLocallyGeneratedByNonZeroDivisor (\mathrm{comap} g)) : W ⟶ gluedBlowup I
+\]
+\end{definition}
+
+\begin{definition}[In Strict Normal Crossing Position]\leanlink{FunctorialResolution.EmbeddedResolution.InStrictNormalCrossingPosition}
+\[
+(p : X ⟶ Spec (\mathrm{of} k)) (E : List \mathrm{IdealSheafData}) : \mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[ambient Embedding Succ]\leanlink{FunctorialResolution.EmbeddedResolution.ambientEmbeddingSucc}
+\[
+(hres : \mathrm{StrictTransformIsBlowupOfClosedSubscheme}. ) (hno : BlowupPreservesNoetherian. ) (s : BlowupSequenceData S) (hcen : \forall i, i < \mathrm{length} \to \forall T \in irreducibleComponents ↥(\mathrm{obj} i), \neg T \subseteq ((\mathrm{center} i).support : \mathcal{P} ↥(\mathrm{obj} i))) (n : \mathbb{N} ) (st : AmbientEmbedding s n) : Σ t : AmbientEmbedding s (n + 1), (\mathrm{ambient} ⟶ \mathrm{ambient})
+\]
+\end{definition}
+
+\begin{definition}[ambient Blowup Sequence]\leanlink{FunctorialResolution.EmbeddedResolution.ambientBlowupSequence}
+\[
+(ι : S ⟶ X) (s : BlowupSequenceData S) (hres : \mathrm{StrictTransformIsBlowupOfClosedSubscheme}. ) (hno : BlowupPreservesNoetherian. ) (hcen : \forall i, i < \mathrm{length} \to \forall T \in irreducibleComponents ↥(\mathrm{obj} i), \neg T \subseteq ((\mathrm{center} i).support : \mathcal{P} ↥(\mathrm{obj} i))) : BlowupSequenceData X
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[exists is Blowup Along Ideal Sheaf]\leanlink{FunctorialResolution.Blowup.exists_isBlowupAlongIdealSheaf}
+\[
+(X : Scheme. ) (I : \mathrm{IdealSheafData}) : \exists (Y : Scheme. ) (\pi : Y ⟶ X), IsBlowupAlongIdealSheaf \pi I
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects glued Blowup Projection~\leanlink{FunctorialResolution.Blowup.gluedBlowupProjection}, glued Blowup~\leanlink{FunctorialResolution.Blowup.gluedBlowup}, Is Blowup Along Ideal Sheaf~\leanlink{FunctorialResolution.Blowup.IsBlowupAlongIdealSheaf}. The claim follows directly from \emph{is Blowup Along Ideal Sheaf glued Proj}~\leanlink{FunctorialResolution.Blowup.isBlowupAlongIdealSheaf_gluedProj}.
+\end{proof}
+
+\begin{theorem}[is Locally Generated By Non Zero Divisor contained Components Ideal]\leanlink{FunctorialResolution.EmbeddedResolution.isLocallyGeneratedByNonZeroDivisor_containedComponentsIdeal}
+\[
+(T : \pcMarkedIdealWithBoundary . ) (hV : \mathrm{IsAdmissible}) (j : \mathbb{N} ) (hj : j < \mathrm{length}) : \mathrm{IsLocallyGeneratedByNonZeroDivisor} (\mathrm{containedComponentsIdeal} T j hj)
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Marked Ideal With Boundary~\leanlink{FunctorialResolution.EmbeddedResolution.MarkedIdealWithBoundary}, contained Components Ideal~\leanlink{FunctorialResolution.EmbeddedResolution.DivisorReduction.containedComponentsIdeal}, divisor Components In Order Locus~\leanlink{FunctorialResolution.EmbeddedResolution.divisorComponentsInOrderLocus}. Combining \emph{is Smooth Divisor top}~\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_top}, \emph{is Smooth Divisor boundary get}~\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_boundary_get}, \emph{is Smooth Divisor iff}~\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_iff}, \emph{is Locally Generated By Non Zero Divisor open Subscheme Ker}~\leanlink{FunctorialResolution.EmbeddedResolution.isLocallyGeneratedByNonZeroDivisor_openSubschemeKer}, \emph{is Closed divisor Components In Order Locus}~\leanlink{FunctorialResolution.EmbeddedResolution.isClosed_divisorComponentsInOrderLocus}, \emph{contained Components Ideal eq open Subscheme Ker}~\leanlink{FunctorialResolution.EmbeddedResolution.containedComponentsIdeal_eq_openSubschemeKer} with \emph{contained Components Ideal eq top of not is Open}~\leanlink{FunctorialResolution.EmbeddedResolution.containedComponentsIdeal_eq_top_of_not_isOpen} yields the stated result.
+\end{proof}
+
+\begin{proposition}[divisor Restriction Field Base Change]\leanlink{FunctorialResolution.EmbeddedResolution.divisorRestrictionFieldBaseChange}
+\[
+\mathrm{DivisorRestrictionFieldBaseChange}.
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Divisor Restriction Field Base Change~\leanlink{FunctorialResolution.EmbeddedResolution.DivisorReduction.DivisorRestrictionFieldBaseChange}. Combining \emph{is Blowup Along Ideal Sheaf id contained Components Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.isBlowupAlongIdealSheaf_id_containedComponentsIdeal}, \emph{exists mul contained Components Ideal pow eq ideal of order At le}~\leanlink{FunctorialResolution.EmbeddedResolution.exists_mul_containedComponentsIdeal_pow_eq_ideal_of_orderAt_le}, \emph{exists smooth surjective to restrict To Boundary Divisor base Change}~\leanlink{FunctorialResolution.EmbeddedResolution.DivisorReduction.exists_smooth_surjective_to_restrictToBoundaryDivisor_baseChange}, \emph{lower Ideal Without Blowup with Boundary base Change}~\leanlink{FunctorialResolution.EmbeddedResolution.lowerIdealWithoutBlowup_withBoundary_baseChange}, \emph{lower Ideal After Blowup field Base Change}~\leanlink{FunctorialResolution.EmbeddedResolution.DivisorReduction.lowerIdealAfterBlowup_fieldBaseChange}, \emph{lower Boundary After Blowup field Base Change}~\leanlink{FunctorialResolution.EmbeddedResolution.DivisorReduction.lowerBoundaryAfterBlowup_fieldBaseChange}, \emph{comap field Base Change Projection ne top}~\leanlink{FunctorialResolution.EmbeddedResolution.comap_fieldBaseChangeProjection_ne_top} with \emph{comap comap}~\leanlink{FunctorialResolution.EmbeddedResolution.comap_comap} yields the stated result.
+\end{proof}
+
+\begin{proposition}[is Smooth Divisor of locally coord Ideal]\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_of_locally_coordIdeal}
+\[
+(D : \mathrm{IdealSheafData}) (h : \forall x : X, \exists (U : \mathrm{Opens}) (\_ : x \in U) (n : \mathbb{N} ) (c : EtaleChart p U n), restrictIdeal D U = ⊤ \lor \exists j : Fin n, restrictIdeal D U = \mathrm{coordIdeal} ) : IsSmoothDivisor p D
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Is Smooth Divisor~\leanlink{FunctorialResolution.EmbeddedResolution.IsSmoothDivisor}, Etale Chart~\leanlink{FunctorialResolution.EmbeddedResolution.EtaleChart}, restrict Ideal~\leanlink{FunctorialResolution.EmbeddedResolution.restrictIdeal}. Combining \emph{is Smooth Divisor iff}~\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_iff}, \emph{is Locally Generated By Non Zero Divisor of locally coord Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.isLocallyGeneratedByNonZeroDivisor_of_locally_coordIdeal} with \emph{not Mem support of mem of restrict Ideal eq top}~\leanlink{FunctorialResolution.EmbeddedResolution.notMem_support_of_mem_of_restrictIdeal_eq_top} yields the stated result.
+\end{proof}
+
+\begin{proposition}[order At boundary eq one]\leanlink{FunctorialResolution.EmbeddedResolution.MonomialChart.orderAt_boundary_eq_one}
+\[
+\forall (T : \pcMarkedIdealWithBoundary . ), \mathrm{IsAdmissible} \to \forall D \in \mathrm{boundary}, \forall x : ↥\mathrm{scheme}, x \in \mathrm{support} \to orderAt D x = 1
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Marked Ideal With Boundary~\leanlink{FunctorialResolution.EmbeddedResolution.MarkedIdealWithBoundary}, order At~\leanlink{FunctorialResolution.EmbeddedResolution.orderAt}, restrict Ideal~\leanlink{FunctorialResolution.EmbeddedResolution.restrictIdeal}. Combining \emph{in Strict Normal Crossing Position iff}~\leanlink{FunctorialResolution.EmbeddedResolution.inStrictNormalCrossingPosition_iff}, \emph{not Mem support of mem opens of restrict Ideal eq top}~\leanlink{FunctorialResolution.EmbeddedResolution.notMem_support_of_mem_opens_of_restrictIdeal_eq_top}, \emph{restrict Ideal eq restrict coord Ideal of le}~\leanlink{FunctorialResolution.EmbeddedResolution.restrictIdeal_eq_restrict_coordIdeal_of_le}, \emph{exists etale Chart le}~\leanlink{FunctorialResolution.EmbeddedResolution.exists_etaleChart_le} with \emph{order At eq one of restrict Ideal eq coord Ideal singleton}~\leanlink{FunctorialResolution.EmbeddedResolution.orderAt_eq_one_of_restrictIdeal_eq_coordIdeal_singleton} yields the stated result.
+\end{proof}
+
+\begin{proposition}[exists mul pow contained Components Ideal eq ideal]\leanlink{FunctorialResolution.EmbeddedResolution.exists_mul_pow_containedComponentsIdeal_eq_ideal}
+\[
+(T : \pcMarkedIdealWithBoundary . ) (hV : \mathrm{IsAdmissible}) (j : \mathbb{N} ) (hj : j < \mathrm{length}) : \exists J : \mathrm{IdealSheafData}, \mathrm{containedComponentsIdeal} T j hj ^ \mathrm{mult} * J = \mathrm{ideal}
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Marked Ideal With Boundary~\leanlink{FunctorialResolution.EmbeddedResolution.MarkedIdealWithBoundary}, contained Components Ideal~\leanlink{FunctorialResolution.EmbeddedResolution.DivisorReduction.containedComponentsIdeal}. Combining \emph{is Locally Generated By Non Zero Divisor contained Components Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.isLocallyGeneratedByNonZeroDivisor_containedComponentsIdeal}, \emph{has Strict Normal Crossings With contained Components Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.hasStrictNormalCrossingsWith_containedComponentsIdeal}, \emph{le pow of has Strict Normal Crossings With}~\leanlink{FunctorialResolution.EmbeddedResolution.le_pow_of_hasStrictNormalCrossingsWith}, \emph{support contained Components Ideal subset order At Least Locus}~\leanlink{FunctorialResolution.EmbeddedResolution.support_containedComponentsIdeal_subset_orderAtLeastLocus} with \emph{exists mul eq}~\leanlink{FunctorialResolution.Blowup.IsLocallyGeneratedByNonZeroDivisor.exists_mul_eq} yields the stated result.
+\end{proof}
+
+\begin{lemma}[is Blowup Along Ideal Sheaf glued Proj]\leanlink{FunctorialResolution.Blowup.isBlowupAlongIdealSheaf_gluedProj}
+\[
+(I : \mathrm{IdealSheafData}) : IsBlowupAlongIdealSheaf (gluedBlowupProjection I) I
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects glued Blowup Projection~\leanlink{FunctorialResolution.Blowup.gluedBlowupProjection}, glued Blowup Lift~\leanlink{FunctorialResolution.Blowup.gluedBlowupLift}, local Blowup To Glued~\leanlink{FunctorialResolution.Blowup.localBlowupToGlued}. Combining \emph{eq lift Glued of comp eq}~\leanlink{FunctorialResolution.Blowup.eq_liftGlued_of_comp_eq}, \emph{is Open Immersion glued Incl}~\leanlink{FunctorialResolution.Blowup.isOpenImmersion_gluedIncl}, \emph{glued Incl comp glued Proj}~\leanlink{FunctorialResolution.Blowup.gluedIncl_comp_gluedProj}, \emph{glued Incl jointly surjective}~\leanlink{FunctorialResolution.Blowup.gluedIncl_jointly_surjective}, \emph{lift Glued comp glued Proj}~\leanlink{FunctorialResolution.Blowup.liftGlued_comp_gluedProj}, \emph{of is Open Immersion cover}~\leanlink{FunctorialResolution.Blowup.IsLocallyGeneratedByNonZeroDivisor.of_isOpenImmersion_cover} with \emph{blowup Over local Blowup Map}~\leanlink{FunctorialResolution.Blowup.blowupOver_localBlowupMap} yields the stated result.
+\end{proof}
+
+\begin{lemma}[is Blowup Along Ideal Sheaf id contained Components Ideal]\leanlink{FunctorialResolution.EmbeddedResolution.isBlowupAlongIdealSheaf_id_containedComponentsIdeal}
+\[
+(T : \pcMarkedIdealWithBoundary . ) (hV : \mathrm{IsAdmissible}) (j : \mathbb{N} ) (hj : j < \mathrm{length}) : \mathrm{IsBlowupAlongIdealSheaf} (𝟙 \mathrm{scheme}) (\mathrm{containedComponentsIdeal} T j hj)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Marked Ideal With Boundary~\leanlink{FunctorialResolution.EmbeddedResolution.MarkedIdealWithBoundary}, contained Components Ideal~\leanlink{FunctorialResolution.EmbeddedResolution.DivisorReduction.containedComponentsIdeal}, Is Blowup Along Ideal Sheaf~\leanlink{FunctorialResolution.Blowup.IsBlowupAlongIdealSheaf}. Combining \emph{is Locally Generated By Non Zero Divisor contained Components Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.isLocallyGeneratedByNonZeroDivisor_containedComponentsIdeal} with \emph{is Blowup Along Ideal Sheaf id of is Locally Generated By Non Zero Divisor}~\leanlink{FunctorialResolution.Blowup.isBlowupAlongIdealSheaf_id_of_isLocallyGeneratedByNonZeroDivisor} yields the stated result.
+\end{proof}
+
+\begin{lemma}[exists etale Chart restrict Ideal eq coord Ideal singleton]\leanlink{FunctorialResolution.EmbeddedResolution.exists_etaleChart_restrictIdeal_eq_coordIdeal_singleton}
+\[
+(p : X ⟶ Spec (\mathrm{of} k)) (D : \mathrm{IdealSheafData}) (hD : IsSmoothDivisor p D) (x : X) (hx : x \in \mathrm{support}) : \exists (U : \mathrm{Opens}) (m : \mathbb{N} ) (c : EtaleChart p U m) (j : Fin m), x \in U \land restrictIdeal D U = \mathrm{coordIdeal} ( : \mathcal{F} (Fin m))
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Is Smooth Divisor~\leanlink{FunctorialResolution.EmbeddedResolution.IsSmoothDivisor}, Etale Chart~\leanlink{FunctorialResolution.EmbeddedResolution.EtaleChart}, restrict Ideal~\leanlink{FunctorialResolution.EmbeddedResolution.restrictIdeal}, coord~\leanlink{FunctorialResolution.EmbeddedResolution.EtaleCoordinates.coord}. Combining \emph{is Smooth Divisor iff}~\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_iff}, \emph{one mem of coord mem span singleton of ne}~\leanlink{FunctorialResolution.EmbeddedResolution.one_mem_of_coord_mem_span_singleton_of_ne}, \emph{exists chart restrict Ideal eq coord Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.exists_chart_restrictIdeal_eq_coordIdeal}, \emph{ideal le prime Ideal Of}~\leanlink{FunctorialResolution.EmbeddedResolution.ideal_le_primeIdealOf}, \emph{ideal eq bot of opens eq}~\leanlink{FunctorialResolution.EmbeddedResolution.ideal_eq_bot_of_opens_eq} with \emph{exists ideal eq span singleton of opens eq}~\leanlink{FunctorialResolution.EmbeddedResolution.exists_ideal_eq_span_singleton_of_opens_eq} yields the stated result.
+\end{proof}
+
+\begin{lemma}[in Strict Normal Crossing Position strict Transform append]\leanlink{FunctorialResolution.EmbeddedResolution.inStrictNormalCrossingPosition_strictTransform_append}
+\[
+(p : X ⟶ Spec (\mathrm{of} k)) (\pi : \mathrm{X\_1} ⟶ X) (Z : \mathrm{IdealSheafData}) (E : List \mathrm{IdealSheafData}) (h\pi : \mathrm{IsBlowupAlongIdealSheaf} \pi Z) (hE : InStrictNormalCrossingPosition p E) (hZE : HasStrictNormalCrossingsWith p Z E) : InStrictNormalCrossingPosition (\pi ≫ p) (\mathrm{map} (\mathrm{strictTransform} \pi Z) ++ )
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects In Strict Normal Crossing Position~\leanlink{FunctorialResolution.EmbeddedResolution.InStrictNormalCrossingPosition}, Has Strict Normal Crossings With~\leanlink{FunctorialResolution.EmbeddedResolution.HasStrictNormalCrossingsWith}, In Strict Normal Crossing Position At~\leanlink{FunctorialResolution.EmbeddedResolution.InStrictNormalCrossingPositionAt}, Is Blowup Along Ideal Sheaf~\leanlink{FunctorialResolution.Blowup.IsBlowupAlongIdealSheaf}. Combining \emph{is Smooth Divisor of locally coord Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_of_locally_coordIdeal}, \emph{in Strict Normal Crossing Position iff}~\leanlink{FunctorialResolution.EmbeddedResolution.inStrictNormalCrossingPosition_iff}, \emph{in Strict Normal Crossing Position At strict Transform of not Mem support}~\leanlink{FunctorialResolution.EmbeddedResolution.inStrictNormalCrossingPositionAt_strictTransform_of_notMem_support} with \emph{in Strict Normal Crossing Position At strict Transform of mem support}~\leanlink{FunctorialResolution.EmbeddedResolution.inStrictNormalCrossingPositionAt_strictTransform_of_mem_support} yields the stated result.
+\end{proof}
+
+\begin{lemma}[is Smooth Divisor top]\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_top}
+\[
+(p : X ⟶ Spec (\mathrm{of} k)) : IsSmoothDivisor p (⊤ : \mathrm{IdealSheafData})
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Is Smooth Divisor~\leanlink{FunctorialResolution.EmbeddedResolution.IsSmoothDivisor}. Combining \emph{is Smooth Divisor of locally coord Ideal}~\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_of_locally_coordIdeal} with \emph{exists etale Chart}~\leanlink{FunctorialResolution.EmbeddedResolution.exists_etaleChart} yields the stated result.
+\end{proof}
+
+\begin{lemma}[eq lift Glued of comp eq]\leanlink{FunctorialResolution.Blowup.eq_liftGlued_of_comp_eq}
+\[
+(I : \mathrm{IdealSheafData}) (g : W ⟶ X) (hg : IsLocallyGeneratedByNonZeroDivisor (\mathrm{comap} g)) (b : W ⟶ gluedBlowup I) (hb : b ≫ gluedBlowupProjection I = g) : b = gluedBlowupLift I g hg
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects glued Blowup Projection~\leanlink{FunctorialResolution.Blowup.gluedBlowupProjection}, glued Blowup Lift~\leanlink{FunctorialResolution.Blowup.gluedBlowupLift}, local Blowup To Glued~\leanlink{FunctorialResolution.Blowup.localBlowupToGlued}, glued Blowup~\leanlink{FunctorialResolution.Blowup.gluedBlowup}. Combining \emph{is Open Immersion glued Incl}~\leanlink{FunctorialResolution.Blowup.isOpenImmersion_gluedIncl}, \emph{glued Incl comp glued Proj}~\leanlink{FunctorialResolution.Blowup.gluedIncl_comp_gluedProj}, \emph{blowup Over local Blowup Map}~\leanlink{FunctorialResolution.Blowup.blowupOver_localBlowupMap}, \emph{range preimage Affine Open To Base subset}~\leanlink{FunctorialResolution.Blowup.range_preimageAffineOpenToBase_subset}, \emph{blowup Over hom ext}~\leanlink{FunctorialResolution.Blowup.blowupOver_hom_ext} with \emph{is Locally Generated By Non Zero Divisor comap preimage Affine Open To Base}~\leanlink{FunctorialResolution.Blowup.isLocallyGeneratedByNonZeroDivisor_comap_preimageAffineOpenToBase} yields the stated result.
+\end{proof}
+
+\section{Reciprocity Theory / Reduced Bases: prefix prod ge one}
+
+This chapter encompasses 75 formal declarations (1,025~LOC). Primary proof idioms detected: \emph{Cauchy-Schwarz / Parseval}.
+75 declarations (1,025 LOC) across 1 section(s); interface 0 in -> 28 out; key exports: Q, polar, fB
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Outputs:} Q~\leanlink{ReciprocityTheory.ReducedBases.Q}, polar~\leanlink{ReciprocityTheory.ReducedBases.polar}, f B~\leanlink{ReciprocityTheory.ReducedBases.T2.fB}, Is Red~\leanlink{ReciprocityTheory.ReducedBases.T2.IsRed}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}, nu eq zero of~\leanlink{ReciprocityTheory.ReducedBases.T2.nu_eq_zero_of}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[Exists Bounded Basis]\leanlink{ReciprocityTheory.ReducedBases.T2.ExistsBoundedBasis}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[f B]\leanlink{ReciprocityTheory.ReducedBases.T2.fB}
+\[
+(B : Matrix (Fin d) (Fin d) \mathbb{R} ) : (Fin d \to \mathbb{Z} ) \to ₗ EuclideanSpace \mathbb{R} (Fin d)
+\]
+\end{definition}
+
+\begin{definition}[Is Red]\leanlink{ReciprocityTheory.ReducedBases.T2.IsRed}
+\[
+(b : Fin d \to E) : \mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Coord Bounded On Min]\leanlink{ReciprocityTheory.ReducedBases.T2.CoordBoundedOnMin}
+\[
+(A : Matrix (Fin d) (Fin d) \mathbb{R} ) : \mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[TB]\leanlink{ReciprocityTheory.ReducedBases.T2.TB}
+\[
+(B : Matrix (Fin d) (Fin d) \mathbb{R} ) : EuclideanSpace \mathbb{R} (Fin d) \to ₗ EuclideanSpace \mathbb{R} (Fin d)
+\]
+\end{definition}
+
+\begin{definition}[pot]\leanlink{ReciprocityTheory.ReducedBases.T2.pot}
+\[
+(b : Fin d \to E) : \mathbb{R}
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[prefix prod ge one]\leanlink{ReciprocityTheory.ReducedBases.T2.prefix_prod_ge_one}
+\[
+(hU : LinearIndependent \mathbb{R} (\lambda i \mapsto fB 1 (e i))) (k : Fin d) : 1 \le \prod j \in \mathrm{filter} (\lambda j : Fin d \mapsto j \le k), \| gs (\lambda i \mapsto fB 1 (e i)) j\| ^ 2
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects f B~\leanlink{ReciprocityTheory.ReducedBases.T2.fB}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. Combining \emph{det gram eq}~\leanlink{ReciprocityTheory.ReducedBases.T2.det_gram_eq}, \emph{gs eq of}~\leanlink{ReciprocityTheory.ReducedBases.T2.gs_eq_of} with \emph{b sub gs mem}~\leanlink{ReciprocityTheory.ReducedBases.T2.b_sub_gs_mem} yields the stated result.
+\end{proof}
+
+\begin{theorem}[hlow of]\leanlink{ReciprocityTheory.ReducedBases.T2.hlow_of}
+\[
+(A B : Matrix (Fin d) (Fin d) \mathbb{R} ) (hA : \mathrm{PosDef}) (hAB : A = Bᴴ * B) : \exists c : \mathbb{R} , 0 < c \land \forall (k : Fin d), c \le \prod j \in \mathrm{filter} (\lambda j : Fin d \mapsto j \le k), \| gs (\lambda i \mapsto fB B (e i)) j\| ^ 2
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects f B~\leanlink{ReciprocityTheory.ReducedBases.T2.fB}, TB~\leanlink{ReciprocityTheory.ReducedBases.T2.TB}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. Combining \emph{prefix prod ge one}~\leanlink{ReciprocityTheory.ReducedBases.T2.prefix_prod_ge_one}, \emph{gs TB}~\leanlink{ReciprocityTheory.ReducedBases.T2.gs_TB}, \emph{li basis}~\leanlink{ReciprocityTheory.ReducedBases.T2.li_basis} with \emph{TB injective}~\leanlink{ReciprocityTheory.ReducedBases.T2.TB_injective} yields the stated result.
+\end{proof}
+
+\begin{proposition}[coeff bound]\leanlink{ReciprocityTheory.ReducedBases.T2.coeff_bound}
+\[
+(b : Fin d \to E) (hb : LinearIndependent \mathbb{R} b) (hs : \forall i j : Fin d, j < i \to |mu b i j| \le 1 / 2) (c : Fin d \to \mathbb{R} ) (hM0 : 0 \le M) (hM : \forall j, |nu b c j| \le M) (j : Fin d) : |c j| \le (3 / 2) ^ d * M
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, nu~\leanlink{ReciprocityTheory.ReducedBases.T2.nu}. Combining \emph{filter ge}~\leanlink{ReciprocityTheory.ReducedBases.T2.filter_ge} with \emph{nu split}~\leanlink{ReciprocityTheory.ReducedBases.T2.nu_split} yields the stated result.
+\end{proof}
+
+\begin{proposition}[pot swap]\leanlink{ReciprocityTheory.ReducedBases.T2.pot_swap}
+\[
+(b : Fin d \to E) (hb : LinearIndependent \mathbb{R} b) (j j1 : Fin d) (hj : \mathrm{val} = \mathrm{val} + 1) : pot (b \circ \pcEquiv .swap j j1) = pot b * (\| gs b j1 + mu b j1 j \cdot gs b j\| ^ 2 / \| gs b j\| ^ 2)
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects pot~\leanlink{ReciprocityTheory.ReducedBases.T2.pot}, mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. Combining \emph{swap gs j}~\leanlink{ReciprocityTheory.ReducedBases.T2.swap_gs_j}, \emph{norm gso comp swap right sq mul}~\leanlink{ReciprocityTheory.ReducedBases.T2.norm_gso_comp_swap_right_sq_mul}, \emph{prod filter le ite eq of mul eq one}~\leanlink{ReciprocityTheory.ReducedBases.T2.prod_filter_le_ite_eq_of_mul_eq_one} with \emph{swap gs other}~\leanlink{ReciprocityTheory.ReducedBases.T2.swap_gs_other} yields the stated result.
+\end{proof}
+
+\begin{proposition}[exists red of]\leanlink{ReciprocityTheory.ReducedBases.T2.exists_red_of}
+\[
+(f : (Fin d \to \mathbb{Z} ) \to ₗ E) : \exists e : \mathrm{Basis} (Fin d) \mathbb{Z} (Fin d \to \mathbb{Z} ), IsRed (\lambda i \mapsto f (e i))
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Is Red~\leanlink{ReciprocityTheory.ReducedBases.T2.IsRed}, pot~\leanlink{ReciprocityTheory.ReducedBases.T2.pot}, mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. Combining \emph{pot swap}~\leanlink{ReciprocityTheory.ReducedBases.T2.pot_swap}, \emph{size reduce}~\leanlink{ReciprocityTheory.ReducedBases.T2.size_reduce} with \emph{norm swap j}~\leanlink{ReciprocityTheory.ReducedBases.T2.norm_swap_j} yields the stated result.
+\end{proof}
+
+\begin{proposition}[nu eq add sum mu]\leanlink{ReciprocityTheory.ReducedBases.T2.nu_eq_add_sum_mu}
+\[
+(b : Fin d \to E) (hb : LinearIndependent \mathbb{R} b) (c : Fin d \to \mathbb{R} ) (j : Fin d) : nu b c j = c j + \sum l \in \mathrm{filter} (\lambda l : Fin d \mapsto \mathrm{val} + 1 \le \mathrm{val}), c l * mu b l j
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, nu~\leanlink{ReciprocityTheory.ReducedBases.T2.nu}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. The claim follows directly from \emph{mu self of linear Independent}~\leanlink{ReciprocityTheory.ReducedBases.T2.mu_self_of_linearIndependent}.
+\end{proof}
+
+\begin{lemma}[det gram eq]\leanlink{ReciprocityTheory.ReducedBases.T2.det_gram_eq}
+\[
+(v : Fin m \to E) (hv : LinearIndependent \mathbb{R} v) : (\mathrm{gram} \mathbb{R} v).det = \prod j, \| gs v j\| ^ 2
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. The claim follows directly from \emph{eq sum smul gs}~\leanlink{ReciprocityTheory.ReducedBases.T2.eq_sum_smul_gs}.
+\end{proof}
+
+\begin{lemma}[exists basis size reduce column]\leanlink{ReciprocityTheory.ReducedBases.T2.exists_basis_size_reduce_column}
+\[
+(f : (Fin d \to \mathbb{Z} ) \to ₗ E) (j : Fin d) : \exists e1 : \mathrm{Basis} (Fin d) \mathbb{Z} (Fin d \to \mathbb{Z} ), gs (\lambda i \mapsto f (e1 i)) = gs (\lambda i \mapsto f (e0 i)) \land (\forall i, j < i \to |mu (\lambda i \mapsto f (e1 i)) i j| \le 1 / 2) \land \forall i j', j < j' \to mu (\lambda i \mapsto f (e1 i)) i j' = mu (\lambda i \mapsto f (e0 i)) i j'
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. Combining \emph{gs sub sum lower smul}~\leanlink{ReciprocityTheory.ReducedBases.T2.gs_sub_sum_lower_smul}, \emph{exists basis sub sum lower}~\leanlink{ReciprocityTheory.ReducedBases.T2.exists_basis_sub_sum_lower}, \emph{mu eq zero of lt}~\leanlink{ReciprocityTheory.ReducedBases.T2.mu_eq_zero_of_lt} with \emph{mu diag eq one}~\leanlink{ReciprocityTheory.ReducedBases.T2.mu_diag_eq_one} yields the stated result.
+\end{proof}
+
+\begin{lemma}[size reduce]\leanlink{ReciprocityTheory.ReducedBases.T2.size_reduce}
+\[
+(f : (Fin d \to \mathbb{Z} ) \to ₗ E) : \exists e' : \mathrm{Basis} (Fin d) \mathbb{Z} (Fin d \to \mathbb{Z} ), gs (\lambda i \mapsto f (e' i)) = gs (\lambda i \mapsto f (e i)) \land \forall i j : Fin d, j < i \to |mu (\lambda i \mapsto f (e' i)) i j| \le 1 / 2
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. The claim follows directly from \emph{exists basis size reduce column}~\leanlink{ReciprocityTheory.ReducedBases.T2.exists_basis_size_reduce_column}.
+\end{proof}
+
+\begin{lemma}[b eq sum]\leanlink{ReciprocityTheory.ReducedBases.T2.b_eq_sum}
+\[
+(b : Fin d \to E) (hb : LinearIndependent \mathbb{R} b) (i : Fin d) : b i = \sum j, mu b i j \cdot gs b j
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. Combining \emph{inner gs sum smul gs}~\leanlink{ReciprocityTheory.ReducedBases.T2.inner_gs_sum_smul_gs}, \emph{eq zero of mem span gs of inner eq zero}~\leanlink{ReciprocityTheory.ReducedBases.T2.eq_zero_of_mem_span_gs_of_inner_eq_zero} with \emph{mu mul norm gs sq}~\leanlink{ReciprocityTheory.ReducedBases.T2.mu_mul_norm_gs_sq} yields the stated result.
+\end{proof}
+
+\begin{lemma}[swap gs j]\leanlink{ReciprocityTheory.ReducedBases.T2.swap_gs_j}
+\[
+(b : Fin d \to E) (hb : LinearIndependent \mathbb{R} b) (j j1 : Fin d) (hj : \mathrm{val} = \mathrm{val} + 1) : gs (b \circ \pcEquiv .swap j j1) j = gs b j1 + mu b j1 j \cdot gs b j
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects mu~\leanlink{ReciprocityTheory.ReducedBases.T2.mu}, gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. Combining \emph{gs eq of}~\leanlink{ReciprocityTheory.ReducedBases.T2.gs_eq_of}, \emph{b sub gs mem}~\leanlink{ReciprocityTheory.ReducedBases.T2.b_sub_gs_mem}, \emph{swap img}~\leanlink{ReciprocityTheory.ReducedBases.T2.swap_img}, \emph{inner gs span}~\leanlink{ReciprocityTheory.ReducedBases.T2.inner_gs_span}, \emph{inner gs b self}~\leanlink{ReciprocityTheory.ReducedBases.T2.inner_gs_b_self} with \emph{gs orth}~\leanlink{ReciprocityTheory.ReducedBases.T2.gs_orth} yields the stated result.
+\end{proof}
+
+\begin{lemma}[sum gs le]\leanlink{ReciprocityTheory.ReducedBases.T2.sum_gs_le}
+\[
+(b : Fin d \to E) (hl : \forall i j : Fin d, \mathrm{val} = \mathrm{val} + 1 \to \| gs b j\| ^ 2 \le 2 * \| gs b i\| ^ 2) : \forall (n : \mathbb{N} ) (h : n < d), \sum j \in \mathrm{filter} (\lambda j : Fin d \mapsto \mathrm{val} \le n), \| gs b j\| ^ 2 \le (2 ^ (n + 1) - 1) * \| gs b \langle n, h\rangle \| ^ 2
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects gs~\leanlink{ReciprocityTheory.ReducedBases.T2.gs}. The claim follows directly from \emph{filter le succ}~\leanlink{ReciprocityTheory.ReducedBases.T2.filter_le_succ}.
+\end{proof}
+
+\section{Formalism / Successive Minima: exists Successive Minima Vectors}
+
+This chapter encompasses 44 formal declarations (913~LOC).
+44 declarations (913 LOC) across 1 section(s); interface 0 in -> 6 out; key exports: cN, QR, existsSuccessiveMinimaVectors
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Outputs:} c N~\leanlink{Formalism.FN.WDiv.cN}, QR~\leanlink{Formalism.FN.WDiv.QR}, exists Successive Minima Vectors~\leanlink{Formalism.FN.existsSuccessiveMinimaVectors}, minkowski IIUpper~\leanlink{Formalism.FN.minkowskiIIUpper}, succ Min~\leanlink{Formalism.FN.succMin}, cmul~\leanlink{Formalism.FN.cmul}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[Succ Min Facts]\leanlink{Formalism.FN.SuccMinFacts}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Adapted Basis]\leanlink{Formalism.FN.AdaptedBasis}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Mink Core]\leanlink{Formalism.FN.MinkCore}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Minkowski IIUpper]\leanlink{Formalism.FN.MinkowskiIIUpper}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Gj Level]\leanlink{Formalism.FN.GjLevel}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Gj Scale]\leanlink{Formalism.FN.GjScale}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[exists Successive Minima Vectors]\leanlink{Formalism.FN.existsSuccessiveMinimaVectors}
+\[
+\mathrm{SuccMinFacts}
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Succ Min Facts~\leanlink{Formalism.FN.SuccMinFacts}, succ Min~\leanlink{Formalism.FN.succMin}. Combining \emph{succ Min mem}~\leanlink{Formalism.FN.SuccessiveMinima.succMin_mem}, \emph{mem smul iff gauge}~\leanlink{Formalism.FN.SuccessiveMinima.mem_smul_iff_gauge}, \emph{exists pos bot}~\leanlink{Formalism.FN.SuccessiveMinima.exists_pos_bot} with \emph{exists span top}~\leanlink{Formalism.FN.SuccessiveMinima.exists_span_top} yields the stated result.
+\end{proof}
+
+\begin{theorem}[adapted basis exists]\leanlink{Formalism.FN.AdaptedBasisExistence.adapted_basis_exists}
+\[
+AdaptedBasis
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Adapted Basis~\leanlink{Formalism.FN.AdaptedBasis}. The claim follows directly from \emph{exists nsmul mem span}~\leanlink{Formalism.FN.AdaptedBasisExistence.exists_nsmul_mem_span}.
+\end{proof}
+
+\begin{proposition}[minkowski IIUpper]\leanlink{Formalism.FN.minkowskiIIUpper}
+\[
+MinkowskiIIUpper
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Minkowski IIUpper~\leanlink{Formalism.FN.MinkowskiIIUpper}. Combining \emph{exists Successive Minima Vectors}~\leanlink{Formalism.FN.existsSuccessiveMinimaVectors}, \emph{partial Box Volume Monotone Step}~\leanlink{Formalism.FN.partialBoxVolumeMonotoneStep}, \emph{mink Core of}~\leanlink{Formalism.FN.minkCore_of}, \emph{partial Box Volume Scaling}~\leanlink{Formalism.FN.partialBoxVolumeScaling}, \emph{minkowski IIUpper of}~\leanlink{Formalism.FN.minkowskiIIUpper_of} with \emph{exists Adapted Basis}~\leanlink{Formalism.FN.existsAdaptedBasis} yields the stated result.
+\end{proof}
+
+\begin{proposition}[partial Box Volume Monotone Step]\leanlink{Formalism.FN.partialBoxVolumeMonotoneStep}
+\[
+GjLevel
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Gj Level~\leanlink{Formalism.FN.GjLevel}, Gj~\leanlink{Formalism.FN.Gj}, lat J~\leanlink{Formalism.FN.latJ}, box J~\leanlink{Formalism.FN.boxJ}. This result is established directly from standard library foundations within its local module (84~lines of formal proof).
+\end{proof}
+
+\begin{proposition}[mink Core of]\leanlink{Formalism.FN.minkCore_of}
+\[
+(h3 : GjLevel) (h4 : GjScale) : MinkCore
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Mink Core~\leanlink{Formalism.FN.MinkCore}, Gj Level~\leanlink{Formalism.FN.GjLevel}, Gj Scale~\leanlink{Formalism.FN.GjScale}, Gj~\leanlink{Formalism.FN.Gj}. Combining \emph{partial Box Volume Top Le One}~\leanlink{Formalism.FN.partialBoxVolumeTopLeOne} with \emph{gj Zero}~\leanlink{Formalism.FN.gjZero} yields the stated result.
+\end{proof}
+
+\begin{proposition}[partial Box Volume Scaling]\leanlink{Formalism.FN.partialBoxVolumeScaling}
+\[
+GjScale
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Gj Scale~\leanlink{Formalism.FN.GjScale}, fib~\leanlink{Formalism.FN.GjScaling.fib}, tm~\leanlink{Formalism.FN.GjScaling.tm}. Combining \emph{Gj eq}~\leanlink{Formalism.FN.GjScaling.Gj_eq} with \emph{lintegral scale}~\leanlink{Formalism.FN.GjScaling.lintegral_scale} yields the stated result.
+\end{proof}
+
+\begin{lemma}[minkowski IIUpper of]\leanlink{Formalism.FN.minkowskiIIUpper_of}
+\[
+(hc : MinkCore) (hs : SuccMinFacts) (ha : AdaptedBasis) : MinkowskiIIUpper
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Succ Min Facts~\leanlink{Formalism.FN.SuccMinFacts}, Mink Core~\leanlink{Formalism.FN.MinkCore}, Adapted Basis~\leanlink{Formalism.FN.AdaptedBasis}, Minkowski IIUpper~\leanlink{Formalism.FN.MinkowskiIIUpper}. The claim follows directly from \emph{measure eq covolume mul volume image}~\leanlink{Formalism.FN.measure_eq_covolume_mul_volume_image}.
+\end{proof}
+
+\begin{lemma}[exists Adapted Basis]\leanlink{Formalism.FN.existsAdaptedBasis}
+\[
+\mathrm{AdaptedBasis}
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Adapted Basis~\leanlink{Formalism.FN.AdaptedBasis}. The claim follows directly from \emph{adapted basis exists}~\leanlink{Formalism.FN.AdaptedBasisExistence.adapted_basis_exists}.
+\end{proof}
+
+\begin{lemma}[Gj eq]\leanlink{Formalism.FN.GjScaling.Gj_eq}
+\[
+(A : \mathcal{P} (Fin n \to \mathbb{R} )) (hA : IsOpen A) : Gj n j A = \int ⁻ y, tm (fib n j A y)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Gj~\leanlink{Formalism.FN.Gj}, lat J~\leanlink{Formalism.FN.latJ}, box J~\leanlink{Formalism.FN.boxJ}, fib~\leanlink{Formalism.FN.GjScaling.fib}. Combining \emph{fib set eq}~\leanlink{Formalism.FN.GjScaling.fib_set_eq} with \emph{measure eq of measure Preserving symm preimage}~\leanlink{Formalism.FN.GjScaling.measure_eq_of_measurePreserving_symm_preimage} yields the stated result.
+\end{proof}
+
+\begin{lemma}[partial Box Volume Top Le One]\leanlink{Formalism.FN.partialBoxVolumeTopLeOne}
+\[
+GjTop
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Gj~\leanlink{Formalism.FN.Gj}, lat J~\leanlink{Formalism.FN.latJ}, box J~\leanlink{Formalism.FN.boxJ}, Gj Top~\leanlink{Formalism.FN.GjTop}. This result is established directly from standard library foundations within its local module (12~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[exists nsmul mem span]\leanlink{Formalism.FN.AdaptedBasisExistence.exists_nsmul_mem_span}
+\[
+(L : Submodule \mathbb{Z} E) (B : Basis ι \mathbb{R} E) (hB : \forall i, B i \in L) : \exists N : \mathbb{N} , 0 < N \land \forall x \in L, N \cdot x \in span \mathbb{Z} (\mathcal{P}.range B)
+\]
+\end{lemma}
+\begin{proof}
+This result is established directly from standard library foundations within its local module (52~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[fib set eq]\leanlink{Formalism.FN.GjScaling.fib_set_eq}
+\[
+(A : \mathcal{P} (Fin n \to \mathbb{R} )) (y : \to \mathbb{R} ) : = Qv \_ \cap (fib n j A y + Zv \_)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects emb~\leanlink{Formalism.FN.GjScaling.emb}, lat J~\leanlink{Formalism.FN.latJ}, box J~\leanlink{Formalism.FN.boxJ}, fib~\leanlink{Formalism.FN.GjScaling.fib}. This result is established directly from standard library foundations within its local module (34~lines of formal proof).
+\end{proof}
+
+\section{Ground Theory / Brauer: exists one tmul mem of ne bot}
+
+This chapter encompasses 43 formal declarations (406~LOC).
+43 declarations (406 LOC) across 1 section(s); interface 0 in -> 10 out; key exports: cocycle, u, exists\_one\_tmul\_mem\_of\_ne\_bot
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Outputs:} cocycle~\leanlink{GroundTheory.Brauer.MaximalEmbedding.cocycle}, u~\leanlink{GroundTheory.Brauer.CrossedProduct.u}, exists one tmul mem of ne bot~\leanlink{GroundTheory.Brauer.exists_one_tmul_mem_of_ne_bot}, exists unit conj~\leanlink{GroundTheory.Brauer.exists_unit_conj}, finrank mul finrank end~\leanlink{GroundTheory.Brauer.finrank_mul_finrank_end}, finrank mul finrank centralizer~\leanlink{GroundTheory.Brauer.finrank_mul_finrank_centralizer}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[cocycle]\leanlink{GroundTheory.Brauer.MaximalEmbedding.cocycle}
+\[
+(p : (L \simeq ₐ L) \times (L \simeq ₐ L)) : Lˣ
+\]
+\end{definition}
+
+\begin{definition}[end Alg Equiv]\leanlink{GroundTheory.Brauer.CentralizerModule.endAlgEquiv}
+\[
+\mathrm{End} (A \otimes Bᵐᵒᵖ) (Twist \mathrm{val}) \simeq ₐ (\mathrm{centralizer} K (B : \mathcal{P} A))ᵐᵒᵖ
+\]
+\end{definition}
+
+\begin{definition}[u]\leanlink{GroundTheory.Brauer.CrossedProduct.u}
+\[
+(\sigma : L \simeq ₐ L) : CrossedProduct hf
+\]
+\end{definition}
+
+\begin{definition}[mul Right]\leanlink{GroundTheory.Brauer.CentralizerModule.mulRight}
+\[
+(c : \mathrm{centralizer} K (B : \mathcal{P} A)) : \mathrm{End} (A \otimes Bᵐᵒᵖ) (Twist \mathrm{val})
+\]
+\end{definition}
+
+\begin{definition}[mul Right Hom]\leanlink{GroundTheory.Brauer.SkolemNoether.mulRightHom}
+\[
+(f : B \to ₐ A) : Bᵐᵒᵖ \to ₐ \mathrm{End} K A
+\]
+\end{definition}
+
+\begin{definition}[Crossed Product]\leanlink{GroundTheory.Brauer.CrossedProduct}
+\[
+(hf : \mathrm{IsMulCocycle\_2} f)
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[exists one tmul mem of ne bot]\leanlink{GroundTheory.Brauer.exists_one_tmul_mem_of_ne_bot}
+\[
+(I : TwoSidedIdeal (A \otimes B)) (hI : I \neq ⊥) : \exists b : B, b \neq 0 \land (1 : A) \otimes ₜ b \in I
+\]
+\end{theorem}
+\begin{proof}
+Combining \emph{exists eq one tmul of commute}~\leanlink{GroundTheory.Brauer.exists_eq_one_tmul_of_commute}, \emph{coeff tmul one mul}~\leanlink{GroundTheory.Brauer.coeff_tmul_one_mul}, \emph{coeff mul tmul one}~\leanlink{GroundTheory.Brauer.coeff_mul_tmul_one}, \emph{support coeff tmul one mul}~\leanlink{GroundTheory.Brauer.support_coeff_tmul_one_mul} with \emph{support coeff mul tmul one}~\leanlink{GroundTheory.Brauer.support_coeff_mul_tmul_one} yields the stated result.
+\end{proof}
+
+\begin{theorem}[exists unit conj]\leanlink{GroundTheory.Brauer.exists_unit_conj}
+\[
+(f g : B \to ₐ A) : \exists a : Aˣ, \forall x, g x = a * f x * a^{-1}
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects of~\leanlink{GroundTheory.Brauer.SkolemNoether.Twist.of}, Twist~\leanlink{GroundTheory.Brauer.SkolemNoether.Twist}. Combining \emph{map val}~\leanlink{GroundTheory.Brauer.SkolemNoether.Twist.map_val} with \emph{map val apply}~\leanlink{GroundTheory.Brauer.SkolemNoether.Twist.map_val_apply} yields the stated result.
+\end{proof}
+
+\begin{proposition}[finrank mul finrank end]\leanlink{GroundTheory.Brauer.finrank_mul_finrank_end}
+\[
+finrank K R * finrank K (\mathrm{End} R M) = finrank K M ^ 2
+\]
+\end{proposition}
+\begin{proof}
+Combining \emph{exists linear Equiv pi simple}~\leanlink{GroundTheory.Brauer.exists_linearEquiv_pi_simple} with \emph{finrank end pi}~\leanlink{GroundTheory.Brauer.finrank_end_pi} yields the stated result.
+\end{proof}
+
+\begin{proposition}[finrank mul finrank centralizer]\leanlink{GroundTheory.Brauer.finrank_mul_finrank_centralizer}
+\[
+finrank K B * finrank K (\mathrm{centralizer} K (B : \mathcal{P} A)) = finrank K A
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects end Alg Equiv~\leanlink{GroundTheory.Brauer.CentralizerModule.endAlgEquiv}, Twist~\leanlink{GroundTheory.Brauer.SkolemNoether.Twist}. The claim follows directly from \emph{finrank mul finrank end}~\leanlink{GroundTheory.Brauer.finrank_mul_finrank_end}.
+\end{proof}
+
+\begin{proposition}[exists eq symbols]\leanlink{GroundTheory.Brauer.MaximalEmbedding.exists_eq_symbols}
+\[
+(\sigma \tau : L \simeq ₐ L) : \exists a : L, ι a = (symbol ι \sigma : B) * symbol ι \tau * (symbol ι (\sigma * \tau ))^{-1}
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects symbol~\leanlink{GroundTheory.Brauer.MaximalEmbedding.symbol}. Combining \emph{commute symbols}~\leanlink{GroundTheory.Brauer.MaximalEmbedding.commute_symbols} with \emph{centralizer range eq}~\leanlink{GroundTheory.Brauer.MaximalEmbedding.centralizer_range_eq} yields the stated result.
+\end{proof}
+
+\begin{proposition}[commute symbols]\leanlink{GroundTheory.Brauer.MaximalEmbedding.commute_symbols}
+\[
+(\sigma \tau : L \simeq ₐ L) (x : L) : ι x * ((symbol ι \sigma : B) * symbol ι \tau * (symbol ι (\sigma * \tau ))^{-1}) = ((symbol ι \sigma : B) * symbol ι \tau * (symbol ι (\sigma * \tau ))^{-1}) * ι x
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects symbol~\leanlink{GroundTheory.Brauer.MaximalEmbedding.symbol}. This result is established directly from standard library foundations within its local module (12~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[cocycle Val ne zero]\leanlink{GroundTheory.Brauer.MaximalEmbedding.cocycleVal_ne_zero}
+\[
+(p : (L \simeq ₐ L) \times (L \simeq ₐ L)) : cocycleVal ι h p \neq 0
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects symbol~\leanlink{GroundTheory.Brauer.MaximalEmbedding.symbol}, cocycle Val~\leanlink{GroundTheory.Brauer.MaximalEmbedding.cocycleVal}. The claim follows directly from \emph{map cocycle Val}~\leanlink{GroundTheory.Brauer.MaximalEmbedding.map_cocycleVal}.
+\end{proof}
+
+\begin{lemma}[mul Left Right bijective]\leanlink{GroundTheory.Brauer.mulLeftRight_bijective}
+\[
+\mathrm{Bijective} (\mathrm{mulLeftRight} K A)
+\]
+\end{lemma}
+\begin{proof}
+The claim follows directly from \emph{mul Left Right injective}~\leanlink{GroundTheory.Brauer.mulLeftRight_injective}.
+\end{proof}
+
+\begin{lemma}[centralizer range eq]\leanlink{GroundTheory.Brauer.MaximalEmbedding.centralizer_range_eq}
+\[
+(h : finrank K B = finrank K L ^ 2) : \mathrm{centralizer} K (ι.range : \mathcal{P} B) = ι.range
+\]
+\end{lemma}
+\begin{proof}
+The claim follows directly from \emph{finrank mul finrank centralizer}~\leanlink{GroundTheory.Brauer.finrank_mul_finrank_centralizer}.
+\end{proof}
+
+\begin{lemma}[exists eq one tmul of commute]\leanlink{GroundTheory.Brauer.exists_eq_one_tmul_of_commute}
+\[
+(x : A \otimes B) (h : \forall a : A, (a \otimes ₜ (1 : B)) * x = x * (a \otimes ₜ (1 : B))) : \exists b : B, x = (1 : A) \otimes ₜ b
+\]
+\end{lemma}
+\begin{proof}
+Combining \emph{coeff tmul one mul}~\leanlink{GroundTheory.Brauer.coeff_tmul_one_mul} with \emph{coeff mul tmul one}~\leanlink{GroundTheory.Brauer.coeff_mul_tmul_one} yields the stated result.
+\end{proof}
+
+\begin{lemma}[map val]\leanlink{GroundTheory.Brauer.SkolemNoether.Twist.map_val}
+\[
+(\varphi : Twist f \to ₗ Twist g) (x : A) : (\varphi (of f x)).val = x * (\varphi (of f 1)).val
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects bimodule Hom~\leanlink{GroundTheory.Brauer.SkolemNoether.bimoduleHom}, Twist~\leanlink{GroundTheory.Brauer.SkolemNoether.Twist}. The claim follows directly from \emph{bimodule Hom tmul}~\leanlink{GroundTheory.Brauer.SkolemNoether.bimoduleHom_tmul}.
+\end{proof}
+
+\begin{lemma}[map val apply]\leanlink{GroundTheory.Brauer.SkolemNoether.Twist.map_val_apply}
+\[
+(\varphi : Twist f \to ₗ Twist g) (b : B) : (\varphi (of f (f b))).val = (\varphi (of f 1)).val * g b
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects bimodule Hom~\leanlink{GroundTheory.Brauer.SkolemNoether.bimoduleHom}, Twist~\leanlink{GroundTheory.Brauer.SkolemNoether.Twist}. The claim follows directly from \emph{bimodule Hom tmul}~\leanlink{GroundTheory.Brauer.SkolemNoether.bimoduleHom_tmul}.
+\end{proof}
+
+\section{Formalism / Log Sum Exp Bounds: key cval}
+
+This chapter encompasses 36 formal declarations (220~LOC).
+36 declarations (220 LOC) across 1 section(s); interface 0 in -> 1 out; key exports: PB
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Outputs:} PB~\leanlink{Formalism.NuclearRankWeightBounds.P.PB}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[PB]\leanlink{Formalism.NuclearRankWeightBounds.P.PB}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) (hZ : IsUnit (toK K Z).det) (hZ' : IsUnit (toK K (blk Z)).det) : Pres RR K (MM Z) (coker (blk Z))
+\]
+\end{definition}
+
+\begin{definition}[f V]\leanlink{Formalism.NuclearRankWeightBounds.P.fV}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) : (Fin (m+1) \to RR) \to ₗ K
+\]
+\end{definition}
+
+\begin{definition}[row Inv Mod]\leanlink{Formalism.NuclearRankWeightBounds.C.rowInvMod}
+\[
+(Z : Matrix (Fin k) (Fin k) RR) (r : Fin k \to K) : (Fin k \to RR) \to ₗ KmodR RR K
+\]
+\end{definition}
+
+\begin{definition}[g A]\leanlink{Formalism.NuclearRankWeightBounds.P.gA}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) (hZ : IsUnit (toK K Z).det) : MM Z \to ₗ K
+\]
+\end{definition}
+
+\begin{definition}[Pres]\leanlink{Formalism.NuclearRankWeightBounds.P.Pres}
+\[
+(RR K M A : \mathrm{Type})
+\]
+\end{definition}
+
+\begin{definition}[cval]\leanlink{Formalism.NuclearRankWeightBounds.C.cval}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) : K
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[key cval]\leanlink{Formalism.NuclearRankWeightBounds.P.key_cval}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) (hZ : IsUnit (toK K Z).det) (hZ' : IsUnit (toK K (blk Z)).det) (v : Fin (m+1) \to RR) : algebraMap RR K (v (\mathrm{last} m)) - aK Z ⬝ᵥ ((toK K (blk Z))^{-1} *ᵥ vk (\lambda i \mapsto v (\mathrm{castSucc} i))) = cval K Z * fV Z v
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects f V~\leanlink{Formalism.NuclearRankWeightBounds.P.fV}, cval~\leanlink{Formalism.NuclearRankWeightBounds.C.cval}, a K~\leanlink{Formalism.NuclearRankWeightBounds.P.aK}, to K~\leanlink{Formalism.NuclearRankWeightBounds.C.toK}. The claim follows directly from \emph{key}~\leanlink{Formalism.NuclearRankWeightBounds.P.key}.
+\end{proof}
+
+\begin{theorem}[alpha mk]\leanlink{Formalism.NuclearRankWeightBounds.P.alpha_mk}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) (hZ : IsUnit (toK K (blk Z)).det) (v : Fin m \to RR) : alpha K Z (\mathrm{mk} v) = \mathrm{mk} (aK Z ⬝ᵥ ((toK K (blk Z))^{-1} *ᵥ vk v))
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects row Inv Mod~\leanlink{Formalism.NuclearRankWeightBounds.C.rowInvMod}, descend~\leanlink{Formalism.NuclearRankWeightBounds.C.descend}, alpha~\leanlink{Formalism.NuclearRankWeightBounds.C.alpha}, a K~\leanlink{Formalism.NuclearRankWeightBounds.P.aK}. Combining \emph{vk mul Vec}~\leanlink{Formalism.NuclearRankWeightBounds.P.vk_mulVec} with \emph{row Inv Mod apply}~\leanlink{Formalism.NuclearRankWeightBounds.P.rowInvMod_apply} yields the stated result.
+\end{proof}
+
+\begin{proposition}[key]\leanlink{Formalism.NuclearRankWeightBounds.P.key}
+\[
+(W : Matrix (Fin (m+1)) (Fin (m+1)) \alpha ) (hW : IsUnit (\mathrm{submatrix} \mathrm{castSucc} \mathrm{castSucc}).det) (y : Fin (m+1) \to \alpha ) : (W *ᵥ y) (\mathrm{last} m) - (\lambda j \mapsto W (\mathrm{last} m) (\mathrm{castSucc} j)) ⬝ᵥ ((\mathrm{submatrix} \mathrm{castSucc} \mathrm{castSucc})^{-1} *ᵥ (\lambda i \mapsto (W *ᵥ y) (\mathrm{castSucc} i))) = (W (\mathrm{last} m) (\mathrm{last} m) - \sum i, \sum j, W (\mathrm{last} m) (\mathrm{castSucc} i) * (\mathrm{submatrix} \mathrm{castSucc} \mathrm{castSucc})^{-1} i j * W (\mathrm{castSucc} j) (\mathrm{last} m)) * y (\mathrm{last} m)
+\]
+\end{proposition}
+\begin{proof}
+The claim follows directly from \emph{mul Vec last}~\leanlink{Formalism.NuclearRankWeightBounds.P.mulVec_last}.
+\end{proof}
+
+\begin{proposition}[f V single]\leanlink{Formalism.NuclearRankWeightBounds.P.fV_single}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) : fV (K := K) Z (\mathrm{single} (\mathrm{last} m) 1) = kappa K Z
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects f V~\leanlink{Formalism.NuclearRankWeightBounds.P.fV}, kappa~\leanlink{Formalism.NuclearRankWeightBounds.C.kappa}. The claim follows directly from \emph{vk single}~\leanlink{Formalism.NuclearRankWeightBounds.P.vk_single}.
+\end{proof}
+
+\begin{proposition}[Nsub le f V]\leanlink{Formalism.NuclearRankWeightBounds.P.Nsub_le_fV}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) (hZ : IsUnit (toK K Z).det) : Nsub Z \le \mathrm{ker} (fV (K := K) Z)
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects f V~\leanlink{Formalism.NuclearRankWeightBounds.P.fV}, Nsub~\leanlink{Formalism.NuclearRankWeightBounds.P.Nsub}, to K~\leanlink{Formalism.NuclearRankWeightBounds.C.toK}. Combining \emph{mem Nsub}~\leanlink{Formalism.NuclearRankWeightBounds.P.mem_Nsub} with \emph{f V mul Vec}~\leanlink{Formalism.NuclearRankWeightBounds.P.fV_mulVec} yields the stated result.
+\end{proof}
+
+\begin{proposition}[Nsub le B]\leanlink{Formalism.NuclearRankWeightBounds.P.Nsub_le_B}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) : Nsub Z \le \mathrm{ker} ((\mathrm{range} (blk Z).mulVecLin).mkQ \circ ₗ Pcs)
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Nsub~\leanlink{Formalism.NuclearRankWeightBounds.P.Nsub}, blk~\leanlink{Formalism.NuclearRankWeightBounds.C.blk}, Pcs~\leanlink{Formalism.NuclearRankWeightBounds.P.Pcs}. The claim follows directly from \emph{mem Nsub}~\leanlink{Formalism.NuclearRankWeightBounds.P.mem_Nsub}.
+\end{proof}
+
+\begin{lemma}[cval mul kappa]\leanlink{Formalism.NuclearRankWeightBounds.P.cval_mul_kappa}
+\[
+(Z : Matrix (Fin (m+1)) (Fin (m+1)) RR) (hZ : IsUnit (toK K Z).det) (hZ' : IsUnit (toK K (blk Z)).det) : cval K Z * kappa K Z = 1
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects f V~\leanlink{Formalism.NuclearRankWeightBounds.P.fV}, cval~\leanlink{Formalism.NuclearRankWeightBounds.C.cval}, kappa~\leanlink{Formalism.NuclearRankWeightBounds.C.kappa}, to K~\leanlink{Formalism.NuclearRankWeightBounds.C.toK}. Combining \emph{key cval}~\leanlink{Formalism.NuclearRankWeightBounds.P.key_cval} with \emph{f V single}~\leanlink{Formalism.NuclearRankWeightBounds.P.fV_single} yields the stated result.
+\end{proof}
+
+\begin{lemma}[vk single]\leanlink{Formalism.NuclearRankWeightBounds.P.vk_single}
+\[
+(i : Fin k) : vk (K := K) (\mathrm{single} i (1 : RR)) = \mathrm{single} i 1
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects vk~\leanlink{Formalism.NuclearRankWeightBounds.P.vk}. This result is established directly from standard library foundations within its local module (6~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[vk mul Vec]\leanlink{Formalism.NuclearRankWeightBounds.P.vk_mulVec}
+\[
+(Z : Matrix (Fin k) (Fin k) RR) (y : Fin k \to RR) : vk (K := K) (Z *ᵥ y) = toK K Z *ᵥ vk y
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects to K~\leanlink{Formalism.NuclearRankWeightBounds.C.toK}, vk~\leanlink{Formalism.NuclearRankWeightBounds.P.vk}. This result is established directly from standard library foundations within its local module (3~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[mul Vec last]\leanlink{Formalism.NuclearRankWeightBounds.P.mulVec_last}
+\[
+(W : Matrix (Fin (m+1)) (Fin (m+1)) \alpha ) (y : Fin (m+1) \to \alpha ) : (W *ᵥ y) (\mathrm{last} m) = (\lambda j \mapsto W (\mathrm{last} m) (\mathrm{castSucc} j)) ⬝ᵥ (\lambda j \mapsto y (\mathrm{castSucc} j)) + W (\mathrm{last} m) (\mathrm{last} m) * y (\mathrm{last} m)
+\]
+\end{lemma}
+\begin{proof}
+This result is established directly from standard library foundations within its local module (5~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[row Inv Mod apply]\leanlink{Formalism.NuclearRankWeightBounds.P.rowInvMod_apply}
+\[
+(Z : Matrix (Fin k) (Fin k) RR) (r : Fin k \to K) (v : Fin k \to RR) : rowInvMod K Z r v = \mathrm{mk} (r ⬝ᵥ ((toK K Z)^{-1} *ᵥ vk v))
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects row Inv Mod~\leanlink{Formalism.NuclearRankWeightBounds.C.rowInvMod}, to K~\leanlink{Formalism.NuclearRankWeightBounds.C.toK}, vk~\leanlink{Formalism.NuclearRankWeightBounds.P.vk}. This result is established directly from standard library foundations within its local module (4~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[vk smul]\leanlink{Formalism.NuclearRankWeightBounds.P.vk_smul}
+\[
+(r : RR) (v : Fin k \to RR) : vk (K := K) (r \cdot v) = algebraMap RR K r \cdot vk v
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects vk~\leanlink{Formalism.NuclearRankWeightBounds.P.vk}. This result is established directly from standard library foundations within its local module (3~lines of formal proof).
+\end{proof}
+
+\section{Development / Abelian Variety Theory: cube Theorem}
+
+This chapter encompasses 70,260 formal declarations (919,447~LOC). Primary proof idioms detected: \emph{abelian varieties \& heights, Iwasawa tower, iterated theta lift}.
+70260 declarations (919,447 LOC) across 1 section(s); interface 4653 in -> 7198 out; key exports: GA, Pl, Sm
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Inputs:} Sp~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Sp}, LB~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB}, sp Map~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.spMap}, algebra Map~\leanlink{Formalism.GradedWeylDivisibility.CoeffHom.algebraMap}, Is Abelian Scheme~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.IsAbelianScheme}, K~\leanlink{Formalism.BasicNotions.ColumnChain.K}.
+\par\noindent\emph{Outputs:} GA~\leanlink{GlobalTheory.CuspRep.GA}, Pl~\leanlink{GlobalTheory.BCT.Pl}, Sm~\leanlink{GlobalTheory.CuspRep.Sm}, L~\leanlink{GlobalTheory.LGrp.LeviDatum.L}, GLw~\leanlink{GlobalTheory.BCT.GLw}, Irr GL~\leanlink{GlobalTheory.LocGL.IrrGL}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[theta L]\leanlink{GlobalTheory.ThetaTie.thetaL}
+\[
+ThetaL P AI
+\]
+\end{definition}
+
+\begin{definition}[prod]\leanlink{GlobalTheory.AV.AbVar.prod}
+\[
+(A B : AbVar K) : AbVar K
+\]
+\end{definition}
+
+\begin{definition}[Pair]\leanlink{GlobalTheory.Pat.Pair}
+\[
+(G : PolGp \Phi )
+\]
+\end{definition}
+
+\begin{definition}[Base]\leanlink{GlobalTheory.Pat.Base}
+\[
+(Gb : PolGp \Phi )
+\]
+\end{definition}
+
+\begin{definition}[unit U]\leanlink{GlobalTheory.RelAmpleSep.unitU}
+\[
+(B : AbVar K) : (⊤ : (Sp K).Opens).toScheme ⟶ (\mathrm{hom} ^{-1}ᵁ ⊤).toScheme
+\]
+\end{definition}
+
+\begin{definition}[Ab Var]\leanlink{GlobalTheory.AV.AbVar}
+\[
+(K : \mathrm{Type})
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[cube Theorem]\leanlink{GlobalTheory.CubeTop.cubeTheorem}
+\[
+\mathrm{CubeTheorem}
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Cube Theorem~\leanlink{GlobalTheory.Published.CubeTheorem}. The claim follows directly from \emph{cube Theorem holds}~\leanlink{GlobalTheory.SpreadingModels.cubeTheorem_holds}.
+\end{proof}
+
+\begin{theorem}[jacquet Rallis Unit Match all ranks]\leanlink{GlobalTheory.T.jacquetRallisUnitMatch_all_ranks}
+\[
+\forall r, UnitMatch r
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Unit Match~\leanlink{GlobalTheory.JR.UnitMatch}. The claim follows directly from \emph{unit Match all}~\leanlink{GlobalTheory.JR.unitMatch_all}.
+\end{proof}
+
+\begin{proposition}[mul isogeny]\leanlink{GlobalTheory.MulIsogeny.mul_isogeny}
+\[
+\forall (K : \mathrm{Type}) (A : AbVar K) (n : \mathbb{Z} ), n \neq 0 \to IsIsogeny (n \cdot 𝟙 A) \land deg (n \cdot 𝟙 A) = \mathrm{natAbs} ^ (2 * \mathrm{dim})
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Ab Var~\leanlink{GlobalTheory.AV.AbVar}, deg~\leanlink{GlobalTheory.AV.AbVar.deg}, Is Isogeny~\leanlink{GlobalTheory.AV.AbVar.IsIsogeny}, Int~\leanlink{GlobalTheory.ZH.ThetaSys.Real.UTest.Int}. The claim follows directly from \emph{neg one}~\leanlink{GlobalTheory.MulIsogeny.neg_one}.
+\end{proof}
+
+\begin{proposition}[unit Match all]\leanlink{GlobalTheory.JR.unitMatch_all}
+\[
+\forall r, UnitMatch r
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Unit Match~\leanlink{GlobalTheory.JR.UnitMatch}. Combining \emph{jacquet Rallis Unit Match of weil Rep quadratic}~\leanlink{GlobalTheory.T.jacquetRallisUnitMatch_of_weilRep_quadratic} with \emph{weil Representation quadratic Field exists}~\leanlink{GlobalTheory.T.weilRepresentation_quadraticField_exists} yields the stated result.
+\end{proof}
+
+\begin{proposition}[card torsion pt]\leanlink{GlobalTheory.AV.AbVar.card_torsion_pt}
+\[
+(K : \mathrm{Type}) (A : AbVar K) (n : \mathbb{N} ) (hn : (n : K) \neq 0) : \mathbb{N}.card = n ^ (2 * \mathrm{dim})
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Ab Var~\leanlink{GlobalTheory.AV.AbVar}, Over~\leanlink{GlobalTheory.Ex.ArcF.Over}, Equiv~\leanlink{ReciprocityTheory.ChartRestriction.G.Out.QkPt.Equiv}, Int~\leanlink{GlobalTheory.ZH.ThetaSys.Real.UTest.Int}. The claim follows directly from \emph{comp pow id torscard}~\leanlink{GlobalTheory.AV.AbVar.comp_pow_id_torscard}.
+\end{proof}
+
+\begin{proposition}[is Proj By of is Abelian Scheme]\leanlink{GlobalTheory.ProjField.isProjBy_of_isAbelianScheme}
+\[
+\forall (K : \mathrm{Type}) (A : \pcOver (Sp K)) , \pcIsAbelianScheme A \to \mathrm{IsProjBy} \mathrm{hom}
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Is Abelian Scheme~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.IsAbelianScheme}, Is Proj By~\leanlink{GlobalTheory.AbLaw.IsProjBy}, sp Map~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.spMap}. Combining \emph{exists norm Chart}~\leanlink{GlobalTheory.ProjField.exists_normChart}, \emph{exists affine loci of norm Chart}~\leanlink{GlobalTheory.ProjField.exists_affine_loci_of_normChart}, \emph{is Proj By of cover base Change}~\leanlink{GlobalTheory.ProjField.isProjBy_of_cover_baseChange}, \emph{h A}~\leanlink{ReciprocityTheory.ChartRestriction.G.Out.TLinPf.hA}, \emph{pull is LB}~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.pull_isLB}, \emph{pullback}~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.IsSemiAbelian.pullback} with \emph{norm Chart Line Bundle base Change field extension}~\leanlink{GlobalTheory.T.normChartLineBundle_baseChange_field_extension} yields the stated result.
+\end{proof}
+
+\begin{lemma}[exists nsmul eq of kills torsion]\leanlink{GlobalTheory.AV.AbVar.exists_nsmul_eq_of_kills_torsion}
+\[
+\forall (K : \mathrm{Type}) (A C : AbVar K) (f : A ⟶ C) (n : \mathbb{N} ), (n : K) \neq 0 \to (\forall x : \mathrm{Pt}, x ^ n = 1 \to x ≫ \mathrm{hom} = 1) \to \exists g : A ⟶ C, f = n \cdot g
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Ab Var~\leanlink{GlobalTheory.AV.AbVar}, Is Isogeny~\leanlink{GlobalTheory.AV.AbVar.IsIsogeny}, A~\leanlink{GlobalTheory.Ex.Match.A}, f~\leanlink{ReciprocityTheory.ChartRestriction.G.I2.PT.f}. Combining \emph{comp id pow eq}~\leanlink{GlobalTheory.AV.AbVar.comp_id_pow_eq} with \emph{exists factor through isogeny of kills kernel}~\leanlink{GlobalTheory.T.exists_factor_through_isogeny_of_kills_kernel} yields the stated result.
+\end{proof}
+
+\begin{lemma}[is Proj By of is Abelian Scheme]\leanlink{GlobalTheory.AbelianProjective.isProjBy_of_isAbelianScheme}
+\[
+\forall (K : \mathrm{Type}) (B : \pcOver (Spec (\mathrm{of} K))) , \pcIsAbelianScheme B \to IsProjBy \mathrm{hom}
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Equiv~\leanlink{ReciprocityTheory.ChartRestriction.G.Out.QkPtW.Equiv}, Is Abelian Scheme~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.IsAbelianScheme}, nonzero Locus~\leanlink{ReciprocityTheory.ChartRestriction.G.Out.nonzeroLocus}, Is Proj By~\leanlink{GlobalTheory.AbLaw.IsProjBy}. Combining \emph{exists affine loci}~\leanlink{GlobalTheory.AbelianProjective.exists_affine_loci}, \emph{is LB pw}~\leanlink{GlobalTheory.AbLaw.isLB_pw} with \emph{very Ample By pw of affine loci}~\leanlink{GlobalTheory.AbLaw.veryAmpleBy_pw_of_affine_loci} yields the stated result.
+\end{proof}
+
+\begin{lemma}[etale Orbital Fourier rank One transfer]\leanlink{GlobalTheory.T.etaleOrbitalFourier_rankOne_transfer}
+\[
+RankOne
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Rank One~\leanlink{GlobalTheory.JR.RankOne}. The claim follows directly from \emph{rank One}~\leanlink{GlobalTheory.JR.RankOneTransfer.rankOne}.
+\end{proof}
+
+\begin{lemma}[rank One]\leanlink{GlobalTheory.JR.RankOneTransfer.rankOne}
+\[
+RankOne
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Rank One~\leanlink{GlobalTheory.JR.RankOne}. Combining \emph{truncated Whittaker weil Rep eventually}~\leanlink{GlobalTheory.T.truncatedWhittaker_weilRep_eventually}, \emph{lam comb}~\leanlink{GlobalTheory.JR.RankOneTransfer.lam_comb}, \emph{in I sum}~\leanlink{GlobalTheory.JR.RankOneTransfer.inI_sum}, \emph{lam sum}~\leanlink{GlobalTheory.JR.RankOneTransfer.lam_sum}, \emph{kirillov vanishing of limit}~\leanlink{GlobalTheory.T.kirillov_vanishing_of_limit}, \emph{truncated Whittaker j Hyp eq orbital Integral}~\leanlink{GlobalTheory.T.truncatedWhittaker_jHyp_eq_orbitalIntegral}, \emph{in I comb}~\leanlink{GlobalTheory.JR.RankOneTransfer.inI_comb} with \emph{j Hyp mem induced fourier weyl}~\leanlink{GlobalTheory.T.jHyp_mem_induced_fourier_weyl} yields the stated result.
+\end{proof}
+
+\begin{lemma}[exists symm ample]\leanlink{GlobalTheory.AV.AbVar.exists_symm_ample}
+\[
+\forall (K : \mathrm{Type}) (A : AbVar K), \exists c : Pic \mathrm{left}, IsAmpleCls c \land \mathrm{pull} (\mathrm{hom} (-(𝟙 A))).left c = c
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Ab Var~\leanlink{GlobalTheory.AV.AbVar}, Is Ample Cls~\leanlink{GlobalTheory.AV.AbVar.IsAmpleCls}, hom~\leanlink{GlobalTheory.AV.AbVar.Hom.hom}, pull~\leanlink{GlobalTheory.CechPic.pull}. Combining \emph{abelian Variety exists ample Class}~\leanlink{GlobalTheory.T.abelianVariety_exists_ampleClass}, \emph{neg one left comp self}~\leanlink{GlobalTheory.AV.AbVar.neg_one_left_comp_self}, \emph{pull comp}~\leanlink{GlobalTheory.CechPic.pull_comp} with \emph{pull id}~\leanlink{GlobalTheory.CechPic.pull_id} yields the stated result.
+\end{proof}
+
+\begin{lemma}[hom torsion Free]\leanlink{GlobalTheory.AV.AbVar.hom_torsionFree}
+\[
+\forall (K : \mathrm{Type}) (A B : AbVar K) (n : \mathbb{Z} ) (f : A ⟶ B), n \neq 0 \to n \cdot f = 0 \to f = 0
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Ab Var~\leanlink{GlobalTheory.AV.AbVar}. The claim follows directly from \emph{cancel of surjective abelian Variety Hom}~\leanlink{GlobalTheory.T.cancel_of_surjective_abelianVarietyHom}.
+\end{proof}
+
+\section{Formalism: a0}
+
+This chapter encompasses 39,989 formal declarations (465,611~LOC). Primary proof idioms detected: \emph{automorphic / spectral theory, p-adic / local harmonic analysis, Hermitian curvature / L\textasciicircum{}2 dbar}.
+39989 declarations (465,611 LOC) across 67 section(s); interface 8885 in -> 4020 out; key exports: algebraMap, K, X
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Inputs:} Sp~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Sp}, N~\leanlink{GlobalTheory.AnArc.N}, Pl~\leanlink{GlobalTheory.BCT.Pl}, Datum~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Datum}, Over~\leanlink{GlobalTheory.Ex.ArcF.Over}, Spc~\leanlink{GlobalTheory.EtC.Spc}.
+\par\noindent\emph{Outputs:} algebra Map~\leanlink{Formalism.GradedWeylDivisibility.CoeffHom.algebraMap}, K~\leanlink{Formalism.BasicNotions.ColumnChain.K}, X~\leanlink{Formalism.BasicNotions.LocWach.X}, F~\leanlink{Formalism.HC.HostRaw.F}, hw~\leanlink{Formalism.GradedWeylDivisibility.hw}, M~\leanlink{Formalism.MainNotions.G.Level.M}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[Size Data₂]\leanlink{Formalism.BasicNotions.SizeData₂}
+\[
+(D : D7)
+\]
+\end{definition}
+
+\begin{definition}[Div X]\leanlink{Formalism.BasicNotions.DivX}
+\[
+(D : D7) : \mathrm{Type}1
+\]
+\end{definition}
+
+\begin{definition}[D7]\leanlink{Formalism.BasicNotions.D7}
+\[
+\text{(type signature omitted)}
+\]
+\end{definition}
+
+\begin{definition}[Crt Mul]\leanlink{UpperTheory.Gal.FiniteEtaleModels.CrtMul}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Pt All]\leanlink{UpperTheory.Gal.FiniteEtaleModels.PtAll}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Ext A]\leanlink{Formalism.MainNotions.ModuliIntegralCharts.ExtA}
+\[
+(D : D7) (L : Loc D r j p)
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[a0]\leanlink{ReciprocityTheory.PGsh.a0}
+\[
+(p : \mathbb{N} ) : TiltStructureStatement p
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Ker Theta Statement~\leanlink{ReciprocityTheory.PGsh.KerThetaStatement}, Tilt Structure Statement~\leanlink{ReciprocityTheory.PGsh.TiltStructureStatement}. Combining \emph{regular}~\leanlink{ReciprocityTheory.PGsh.regular}, \emph{ker Theta}~\leanlink{ReciprocityTheory.PGsh.kerTheta}, \emph{flat W'}~\leanlink{ReciprocityTheory.PGsh.flatW'}, \emph{xi Nu}~\leanlink{ReciprocityTheory.PGsh.xiNu}, \emph{exists eps}~\leanlink{ReciprocityTheory.PGsh.exists_eps} with \emph{exists pflat}~\leanlink{ReciprocityTheory.PGsh.exists_pflat} yields the stated result.
+\end{proof}
+
+\begin{theorem}[pt All holds]\leanlink{UpperTheory.Gal.FiniteEtaleModels.ptAll_holds}
+\[
+IdealInd \to CrtMul \to PtAll
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Crt Mul~\leanlink{UpperTheory.Gal.FiniteEtaleModels.CrtMul}, Pt All~\leanlink{UpperTheory.Gal.FiniteEtaleModels.PtAll}, Is Et Lev Over~\leanlink{GlobalTheory.UPel.HT.EtLev.IsEtLevOver}, Is Et Place~\leanlink{GlobalTheory.UPel.HT.EtLev.IsEtPlace}. Combining \emph{exists etale Level Structure at geometric Point}~\leanlink{GlobalTheory.T.exists_etaleLevelStructure_at_geometricPoint}, \emph{lev top}~\leanlink{lev_top} with \emph{lev pow}~\leanlink{lev_pow} yields the stated result.
+\end{proof}
+
+\begin{proposition}[regular]\leanlink{ReciprocityTheory.PGsh.regular}
+\[
+(hO : \forall x : O, (p : O) * x = 0 \to x = 0) : RegularStatement p O
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Regular Statement~\leanlink{ReciprocityTheory.PGsh.RegularStatement}. Combining \emph{pflat mul eq zero}~\leanlink{ReciprocityTheory.PGsh.pflat_mul_eq_zero}, \emph{mem span p iff}~\leanlink{ReciprocityTheory.PGsh.mem_span_p_iff} with \emph{p mem non Zero Divisors}~\leanlink{ReciprocityTheory.PGsh.p_mem_nonZeroDivisors} yields the stated result.
+\end{proof}
+
+\begin{proposition}[mul iterate root eq zero]\leanlink{ReciprocityTheory.PGsh.mul_iterate_root_eq_zero}
+\[
+(w y : R) (h : w * y = 0) (n : \mathbb{N} ) : w * ((frobeniusEquiv R p).symm^ ) y = 0
+\]
+\end{proposition}
+\begin{proof}
+The claim follows directly from \emph{mul root eq zero}~\leanlink{ReciprocityTheory.PGsh.mul_root_eq_zero}.
+\end{proof}
+
+\begin{proposition}[pflat mul eq zero]\leanlink{ReciprocityTheory.PGsh.pflat_mul_eq_zero}
+\[
+(hO : \forall x : O, (p : O) * x = 0 \to x = 0) (pflat : PreTilt O p) (hpf : \mathrm{untilt} = (p : O)) (x : PreTilt O p) (hx : pflat * x = 0) : x = 0
+\]
+\end{proposition}
+\begin{proof}
+The claim follows directly from \emph{mul iterate root eq zero}~\leanlink{ReciprocityTheory.PGsh.mul_iterate_root_eq_zero}.
+\end{proof}
+
+\begin{proposition}[ker Theta]\leanlink{ReciprocityTheory.PGsh.kerTheta}
+\[
+KerThetaStatement p O
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Ker Theta Statement~\leanlink{ReciprocityTheory.PGsh.KerThetaStatement}. Combining \emph{mem span of step}~\leanlink{ReciprocityTheory.PGsh.mem_span_of_step}, \emph{dvd of coeff zero}~\leanlink{ReciprocityTheory.PGsh.dvd_of_coeff_zero}, \emph{pre Tilt eq zero of untilt eq zero}~\leanlink{ReciprocityTheory.PGsh.preTilt_eq_zero_of_untilt_eq_zero}, \emph{witt exists eq teichmuller coeff zero add p mul}~\leanlink{ReciprocityTheory.PGsh.witt_exists_eq_teichmuller_coeff_zero_add_p_mul}, \emph{mk sh}~\leanlink{ReciprocityTheory.PGsh.mk_sh}, \emph{p ne zero}~\leanlink{ReciprocityTheory.PGsh.p_ne_zero}, \emph{torsion Free}~\leanlink{ReciprocityTheory.PGsh.torsionFree} with \emph{is Domain integers}~\leanlink{ReciprocityTheory.PGsh.isDomain_integers} yields the stated result.
+\end{proof}
+
+\begin{lemma}[a1]\leanlink{ReciprocityTheory.PGsh.a1}
+\[
+ExistsPointLeviLogNormSqPos
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Exists Point Levi Log Norm Sq Pos~\leanlink{ReciprocityTheory.PGsh.ExistsPointLeviLogNormSqPos}, std J~\leanlink{ReciprocityTheory.PGsh.stdJ}. Combining \emph{exists mul Vec eq of mul Vec eq zero}~\leanlink{ReciprocityTheory.PGsh.exists_mulVec_eq_of_mulVec_eq_zero}, \emph{exists integral smul of mul Vec integral}~\leanlink{ReciprocityTheory.PGsh.exists_integral_smul_of_mulVec_integral} with \emph{exists mul Vec eq smul of mul eq smul one}~\leanlink{ReciprocityTheory.PGsh.exists_mulVec_eq_smul_of_mul_eq_smul_one} yields the stated result.
+\end{proof}
+
+\begin{lemma}[highest Weight Exists holds]\leanlink{Formalism.REAL.highestWeightExists_holds}
+\[
+KHiExist
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects KHi Exist~\leanlink{Formalism.REAL.KHiExist}, Is Weight~\leanlink{Formalism.REAL.IsWeight}, root~\leanlink{Formalism.REAL.root}. Combining \emph{is Weight Vector apply}~\leanlink{Formalism.REAL.isWeightVector_apply}, \emph{weighted sum root Vector shift}~\leanlink{Formalism.REAL.weighted_sum_rootVector_shift} with \emph{eigenvalue real}~\leanlink{Formalism.REAL.eigenvalue_real} yields the stated result.
+\end{proof}
+
+\begin{lemma}[exists unitary unit hermitian form of cm lattice]\leanlink{UpperTheory.exists_unitary_unit_hermitian_form_of_cm_lattice}
+\[
+\forall (p : \mathbb{N} ) (D : \pcDatum p) (G : \pcHTGroup p) (L : Link D G) (Y : PLat \mathrm{O} \mathrm{inv}) (j : (\mathbb{Q} \otimes \mathrm{La}) \simeq ₗ VQ D), (\forall (c : \mathrm{O}) (u : \mathbb{Q} \otimes \mathrm{La}), j ((\mathrm{toLinearMap} \mathbb{Z} \mathrm{La} c).baseChange \mathbb{Q} u) = actQ D c (j u)) \to \exists \beta : G.Cˣ, sh G \beta = \beta \land \forall u w : \mathbb{Q} \otimes \mathrm{La}, \mathrm{baseChange} \mathbb{Q} u w = 2 * \mathrm{baseChange} \mathbb{Q} (\mathrm{rep} ((\beta ^{-1} : G.Cˣ) : \mathrm{C}) (j u)) (j w)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects HTGroup~\leanlink{GlobalTheory.LKTrip.HTGroup}, Datum~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Datum}, Link~\leanlink{GlobalTheory.LKGeo.Link}, PLat~\leanlink{GlobalTheory.PELU.PLat}. Combining \emph{adj bc}~\leanlink{adj_bc}, \emph{sep bc}~\leanlink{sep_bc}, \emph{anti bc}~\leanlink{anti_bc} with \emph{exists rep}~\leanlink{Development.AutomorphicArithmetic.CommutativeAlgebra.ExistsUnitaryUnitHermitianFormOfCmLattice::exists_rep} yields the stated result.
+\end{proof}
+
+\begin{lemma}[h2]\leanlink{ReciprocityTheory.PGsh.L2.h2}
+\[
+(C R : \mathrm{Type}) : SubgroupQuotientStatement (C := C) (R := R)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Subgroup Quotient Statement~\leanlink{ReciprocityTheory.PGsh.L2.SubgroupQuotientStatement}, dual Lat~\leanlink{ReciprocityTheory.PGsh.L2.dualLat}, ext K~\leanlink{ReciprocityTheory.PGsh.L2.extK}. Combining \emph{is Lat map lemma 5}~\leanlink{ReciprocityTheory.PGsh.L2.isLat_map_lemma_5}, \emph{tensor of pair lemma 7}~\leanlink{ReciprocityTheory.PGsh.L2.tensor_of_pair_lemma_7}, \emph{tensor pair lemma 6}~\leanlink{ReciprocityTheory.PGsh.L2.tensor_pair_lemma_6}, \emph{sum ext K}~\leanlink{ReciprocityTheory.PGsh.L2.sum_extK}, \emph{dual is Lat lemma 4}~\leanlink{ReciprocityTheory.PGsh.L2.dual_isLat_lemma_4}, \emph{map tensor Span}~\leanlink{ReciprocityTheory.PGsh.L2.SecondCohomologyLattice.map_tensorSpan} with \emph{sum push Q}~\leanlink{ReciprocityTheory.PGsh.L2.sum_pushQ} yields the stated result.
+\end{proof}
+
+\begin{lemma}[flat W']\leanlink{ReciprocityTheory.PGsh.flatW'}
+\[
+FlatW'Statement p O
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Flat W'Statement~\leanlink{ReciprocityTheory.PGsh.FlatW'Statement}. Combining \emph{flat of ann}~\leanlink{ReciprocityTheory.PGsh.flat_of_ann}, \emph{mem span p iff}~\leanlink{ReciprocityTheory.PGsh.mem_span_p_iff} with \emph{p mul eq zero}~\leanlink{ReciprocityTheory.PGsh.p_mul_eq_zero} yields the stated result.
+\end{proof}
+
+\begin{lemma}[xi Nu]\leanlink{ReciprocityTheory.PGsh.xiNu}
+\[
+(p : \mathbb{N} ) (C : \mathrm{Type}) (v : Valuation C NNReal) (O : \mathrm{Type}) (hK : KerThetaStatement p O) : XiNuStatement p C v O
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Xi Nu Statement~\leanlink{ReciprocityTheory.PGsh.XiNuStatement}, Ker Theta Statement~\leanlink{ReciprocityTheory.PGsh.KerThetaStatement}. Combining \emph{val untilt e sub one}~\leanlink{ReciprocityTheory.PGsh.val_untilt_e_sub_one}, \emph{val prim root}~\leanlink{ReciprocityTheory.PGsh.val_prim_root}, \emph{perfection is Unit}~\leanlink{ReciprocityTheory.PGsh.perfection_isUnit}, \emph{sub one pow pred}~\leanlink{ReciprocityTheory.PGsh.sub_one_pow_pred} with \emph{witt is Unit}~\leanlink{ReciprocityTheory.PGsh.witt_isUnit} yields the stated result.
+\end{proof}
+
+\section{Formalism: cube Theorem holds}
+
+This chapter encompasses 38,751 formal declarations (439,682~LOC). Primary proof idioms detected: \emph{automorphic / spectral theory, abelian varieties \& heights, Hermitian curvature / L\textasciicircum{}2 dbar}.
+38751 declarations (439,682 LOC) across 6 section(s); interface 7318 in -> 1823 out; key exports: H, mapGL, id
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Inputs:} GA~\leanlink{GlobalTheory.CuspRep.GA}, Pl~\leanlink{GlobalTheory.BCT.Pl}, Sm~\leanlink{GlobalTheory.CuspRep.Sm}, X~\leanlink{Formalism.BasicNotions.LocWach.X}, K~\leanlink{Formalism.BasicNotions.ColumnChain.K}, GLw~\leanlink{GlobalTheory.BCT.GLw}.
+\par\noindent\emph{Outputs:} H~\leanlink{PositivityTheory.Rg.BcB.E.H}, map GL~\leanlink{PositivityTheory.Rg.Tf.Geo.mapGL}, id~\leanlink{Formalism.CoboundaryTransfers.Hom.id}, Dom~\leanlink{PositivityTheory.Rg.BcB.E.Dom}, X~\leanlink{Formalism.HermitianLatticeCounting.S6.FlagD.X}, Model~\leanlink{CrystallineSemistableComparison.Model}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[theta L]\leanlink{PositivityTheory.LocInh.thetaL}
+\[
+ThetaL P AI
+\]
+\end{definition}
+
+\begin{definition}[q Ad]\leanlink{GlobalTheory.CompanionTheory.SplitTwo.qAd}
+\[
+(h : \mathrm{v\_1} \neq \mathrm{v\_2}) : Ad E \simeq +* (\mathbb{C} \times \mathbb{C} ) \times Rest \mathrm{v\_1} \mathrm{v\_2}
+\]
+\end{definition}
+
+\begin{definition}[sm Fun]\leanlink{CrystallineSemistableComparison.smFun}
+\[
+(X : Scheme. ) (q : X ⟶ Spec (\mathrm{of} K)) : (infBase K).Fun
+\]
+\end{definition}
+
+\begin{definition}[sec Pull Pull]\leanlink{GlobalTheory.CompanionTheory.PerfBase.secPullPull}
+\[
+\mathrm{Sec} (\mathrm{pull} (\pi ' ≫ \pi )) \simeq \mathrm{Sec} ((\mathrm{pull} \pi ).pull \pi ')
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[cube Theorem holds]\leanlink{GlobalTheory.SpreadingModels.cubeTheorem_holds}
+\[
+\mathrm{CubeTheorem}
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Cube Theorem~\leanlink{GlobalTheory.Published.CubeTheorem}. Combining \emph{cube theorem of perfect}~\leanlink{GlobalTheory.T.cube_theorem_of_perfect}, \emph{perfect of models}~\leanlink{GlobalTheory.T.perfect_of_models}, \emph{line bundle spreads out'}~\leanlink{GlobalTheory.T.line_bundle_spreads_out'}, \emph{scheme models spread}~\leanlink{GlobalTheory.T.scheme_models_spread}, \emph{is Proper spreads out}~\leanlink{GlobalTheory.T.isProper_spreads_out}, \emph{smooth spreads out}~\leanlink{GlobalTheory.T.smooth_spreads_out} with \emph{has model of spreading}~\leanlink{GlobalTheory.T.has_model_of_spreading} yields the stated result.
+\end{proof}
+
+\begin{theorem}[cube theorem of perfect]\leanlink{GlobalTheory.T.cube_theorem_of_perfect}
+\[
+\mathrm{PerfAll} \to \mathrm{CubeTheorem}
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Cube Theorem~\leanlink{GlobalTheory.Published.CubeTheorem}, Perf All~\leanlink{GlobalTheory.SpreadingModels.PerfAll}. The claim follows directly from \emph{cube Theorem of perf All}~\leanlink{GlobalTheory.CompanionTheory.CubePerf.cubeTheorem_of_perfAll}.
+\end{proof}
+
+\begin{proposition}[cube Theorem of perf All]\leanlink{GlobalTheory.CompanionTheory.CubePerf.cubeTheorem_of_perfAll}
+\[
+\mathrm{PerfAll} \to \mathrm{CubeTheorem}
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Cube Theorem~\leanlink{GlobalTheory.Published.CubeTheorem}, Perf All~\leanlink{GlobalTheory.SpreadingModels.PerfAll}, h L~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Germ.FB.hL}, A~\leanlink{GlobalTheory.Ex.Match.A}. Combining \emph{cube}~\leanlink{GlobalTheory.CompanionTheory.CubePerf.cube} with \emph{h A}~\leanlink{GlobalTheory.FrameBiextId.hA} yields the stated result.
+\end{proof}
+
+\begin{proposition}[perf All of has Model]\leanlink{GlobalTheory.CompanionTheory.SpreadingModels.perfAll_of_hasModel}
+\[
+(hModel : \forall (R : \mathrm{Type}) (Y : Scheme. ) (f : Y ⟶ Spec (\mathrm{of} R)), Smooth f \to IsProper f \to \forall M : LB Y, \mathrm{IsLB} \to HasModel f M) : PerfAll
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects LB~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB}, Smooth~\leanlink{Formalism.BasicNotions.TH.Smooth}, Perf All~\leanlink{GlobalTheory.SpreadingModels.PerfAll}, Has Model~\leanlink{GlobalTheory.SpreadingModels.HasModel}. The claim follows directly from \emph{perf All of models}~\leanlink{GlobalTheory.CompanionTheory.SpreadingModels.perfAll_of_models}.
+\end{proof}
+
+\begin{proposition}[perfect of models]\leanlink{GlobalTheory.T.perfect_of_models}
+\[
+(\forall (R : \mathrm{Type}) (Y : Scheme. ) (f : Y ⟶ Spec (\mathrm{of} R)), Smooth f \to IsProper f \to \forall M : LB Y, \mathrm{IsLB} \to \mathrm{HasModel} f M) \to \mathrm{PerfAll}
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects LB~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB}, Smooth~\leanlink{Formalism.BasicNotions.TH.Smooth}, Perf All~\leanlink{GlobalTheory.SpreadingModels.PerfAll}, Has Model~\leanlink{GlobalTheory.SpreadingModels.HasModel}. The claim follows directly from \emph{perf All of has Model}~\leanlink{GlobalTheory.CompanionTheory.SpreadingModels.perfAll_of_hasModel}.
+\end{proof}
+
+\begin{proposition}[cube]\leanlink{GlobalTheory.CompanionTheory.CubePerf.cube}
+\[
+(hP : \mathrm{PerfAll}) (hA : \pcIsAbelianScheme A) (L : LB \mathrm{left}) (hL : \mathrm{IsLB}) (T : \pcOver S) (a b c : T ⟶ A) : Triv (LB.\pcLinComb L (\lambda k : Fin 8 \mapsto (! k).left) ! )
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Lin Comb~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.LinComb}, Over~\leanlink{GlobalTheory.Ex.ArcF.Over}, Is Abelian Scheme~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.IsAbelianScheme}, LB~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB}. Combining \emph{triv of faces}~\leanlink{GlobalTheory.CompanionTheory.CubePerf.triv_of_faces}, \emph{laws without cohomology}~\leanlink{GlobalTheory.laws_without_cohomology}, \emph{exists over}~\leanlink{GlobalTheory.Biadditive.exists_over}, \emph{pull Gen is Gen}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.pullGen_isGen}, \emph{triv At of formal}~\leanlink{GlobalTheory.AbLaw.CubeGen.trivAt_of_formal} with \emph{prod pts}~\leanlink{GlobalTheory.CubeModel.prod_pts} yields the stated result.
+\end{proof}
+
+\begin{lemma}[hint Prod]\leanlink{PositivityTheory.Rg.BcB.F.hintProd}
+\[
+HintProd
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Hint Prod~\leanlink{PositivityTheory.Rg.BcB.F.HintProd}, r Stab~\leanlink{GlobalTheory.BCT.rStab}. Combining \emph{count}~\leanlink{PositivityTheory.Rg.BcB.F.Hint.count}, \emph{hle}~\leanlink{Formalism.L2.Pj.LawsCore.hle}, \emph{hint ind}~\leanlink{PositivityTheory.Rg.BcB.F.Hint.hint_ind}, \emph{hint eq level}~\leanlink{GlobalTheory.CompanionTheory.HintLevel.hint_eq_level}, \emph{idx eq}~\leanlink{PositivityTheory.Rg.BcB.F.Hint.idx_eq}, \emph{fin supp}~\leanlink{PositivityTheory.Rg.BcB.F.Hint.fin_supp}, \emph{rel Index ne zero}~\leanlink{PositivityTheory.Rg.BcB.F.Hint.relIndex_ne_zero} with \emph{ind mul}~\leanlink{PositivityTheory.Rg.BcB.F.Hint.ind_mul} yields the stated result.
+\end{proof}
+
+\begin{lemma}[lb Spreads]\leanlink{GlobalTheory.CompanionTheory.LBLimit.lbSpreads}
+\[
+LBSpreads
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects LBSpreads~\leanlink{GlobalTheory.SpreadingModels.LBSpreads}, hw~\leanlink{Formalism.GradedWeylDivisibility.hw}, h~\leanlink{Formalism.MainNotions.G.PPath.h}, obj~\leanlink{GlobalTheory.Serre.Summand.obj}. Combining \emph{exists lb stage}~\leanlink{GlobalTheory.CompanionTheory.LBLimit.exists_lb_stage}, \emph{app}~\leanlink{GlobalTheory.LB.IsFrame.app} with \emph{algebra Map}~\leanlink{Formalism.GradedWeylDivisibility.CoeffHom.algebraMap} yields the stated result.
+\end{proof}
+
+\begin{lemma}[triv of faces]\leanlink{GlobalTheory.CompanionTheory.CubePerf.triv_of_faces}
+\[
+(hP : \mathrm{PerfAll}) (hG : \mathrm{GlobalFnsSt}) (hA : \pcIsAbelianScheme A) (hM : \mathrm{IsLB}) (\varphi : K \to ((G3 A).left ⟶ X)) (\varepsilon : K \to \mathbb{Z} ) (face : \forall (r : Z ⟶ (G3 A).left) (i : Fin 3) (b : Z ⟶ S), r ≫ (x3 A i).left = b ≫ η .left \to TrivAt M \varphi \varepsilon r) (formal : \forall (r : Z ⟶ (G3 A).left) (b : Z ⟶ S), r ≫ (x3 A 0).left = b ≫ η .left \to \forall (U : \mathrm{Type}) (k : (Z ⟶ X) \to U), \prod i, k (r ≫ \varphi i) ^ \varepsilon i = 1) : Triv (LB.\pcLinComb M \varphi \varepsilon )
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Perf~\leanlink{GlobalTheory.AbLaw.Perf}, all~\leanlink{GlobalTheory.CanonLB.all}. Combining \emph{exists gen of small extension}~\leanlink{GlobalTheory.SmallExtLift.exists_gen_of_small_extension}, \emph{kuenneth injective}~\leanlink{GlobalTheory.KuennethOne.kuenneth_injective}, \emph{lin Comb is LB}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.linComb_isLB}, \emph{is Closed triv Locus}~\leanlink{GlobalTheory.TrivLocus.isClosed_trivLocus}, \emph{triv of local}~\leanlink{GlobalTheory.AbLaw.CubeGen.triv_of_local}, \emph{triv basic Open of triv fibre}~\leanlink{GlobalTheory.AbLaw.CubeOpen.triv_basicOpen_of_triv_fibre}, \emph{seesaw}~\leanlink{GlobalTheory.AbLaw.Seesaw.seesaw} with \emph{loc Triv subset}~\leanlink{GlobalTheory.AbLaw.CubeGen.locTriv_subset} yields the stated result.
+\end{proof}
+
+\begin{lemma}[cyclic algebra hilbert ninety]\leanlink{GlobalTheory.T.cyclic_algebra_hilbert_ninety}
+\[
+\mathrm{N1} \to \forall (O O' R : \mathrm{Type}) (\ell : \mathbb{N} ) (\tau : O' \simeq ₐ O'), 0 < \ell \to \tau ^ \ell = 1 \to (\forall z : O', \tau z = z \to z \in \mathcal{P}.range (algebraMap O O')) \to (\exists x y : Fin \ell \to O', \forall j < \ell , \sum i, x i * (\tau ^ j) (y i) = if j = 0 then 1 else 0) \to (\exists a : O', \sum j \in \mathcal{F}.range \ell , (\tau ^ j) a = 1) \to \forall r : Rˣ, \exists s : (O' \otimes R)ˣ, - (r : R) \in \mathrm{map} (⊥ : Ideal R).jacobson
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects N1~\leanlink{PositivityTheory.Rg.Tf.Loc.N1}. The claim follows directly from \emph{main}~\leanlink{GlobalTheory.CompanionTheory.FirstApprox.main}.
+\end{proof}
+
+\begin{lemma}[main]\leanlink{GlobalTheory.CompanionTheory.FirstApprox.main}
+\[
+\mathrm{N1} \to \forall (O O' R : \mathrm{Type}) (\ell : \mathbb{N} ) (\tau : O' \simeq ₐ O'), 0 < \ell \to \tau ^ \ell = 1 \to (\forall z : O', \tau z = z \to z \in \mathcal{P}.range (algebraMap O O')) \to (\exists x y : Fin \ell \to O', \forall j < \ell , \sum i, x i * (\tau ^ j) (y i) = if j = 0 then 1 else 0) \to (\exists a : O', \sum j \in \mathcal{F}.range \ell , (\tau ^ j) a = 1) \to \forall r : Rˣ, \exists s : (O' \otimes R)ˣ, - (r : R) \in \mathrm{map} (⊥ : Ideal R).jacobson
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects N1~\leanlink{PositivityTheory.Rg.Tf.Loc.N1}. Combining \emph{map maximal Ideal le jacobson and pow le}~\leanlink{GlobalTheory.CompanionTheory.LocalFinite.map_maximalIdeal_le_jacobson_and_pow_le}, \emph{res fixed}~\leanlink{GlobalTheory.CompanionTheory.FirstApprox.res_fixed}, \emph{main}~\leanlink{GlobalTheory.CompanionTheory.JacUnit.main}, \emph{res compare}~\leanlink{GlobalTheory.CompanionTheory.FirstApprox.res_compare} with \emph{tensor Product congr refl pow tmul lemma}~\leanlink{GlobalTheory.CompanionTheory.FirstApprox.tensorProduct_congr_refl_pow_tmul_lemma} yields the stated result.
+\end{proof}
+
+\begin{lemma}[det Mono]\leanlink{GlobalTheory.CompanionTheory.DetMonotone.detMono}
+\[
+DetMono
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Y~\leanlink{GroundTheory.Heights₂.Heights.PeriodChartData.Y}, Det Mono~\leanlink{PositivityTheory.Rg.BcB.D1.DetMono}. The claim follows directly from \emph{exists unitary diagonal eigenvalues of is Hermitian}~\leanlink{GlobalTheory.CompanionTheory.DetMonotone.exists_unitary_diagonal_eigenvalues_of_isHermitian}.
+\end{proof}
+
+\section{Ground Theory: hy}
+
+This chapter encompasses 23,346 formal declarations (284,404~LOC). Primary proof idioms detected: \emph{Hermitian curvature / L\textasciicircum{}2 dbar, abelian varieties \& heights, p-adic / local harmonic analysis}.
+23346 declarations (284,404 LOC) across 12 section(s); interface 66 in -> 3822 out; key exports: Sp, LB, spMap
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Inputs:} Hpk~\leanlink{Formalism.QuantumDeterminants.Hpk}, R~\leanlink{Formalism.L2.Pj.TRing.R}, sm T~\leanlink{Formalism.L2.Pj.smT}, KRel~\leanlink{Formalism.REAL.KRel}, w I~\leanlink{Formalism.QuantumDeterminants.wI}, over At~\leanlink{Formalism.L2.Pj.overAt}.
+\par\noindent\emph{Outputs:} Sp~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Sp}, LB~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB}, sp Map~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.spMap}, Is Abelian Scheme~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.IsAbelianScheme}, V~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Coeff.V}, pullback~\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.IsSemiAbelian.pullback}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[sec Of Iso]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIso}
+\[
+(hu : \mathrm{IsGen}) (hA : \mathrm{IsLB}) (hB : \mathrm{IsLB}) : \mathrm{Sec} A
+\]
+\end{definition}
+
+\begin{definition}[iso Cand]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand}
+\[
+(a : A.ι) (b : B.ι) : \Gamma (Y, \mathrm{U} a ⊓ \mathrm{U} b)
+\]
+\end{definition}
+
+\begin{definition}[flat Stein]\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flatStein}
+\[
+(A : WeightedAtlas n Y ι La) (hD : \mathrm{D0} L w w0 s) (hF : \mathrm{Flat} w0 s De) : EtaleStein n (\mathrm{Mset} w0 s De)
+\]
+\end{definition}
+
+\begin{definition}[sec Zero]\leanlink{ReciprocityTheory.ChartRestriction.G.H1.SectionArithmetic.secZero}
+\[
+(M : LB Y) : \mathrm{Sec} M
+\]
+\end{definition}
+
+\begin{definition}[sec Of Iso F]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIsoF}
+\[
+(hu : \mathrm{IsGen}) (hA : \mathrm{IsLB}) (hB : \mathrm{IsLB}) (a : A.ι) : \Gamma (Y, \mathrm{U} a)
+\]
+\end{definition}
+
+\begin{definition}[Laws]\leanlink{ReciprocityTheory.ChartRestriction.G.Out.Laws}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[hy]\leanlink{ReciprocityTheory.L2DbarEstimates.Y.hy}
+\[
+(n : \mathbb{N} ) (Y : \mathrm{Type}u) (ι : \mathrm{Type}) (La : \mathrm{Type}) (hH : HAll. n) (hE : EXTStatement n) (hN : EXTNullStatement n) : HYStatement n Y ι La
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects flat Stein~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flatStein}. Combining \emph{levi flat loc}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.levi_flat_loc}, \emph{lintegral flat}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.lintegral_flat}, \emph{holo flat iff}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.holo_flat_iff}, \emph{dbar flat loc}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.dbar_flat_loc}, \emph{smooth flat}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.smooth_flat}, \emph{smooth R flat}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.smoothR_flat}, \emph{levi Nonneg flat}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.leviNonneg_flat} with \emph{hyq levi phi}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.hyq_levi_phi} yields the stated result.
+\end{proof}
+
+\begin{theorem}[iso Cand compat]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand_compat}
+\[
+(hu : \mathrm{IsGen}) (hA : \mathrm{IsLB}) (a : A.ι) (b b' : B.ι) : rs (\mathrm{inf\_le\_left} : (\mathrm{U} a ⊓ \mathrm{U} b) ⊓ (\mathrm{U} a ⊓ \mathrm{U} b') \le \_) (isoCand u t a b) = rs (\mathrm{inf\_le\_right} : (\mathrm{U} a ⊓ \mathrm{U} b) ⊓ (\mathrm{U} a ⊓ \mathrm{U} b') \le \_) (isoCand u t a b')
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects iso Cand~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand}, div~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.div}, rs~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.rs}. Combining \emph{iso Cand rs}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand_rs}, \emph{g self res}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.g_self_res}, \emph{rs trans eq res mul rs of rs eq}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.rs_trans_eq_res_mul_rs_of_rs_eq} with \emph{res trans eq mul of res eq one right}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.res_trans_eq_mul_of_res_eq_one_right} yields the stated result.
+\end{proof}
+
+\begin{proposition}[levi flat loc]\leanlink{ReciprocityTheory.L2DbarEstimates.Y.levi_flat_loc}
+\[
+(A : WeightedAtlas n Y ι La) (hD : \mathrm{D0} L w w0 s) (hF : \mathrm{Flat} w0 s De) (\varphi : Y \to \mathbb{R} ) (i : ι) (x : \mathrm{Mset} w0 s De) (hx : (x : Y) \in (\mathrm{chart} i).source) (h\varphi : ContDiffAt \mathbb{R} \infty (\varphi \circ (\mathrm{chart} i).symm) (\mathrm{chart} i x)) (ξ : Fin n \to \mathbb{C} ) : \mathrm{leviAt} i \varphi x ξ = (Levi n (flatStein A hD hF).z (\lambda y : \mathrm{Mset} w0 s De \mapsto \varphi y) x (\lambda k \mapsto jz A w0 s i x (\mathrm{toLp} 2 ξ) k)).re
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects flat Stein~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flatStein}, Weighted Atlas~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.WeightedAtlas}, Levi~\leanlink{ReciprocityTheory.L2DbarEstimates.Levi}, levi V~\leanlink{ReciprocityTheory.L2DbarEstimates.leviV}. Combining \emph{fl L inverse}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flL_inverse}, \emph{fl A levi V comp}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flA_leviV_comp}, \emph{levi V congr}~\leanlink{ReciprocityTheory.L2DbarEstimates.leviV_congr}, \emph{db eq wdb comp chart symm'}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.db_eq_wdb_comp_chart_symm'}, \emph{d eq wd comp chart symm'}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.d_eq_wd_comp_chart_symm'} with \emph{wd congr}~\leanlink{ReciprocityTheory.L2DbarEstimates.wd_congr} yields the stated result.
+\end{proof}
+
+\begin{proposition}[sec Of Iso F compat]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIsoF_compat}
+\[
+(hu : \mathrm{IsGen}) (hA : \mathrm{IsLB}) (hB : \mathrm{IsLB}) (a a' : A.ι) : rs (\mathrm{inf\_le\_left} : \mathrm{U} a ⊓ \mathrm{U} a' \le \mathrm{U} a) (secOfIsoF t hu hA hB a) = ((\mathrm{g} a a' : \Gamma (Y, \mathrm{U} a ⊓ \mathrm{U} a')ˣ) : \Gamma (Y, \mathrm{U} a ⊓ \mathrm{U} a')) * rs (\mathrm{inf\_le\_right} : \mathrm{U} a ⊓ \mathrm{U} a' \le \mathrm{U} a') (secOfIsoF t hu hA hB a')
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects sec Of Iso F~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIsoF}, div~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.div}, res~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.res}. Combining \emph{sec Of Iso F spec}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIsoF_spec}, \emph{iso Cand rs}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand_rs}, \emph{div Le}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.divLe}, \emph{g self res}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.g_self_res}, \emph{rs rs'}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.rs_rs'}, \emph{res trans eq inv mul of res eq one left}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.res_trans_eq_inv_mul_of_res_eq_one_left} with \emph{sec glue}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.sec_glue} yields the stated result.
+\end{proof}
+
+\begin{proposition}[fl L inverse]\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flL_inverse}
+\[
+(A : WeightedAtlas n Y ι La) (hD : \mathrm{D0} L w w0 s) (hF : \mathrm{Flat} w0 s De) (e : OpenPartialHomeomorph (\mathrm{Mset} w0 s De) (V n)) (he : IsChart n (flatStein A hD hF).z e) (v : V n) (hv : v \in \mathrm{target}) (i : ι) (hi : ((\mathrm{symm} v : \mathrm{Mset} w0 s De) : Y) \in (\mathrm{chart} i).source) : ContDiffAt \mathbb{C} \infty (\lambda v' \mapsto \mathrm{chart} i (\mathrm{symm} v' : Y)) v \land (\forall ᶠ v' in 𝓝 v, ((\mathrm{symm} v' : \mathrm{Mset} w0 s De) : Y) \in (\mathrm{chart} i).source) \land \forall ξ : V n, fderiv \mathbb{C} (\lambda v' \mapsto \mathrm{chart} i (\mathrm{symm} v' : Y)) v (jz A w0 s i (\mathrm{symm} v : Y) ξ) = ξ
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects flat Stein~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flatStein}, Weighted Atlas~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.WeightedAtlas}, jz~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.jz}, Is Chart~\leanlink{ReciprocityTheory.L2DbarEstimates.IsChart}. Combining \emph{fl L z Loc chart}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flL_zLoc_chart}, \emph{denominator ne zero on chart}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.denominator_ne_zero_on_chart}, \emph{jz det ne}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.jz_det_ne} with \emph{fl L z Loc cont Diff At}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flL_zLoc_contDiffAt} yields the stated result.
+\end{proof}
+
+\begin{proposition}[flat E is Compact]\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flatE_isCompact}
+\[
+(A : WeightedAtlas n Y ι La) (hD : \mathrm{D0} L w w0 s) (hF : \mathrm{Flat} w0 s De) (a : \mathbb{R} ) : IsCompact
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Weighted Atlas~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.WeightedAtlas}, V~\leanlink{ReciprocityTheory.L2DbarEstimates.V}. Combining \emph{e Fl le iff}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.eFl_le_iff} with \emph{is Compact flat K}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.isCompact_flatK} yields the stated result.
+\end{proof}
+
+\begin{lemma}[sec Of Iso F spec]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIsoF_spec}
+\[
+(hu : \mathrm{IsGen}) (hA : \mathrm{IsLB}) (hB : \mathrm{IsLB}) (a : A.ι) (b : B.ι) : rs (\mathrm{inf\_le\_left} : \mathrm{U} a ⊓ \mathrm{U} b \le \mathrm{U} a) (secOfIsoF t hu hA hB a) = isoCand u t a b
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects iso Cand~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand}, sec Of Iso F~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIsoF}, rs~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.rs}. Combining \emph{iso Cand compat}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand_compat}, \emph{sec glue}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.sec_glue} with \emph{cover inf}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.cover_inf} yields the stated result.
+\end{proof}
+
+\begin{lemma}[lintegral flat]\leanlink{ReciprocityTheory.L2DbarEstimates.Y.lintegral_flat}
+\[
+(A : WeightedAtlas n Y ι La) (hD : \mathrm{D0} L w w0 s) (hF : \mathrm{Flat} w0 s De) (\varphi : Y \to \mathbb{R} \ge 0\infty ) : \int ⁻ y in \mathrm{Mset} w0 s De, \varphi y ∂\mathrm{mu} = \int ⁻ x : \mathrm{Mset} w0 s De, \varphi x * \mathrm{ofReal} (\exp (\mathrm{ph} \mathrm{kap} (\mathrm{pick} x) x) / \| (jz A w0 s (\mathrm{pick} x) x).det\| ^ 2) ∂vol n (flatStein A hD hF).z
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects flat Stein~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flatStein}, Weighted Atlas~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.WeightedAtlas}, vol~\leanlink{ReciprocityTheory.L2DbarEstimates.vol}, jz~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.jz}. Combining \emph{fc mu piece}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.fc_mu_piece}, \emph{is Open Mset}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.isOpen_Mset} with \emph{exists chart}~\leanlink{ReciprocityTheory.L2DbarEstimates.exists_chart} yields the stated result.
+\end{proof}
+
+\begin{lemma}[sec Of Iso spec]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIso_spec}
+\[
+(hu : \mathrm{IsGen}) (hA : \mathrm{IsLB}) (hB : \mathrm{IsLB}) (a : A.ι) (b : B.ι) : rs (\mathrm{inf\_le\_left} : \mathrm{U} a ⊓ \mathrm{U} b \le \mathrm{U} a) ((secOfIso t hu hA hB).f a) = isoCand u t a b
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects sec Of Iso~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIso}, iso Cand~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand}, rs~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.rs}. The claim follows directly from \emph{sec Of Iso F spec}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIsoF_spec}.
+\end{proof}
+
+\begin{lemma}[holo flat iff]\leanlink{ReciprocityTheory.L2DbarEstimates.Y.holo_flat_iff}
+\[
+(A : WeightedAtlas n Y ι La) (hD : \mathrm{D0} L w w0 s) (hF : \mathrm{Flat} w0 s De) (u : Y \to \mathbb{C} ) : Holo n (flatStein A hD hF).z (\lambda y : \mathrm{Mset} w0 s De \mapsto u y) \iff \forall i, DifferentiableOn \mathbb{C} (u \circ (\mathrm{chart} i).symm) ((\mathrm{chart} i).target \cap (\mathrm{chart} i).symm ^{-1}' \mathrm{Mset} w0 s De)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects flat Stein~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.flatStein}, Weighted Atlas~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.WeightedAtlas}, Holo~\leanlink{ReciprocityTheory.L2DbarEstimates.Holo}. Combining \emph{fc is Open O}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.fc_isOpen_O}, \emph{fc z Loc cont Diff On}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.fc_zLoc_contDiffOn}, \emph{fc chart inv}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.fc_chart_inv}, \emph{fc chart fwd}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.fc_chart_fwd}, \emph{exists chart}~\leanlink{ReciprocityTheory.L2DbarEstimates.exists_chart}, \emph{fc z Loc chart}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.fc_zLoc_chart} with \emph{fc mem O}~\leanlink{ReciprocityTheory.L2DbarEstimates.Y.fc_mem_O} yields the stated result.
+\end{proof}
+
+\begin{lemma}[iso Cand rs]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand_rs}
+\[
+(a : A.ι) (b : B.ι) (hV : V \le \mathrm{U} a ⊓ \mathrm{U} b) : rs hV (isoCand u t a b) = (((res (\mathrm{trans} (divLe a b)) (\mathrm{s} (b, a)))^{-1} : \Gamma (Y, V)ˣ) : \Gamma (Y, V)) * rs (\mathrm{trans} \mathrm{inf\_le\_right}) (\mathrm{f} b)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects iso Cand~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand}, res~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.res}, rs~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.rs}. Combining \emph{div Le}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.divLe}, \emph{res res eq res trans'}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.res_res_eq_res_trans'} with \emph{rs rs'}~\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.rs_rs'} yields the stated result.
+\end{proof}
+
+\begin{lemma}[div Le]\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.divLe}
+\[
+(a : A.ι) (b : B.ι) : \mathrm{U} a ⊓ \mathrm{U} b \le (\mathrm{div} B A).U (b, a)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects div~\leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.div}. This result is established directly from standard library foundations within its local module (4~lines of formal proof).
+\end{proof}
+
+\section{Development / Etale Cohomology: graph Patch}
+
+This chapter encompasses 4,740 formal declarations (40,705~LOC). Primary proof idioms detected: \emph{Vandiver / cohomology}.
+4740 declarations (40,705 LOC) across 1 section(s); interface 235 in -> 1044 out; key exports: Sp, SShv, pl
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Inputs:} Shv~\leanlink{GlobalTheory.EtC.Shv}, sch~\leanlink{GlobalTheory.EtC.sch}, Sec~\leanlink{GlobalTheory.EtC.Sec}, tw~\leanlink{GlobalTheory.EtC.tw}, Spc~\leanlink{GlobalTheory.EtC.Spc}, res~\leanlink{GlobalTheory.EtC.Sec.res}.
+\par\noindent\emph{Outputs:} Sp~\leanlink{LateralTheory.E.E4.Sp}, SShv~\leanlink{LateralTheory.E.EtaleTopologySheaves.SShv}, pl~\leanlink{LateralTheory.E.E4.pl}, incl~\leanlink{LateralTheory.E.LeafDescendVCut.incl}, Et Top~\leanlink{LateralTheory.E.EtaleTopologySheaves.EtTop}, Is Curve~\leanlink{LateralTheory.E.E4.IsCurve}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[Hyp]\leanlink{LateralTheory.E.t_E2Cut.Hyp}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Cont]\leanlink{LateralTheory.E.t_E2Cut.Cont}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Stage B]\leanlink{LateralTheory.E.ProEqvPf.StageB}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Graph Patch]\leanlink{LateralTheory.E.LSurjChartPf.GraphPatch}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[is Limit fib]\leanlink{LateralTheory.E.StageBPf.isLimit_fib}
+\[
+(g : Y ⟶ Spec (\mathrm{of} A)) (D : J ⥤ Scheme. ) (c : Cone D) (ι : \forall j, \mathrm{obj} j ⟶ Y) (hι : \forall (f : j ⟶ k), \mathrm{map} f ≫ ι k = ι j) (j0 : J) (hl : IsLimit c) : IsLimit ((\pcOver .forget \_).mapCone ((\pcOver .pullback (cpt A)).mapCone (CO g D c ι hι j0)))
+\]
+\end{definition}
+
+\begin{definition}[Faces]\leanlink{LateralTheory.E.t_D3Cut.Faces}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[graph Patch]\leanlink{LateralTheory.E.LSurjChartPf.graphPatch}
+\[
+GraphPatch
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Graph Patch~\leanlink{LateralTheory.E.LSurjChartPf.GraphPatch}, H~\leanlink{GlobalTheory.EtC.H}. Combining \emph{bij iff}~\leanlink{LateralTheory.E.LSurjChartPf.bij_iff} with \emph{fg sup}~\leanlink{LateralTheory.E.LSurjChartPf.fg_sup} yields the stated result.
+\end{proof}
+
+\begin{theorem}[l Fin Of Fact]\leanlink{LateralTheory.E.LIdemLiftPf.lFinOfFact}
+\[
+LFinOfFact
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects LFin Of Fact~\leanlink{LateralTheory.E.LIdemLiftPf.LFinOfFact}. Combining \emph{exists monic of idem mod}~\leanlink{LateralTheory.E.LIdemLiftPf.exists_monic_of_idem_mod}, \emph{aeval sub mem of map eq}~\leanlink{LateralTheory.E.LIdemLiftPf.aeval_sub_mem_of_map_eq} with \emph{idem of mul eq zero}~\leanlink{LateralTheory.E.LIdemLiftPf.idem_of_mul_eq_zero} yields the stated result.
+\end{proof}
+
+\begin{proposition}[Stage B of]\leanlink{LateralTheory.E.StageBPf.StageB_of}
+\[
+StageB
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Stage B~\leanlink{LateralTheory.E.ProEqvPf.StageB}, is Limit fib~\leanlink{LateralTheory.E.StageBPf.isLimit_fib}, DO~\leanlink{LateralTheory.E.StageBPf.DO}, CO~\leanlink{LateralTheory.E.StageBPf.CO}. Combining \emph{fm comp}~\leanlink{LateralTheory.E.StageBPf.fm_comp}, \emph{indep}~\leanlink{LateralTheory.E.StageBPf.indep}, \emph{unit of}~\leanlink{LateralTheory.E.t_E2Cut.unit_of}, \emph{pp}~\leanlink{LateralTheory.E.StageBPf.pp}, \emph{qc of}~\leanlink{LateralTheory.E.StageBPf.qc_of} with \emph{qs of}~\leanlink{LateralTheory.E.StageBPf.qs_of} yields the stated result.
+\end{proof}
+
+\begin{proposition}[l Red]\leanlink{LateralTheory.E.LIdemLiftPf.lRed}
+\[
+LRed
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects LRed~\leanlink{LateralTheory.E.LIdemLiftPf.LRed}. This result is established directly from standard library foundations within its local module (35~lines of formal proof).
+\end{proof}
+
+\begin{proposition}[exists idem]\leanlink{LateralTheory.E.FiniteChartSurjPf.exists_idem}
+\[
+(I : Ideal A) (hid : \mathrm{IdemLiftInt} A I) (\varphi : A' \to ₐ A / I) (S : Subalgebra A A') (hP : \mathrm{ker} (\varphi .comp \mathrm{val}) \le \mathrm{ker} (\varphi .comp \mathrm{val}) ^ 2 ⊔ \mathrm{map} (algebraMap A S)) : \exists e : S, IsIdempotentElem e \land \varphi \mathrm{1} = 1 \land \forall p \in \mathrm{ker} (\varphi .comp \mathrm{val}), e * p \in \mathrm{map} (algebraMap A S)
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Idem Lift Int~\leanlink{LateralTheory.E.LChartPf.IdemLiftInt}. The claim follows directly from \emph{ker le span sub sup map}~\leanlink{LateralTheory.E.FiniteChartSurjPf.ker_le_span_sub_sup_map}.
+\end{proof}
+
+\begin{proposition}[ker zero]\leanlink{LateralTheory.E.TowerFinPf.ker_zero}
+\[
+(K : Cx R) (a : \mathbb{Z} ) (hK : \forall i, i < a \to IsZero (\mathrm{X} i)) : IsZero ((kernel (qK K a hK)).X a)
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects q K~\leanlink{LateralTheory.E.TowerFinPf.qK}, lim~\leanlink{LateralTheory.E.TowerFinPf.lim}, Cx~\leanlink{GlobalTheory.EtC.Cx}. The claim follows directly from \emph{q K iso}~\leanlink{LateralTheory.E.TowerFinPf.qK_iso}.
+\end{proof}
+
+\begin{lemma}[face of]\leanlink{LateralTheory.E.t_D3Cut.face_of}
+\[
+(X : Scheme. ) (g : Fin (m + 1) \to \Gamma ) (g' : Fin m \to \Gamma ) (j : Fin (m + 2)) (h : (nerve (SingleObj \Gamma )).\delta j (grpSimplex g) = grpSimplex g') : grpPt X g ≫ (BX \Gamma X).\delta j = grpPt X g'
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects op~\leanlink{GlobalTheory.EtC.SemiMap.op}, grp Pt~\leanlink{GlobalTheory.EtC.grpPt}, sch~\leanlink{GlobalTheory.EtC.sch}, grp Simplex~\leanlink{GlobalTheory.EtC.grpSimplex}. Combining \emph{lift fst}~\leanlink{LateralTheory.E.t_D3Cut.lift_fst} with \emph{prod ext}~\leanlink{LateralTheory.E.t_D3Cut.prod_ext} yields the stated result.
+\end{proof}
+
+\begin{lemma}[etale kunneth dictionary exists for sheaves in continuity assembly]\leanlink{LateralTheory.Fin.Cont.etale_kunneth_dictionary_exists_for_sheaves_in_continuity_assembly}
+\[
+\mathrm{Dict}
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Dict~\leanlink{LateralTheory.KummerTheory.Dict}. Combining \emph{etale kunneth dictionary normalized in continuity assembly}~\leanlink{LateralTheory.Fin.Cont.etale_kunneth_dictionary_normalized_in_continuity_assembly}, \emph{etale kunneth normalized dictionary exists in continuity assembly}~\leanlink{LateralTheory.Fin.Cont.etale_kunneth_normalized_dictionary_exists_in_continuity_assembly} with \emph{Dict of'}~\leanlink{LateralTheory.KummerTheory.Dict_of'} yields the stated result.
+\end{proof}
+
+\begin{lemma}[nerve succ]\leanlink{LateralTheory.E.t_D3Cut.nerve_succ}
+\[
+(g : Fin (m + 1) \to \Gamma ) (j : Fin (m + 1)) : (nerve (SingleObj \Gamma )).\delta \mathrm{succ} (grpSimplex g) = grpSimplex (\mathrm{contractNth} (\cdot * \cdot ) g)
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects grp Simplex~\leanlink{GlobalTheory.EtC.grpSimplex}. Combining \emph{nerve ext}~\leanlink{LateralTheory.E.t_D3Cut.nerve_ext}, \emph{gmap2}~\leanlink{LateralTheory.E.t_D3Cut.gmap2}, \emph{gmap1}~\leanlink{LateralTheory.E.t_D3Cut.gmap1} with \emph{val succ Above}~\leanlink{LateralTheory.E.t_D3Cut.val_succAbove} yields the stated result.
+\end{proof}
+
+\begin{lemma}[intersection Number base Change]\leanlink{LateralTheory.Fin.Cont.intersectionNumber_baseChange}
+\[
+\mathrm{Cont}
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Cont~\leanlink{LateralTheory.KummerTheory.Cont}. This result is established directly from standard library foundations within its local module (1~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[aeval mem]\leanlink{LateralTheory.DivDb.GradePf.aeval_mem}
+\[
+(g : Submodule C (Mat C N)) (hf : \forall Y \in g, f Y \in g) (q : C ) : \forall Y \in g, aeval f q Y \in g
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Mat~\leanlink{LateralTheory.DivDb.Mat}. The claim follows directly from \emph{pow mem}~\leanlink{LateralTheory.DivDb.GradePf.pow_mem}.
+\end{proof}
+
+\begin{lemma}[LIdem Lift of]\leanlink{LateralTheory.E.LIdemLiftPf.LIdemLift_of}
+\[
+(h1 : LFact) : \mathrm{LIdemLift}
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects LIdem Lift~\leanlink{LateralTheory.E.LChartPf.LIdemLift}, LFact~\leanlink{LateralTheory.E.LIdemLiftPf.LFact}. Combining \emph{l Fin Of Fact}~\leanlink{LateralTheory.E.LIdemLiftPf.lFinOfFact} with \emph{l Red}~\leanlink{LateralTheory.E.LIdemLiftPf.lRed} yields the stated result.
+\end{proof}
+
+\section{Formalism / Unipotent Adelic Quotients: regularity inductive step}
+
+This chapter encompasses 214 formal declarations (2,827~LOC). Primary proof idioms detected: \emph{p-adic / local harmonic analysis, Cauchy-Schwarz / Parseval, automorphic / spectral theory}.
+214 declarations (2,827 LOC) across 1 section(s); interface 1 in -> 27 out; key exports: E, dw, ev
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Inputs:} conv sq le~\leanlink{UpperTheory.Reformulated.B.Qj8.conv_sq_le}.
+\par\noindent\emph{Outputs:} E~\leanlink{ZetaZeros.D.EllReg.E}, dw~\leanlink{ZetaZeros.D.EllReg.dw}, ev~\leanlink{ZetaZeros.D.EllReg.ev}, locus Subgroup~\leanlink{HeckeCharacterZeroLocus.locusSubgroup}, AF~\leanlink{HeckeCharacterZeroLocus.ThmBIn.AF}, Ideles~\leanlink{HeckeValGen.Ideles}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[Decompose]\leanlink{ZetaZeros.D.EllReg.Decompose}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[local Idele]\leanlink{HeckeValGen.localIdele}
+\[
+(v : HeightOneSpectrum (𝓞 L)) : (\mathrm{adicCompletion} L)ˣ \to * Ideles L
+\]
+\end{definition}
+
+\begin{definition}[Weak Fourier]\leanlink{ZetaZeros.D.EllReg.WeakFourier}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Conv Bound]\leanlink{ZetaZeros.D.EllReg.ConvBound}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[int AE]\leanlink{HeckeCharacterZeroLocus.ThmBIn.intAE}
+\[
+AddSubgroup (Af F \otimes E)
+\]
+\end{definition}
+
+\begin{definition}[int Af]\leanlink{HeckeCharacterZeroLocus.ThmBIn.intAf}
+\[
+\mathcal{P} (Af F)
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[regularity inductive step]\leanlink{ZetaZeros.D.EllReg.regularity_inductive_step}
+\[
+StepCore
+\]
+\end{theorem}
+\begin{proof}
+The argument operates on the structural objects Step Core~\leanlink{ZetaZeros.D.EllReg.StepCore}. Combining \emph{level i}~\leanlink{ZetaZeros.D.EllReg.level_i}, \emph{ell wn}~\leanlink{ZetaZeros.D.EllReg.ell_wn}, \emph{weighted Norm le unshifted}~\leanlink{ZetaZeros.D.EllReg.weightedNorm_le_unshifted}, \emph{nrm eq wn}~\leanlink{ZetaZeros.D.EllReg.nrm_eq_wn}, \emph{symb ineq}~\leanlink{ZetaZeros.D.EllReg.symb_ineq}, \emph{absorb}~\leanlink{ZetaZeros.D.EllReg.absorb}, \emph{wn lt top iff}~\leanlink{ZetaZeros.D.EllReg.wn_lt_top_iff} with \emph{exists pos le}~\leanlink{ZetaZeros.D.EllReg.exists_pos_le} yields the stated result.
+\end{proof}
+
+\begin{theorem}[elliptic regularity of parts]\leanlink{ZetaZeros.D.EllReg.elliptic_regularity_of_parts}
+\[
+Internal
+\]
+\end{theorem}
+\begin{proof}
+Combining \emph{regularity inductive step}~\leanlink{ZetaZeros.D.EllReg.regularity_inductive_step}, \emph{weak Equation Fourier}~\leanlink{ZetaZeros.D.EllReg.weakEquationFourier}, \emph{frozen Decomposition Of Parts}~\leanlink{ZetaZeros.D.EllReg.frozenDecompositionOfParts}, \emph{frozen Kernel Small}~\leanlink{ZetaZeros.D.EllReg.frozenKernelSmall}, \emph{sobolev Weight Lipschitz}~\leanlink{ZetaZeros.D.EllReg.sobolevWeightLipschitz}, \emph{convolution bound}~\leanlink{ZetaZeros.D.EllReg.convolution_bound}, \emph{adjoint Pairing Fourier}~\leanlink{ZetaZeros.D.EllReg.adjointPairingFourier} with \emph{symbol Lower Bound}~\leanlink{ZetaZeros.D.EllReg.symbolLowerBound} yields the stated result.
+\end{proof}
+
+\begin{proposition}[weak Equation Fourier]\leanlink{ZetaZeros.D.EllReg.weakEquationFourier}
+\[
+WeakFourier
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Weak Fourier~\leanlink{ZetaZeros.D.EllReg.WeakFourier}. Combining \emph{lb good}~\leanlink{ZetaZeros.D.EllReg.WF.lb_good}, \emph{ev eq cf}~\leanlink{ZetaZeros.D.EllReg.WF.ev_eq_cf}, \emph{cf good}~\leanlink{ZetaZeros.D.EllReg.WF.cf_good}, \emph{cont Diff e F}~\leanlink{ZetaZeros.D.EllReg.WF.contDiff_eF}, \emph{sb good}~\leanlink{ZetaZeros.D.EllReg.WF.sb_good}, \emph{smooth cut}~\leanlink{ZetaZeros.D.EllReg.WF.smooth_cut}, \emph{swap4}~\leanlink{ZetaZeros.D.EllReg.WF.swap4} with \emph{cont Diff of Real'}~\leanlink{ZetaZeros.D.EllReg.WF.contDiff_ofReal'} yields the stated result.
+\end{proof}
+
+\begin{proposition}[frozen Decomposition Of Parts]\leanlink{ZetaZeros.D.EllReg.frozenDecompositionOfParts}
+\[
+DecomposeOf
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects tr Op~\leanlink{ZetaZeros.D.EllReg.trOp}, dw~\leanlink{ZetaZeros.D.EllReg.dw}, Decompose Of~\leanlink{ZetaZeros.D.EllReg.DecomposeOf}. Combining \emph{tr Op add}~\leanlink{ZetaZeros.D.EllReg.Dec.trOp_add}, \emph{psi props}~\leanlink{ZetaZeros.D.EllReg.Dec.psi_props}, \emph{dw const mul}~\leanlink{ZetaZeros.D.EllReg.Dec.dw_const_mul}, \emph{cont Diff mul of tsupport}~\leanlink{ZetaZeros.D.EllReg.Dec.contDiff_mul_of_tsupport}, \emph{dw zero}~\leanlink{ZetaZeros.D.EllReg.Dec.dw_zero}, \emph{cont Diff e F}~\leanlink{ZetaZeros.D.EllReg.Dec.contDiff_eF} with \emph{prod neg eq}~\leanlink{ZetaZeros.D.EllReg.Dec.prod_neg_eq} yields the stated result.
+\end{proof}
+
+\begin{proposition}[frozen Kernel Small]\leanlink{ZetaZeros.D.EllReg.frozenKernelSmall}
+\[
+KernelSmall
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Kernel Small~\leanlink{ZetaZeros.D.EllReg.KernelSmall}, deriv L1 Norm~\leanlink{ZetaZeros.D.EllReg.derivL1Norm}. Combining \emph{deriv L1 Norm rescaled difference le}~\leanlink{ZetaZeros.D.EllReg.derivL1Norm_rescaled_difference_le}, \emph{norm fourier le rpow}~\leanlink{ZetaZeros.D.EllReg.norm_fourier_le_rpow}, \emph{lintegral weight fourier lt top}~\leanlink{ZetaZeros.D.EllReg.lintegral_weight_fourier_lt_top}, \emph{norm fourier comp dil}~\leanlink{ZetaZeros.D.EllReg.norm_fourier_comp_dil}, \emph{exists smooth ext}~\leanlink{ZetaZeros.D.EllReg.exists_smooth_ext}, \emph{lintegral dil weight}~\leanlink{ZetaZeros.D.EllReg.lintegral_dil_weight}, \emph{norm lt of psi ne}~\leanlink{ZetaZeros.D.EllReg.norm_lt_of_psi_ne} with \emph{deriv L1 Norm nonneg}~\leanlink{ZetaZeros.D.EllReg.derivL1Norm_nonneg} yields the stated result.
+\end{proof}
+
+\begin{proposition}[sobolev Weight Lipschitz]\leanlink{ZetaZeros.D.EllReg.sobolevWeightLipschitz}
+\[
+WeightDiff
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects Weight Diff~\leanlink{ZetaZeros.D.EllReg.WeightDiff}, om~\leanlink{ZetaZeros.D.EllReg.om}. Combining \emph{om shift}~\leanlink{ZetaZeros.D.EllReg.WD.om_shift} with \emph{deriv bound}~\leanlink{ZetaZeros.D.EllReg.WD.deriv_bound} yields the stated result.
+\end{proof}
+
+\begin{lemma}[convolution bound]\leanlink{ZetaZeros.D.EllReg.convolution_bound}
+\[
+ConvBound
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Conv Bound~\leanlink{ZetaZeros.D.EllReg.ConvBound}, nrm~\leanlink{ZetaZeros.D.EllReg.nrm}, om~\leanlink{ZetaZeros.D.EllReg.om}, E~\leanlink{ZetaZeros.D.EllReg.E}. Combining \emph{conv young}~\leanlink{ZetaZeros.D.EllReg.conv_young} with \emph{om nonneg}~\leanlink{ZetaZeros.D.EllReg.om_nonneg} yields the stated result.
+\end{proof}
+
+\begin{lemma}[adjoint Pairing Fourier]\leanlink{ZetaZeros.D.EllReg.adjointPairingFourier}
+\[
+PairingFourier
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Pairing Fourier~\leanlink{ZetaZeros.D.EllReg.PairingFourier}, tr Op~\leanlink{ZetaZeros.D.EllReg.trOp}, dw~\leanlink{ZetaZeros.D.EllReg.dw}, e F~\leanlink{ZetaZeros.D.EllReg.eF}. Combining \emph{pf parseval}~\leanlink{ZetaZeros.D.EllReg.pf_parseval}, \emph{pf fourier dw}~\leanlink{ZetaZeros.D.EllReg.pf_fourier_dw}, \emph{pf dw smooth}~\leanlink{ZetaZeros.D.EllReg.pf_dw_smooth}, \emph{pf modulate}~\leanlink{ZetaZeros.D.EllReg.pf_modulate}, \emph{pf sign}~\leanlink{ZetaZeros.D.EllReg.pf_sign} with \emph{pf e F smooth}~\leanlink{ZetaZeros.D.EllReg.pf_eF_smooth} yields the stated result.
+\end{proof}
+
+\begin{lemma}[symbol Lower Bound]\leanlink{ZetaZeros.D.EllReg.symbolLowerBound}
+\[
+SymbLower
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Symb Lower~\leanlink{ZetaZeros.D.EllReg.SymbLower}, E~\leanlink{ZetaZeros.D.EllReg.E}. The claim follows directly from \emph{symb smul covector eq pow ord mul}~\leanlink{ZetaZeros.D.EllReg.symb_smul_covector_eq_pow_ord_mul}.
+\end{proof}
+
+\begin{lemma}[weighted Norm Limit]\leanlink{ZetaZeros.D.EllReg.weightedNormLimit}
+\[
+EpsLimit
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Eps Limit~\leanlink{ZetaZeros.D.EllReg.EpsLimit}, nrm~\leanlink{ZetaZeros.D.EllReg.nrm}, om~\leanlink{ZetaZeros.D.EllReg.om}, E~\leanlink{ZetaZeros.D.EllReg.E}. The claim follows directly from \emph{om eps zero}~\leanlink{ZetaZeros.D.EllReg.om_eps_zero}.
+\end{proof}
+
+\begin{lemma}[smooth Of Sobolev All]\leanlink{ZetaZeros.D.EllReg.smoothOfSobolevAll}
+\[
+MomentsSmooth
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Moments Smooth~\leanlink{ZetaZeros.D.EllReg.MomentsSmooth}, E~\leanlink{ZetaZeros.D.EllReg.E}. The claim follows directly from \emph{moments integrable of nrm}~\leanlink{ZetaZeros.D.EllReg.moments_integrable_of_nrm}.
+\end{proof}
+
+\begin{lemma}[adjoint Pairing Local]\leanlink{ZetaZeros.D.EllReg.adjointPairingLocal}
+\[
+PairingLocal
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Pairing Local~\leanlink{ZetaZeros.D.EllReg.PairingLocal}, tr Op~\leanlink{ZetaZeros.D.EllReg.trOp}. The claim follows directly from \emph{dw eventually Eq}~\leanlink{ZetaZeros.D.EllReg.dw_eventuallyEq}.
+\end{proof}
+
+\section{Reciprocity Theory: mem pow comap constant Coeff iff}
+
+This chapter encompasses 42 formal declarations (233~LOC). Primary proof idioms detected: \emph{p-adic / local harmonic analysis}.
+42 declarations (233 LOC) across 3 section(s); interface 1 in -> 30 out; key exports: ofIntVec, eC, SiegelH
+\begin{quote}\small
+\textbf{Formal Interface ($\mathrm{Inputs} \vdash \mathrm{Outputs}$):}
+\par\noindent\emph{Inputs:} is Compact adic Completion Integers~\leanlink{PI.AdicCompletionValuation.isCompact_adicCompletionIntegers}.
+\par\noindent\emph{Outputs:} of Int Vec~\leanlink{ReciprocityTheory.PTheta.ofIntVec}, e C~\leanlink{ReciprocityTheory.PTheta.eC}, Siegel H~\leanlink{ReciprocityTheory.PTheta.SiegelH}, of Real Vec~\leanlink{ReciprocityTheory.PTheta.ofRealVec}, theta~\leanlink{ReciprocityTheory.PTheta.theta}, period Lattice~\leanlink{ReciprocityTheory.PTheta.periodLattice}.
+\end{quote}
+
+\subsection{Core Definitions and Structures}
+\begin{definition}[period Lattice]\leanlink{ReciprocityTheory.PTheta.periodLattice}
+\[
+(\tau : Matrix ι ι \mathbb{C} ) : AddSubgroup (ι \to \mathbb{C} )
+\]
+\end{definition}
+
+\begin{definition}[Theta Holo Statement]\leanlink{ReciprocityTheory.PTheta.ThetaHoloStatement}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Theta MTest Statement]\leanlink{ReciprocityTheory.PTheta.ThetaMTestStatement}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Theta Real Transl Statement]\leanlink{ReciprocityTheory.PTheta.ThetaRealTranslStatement}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[Theta Int Char Statement]\leanlink{ReciprocityTheory.PTheta.ThetaIntCharStatement}
+\[
+\mathrm{Prop}
+\]
+\end{definition}
+
+\begin{definition}[aut Factor]\leanlink{ReciprocityTheory.PTheta.autFactor}
+\[
+(a b : ι \to \mathbb{R} ) (\tau : Matrix ι ι \mathbb{C} ) (n n' : ι \to \mathbb{Z} ) (z : ι \to \mathbb{C} ) : \mathbb{C}
+\]
+\end{definition}
+
+\subsection{Main Results}
+\begin{theorem}[mem pow comap constant Coeff iff]\leanlink{ReciprocityTheory.P1.mem_pow_comap_constantCoeff_iff}
+\[
+(n : \mathbb{N} ) (f : A⟦X⟧) : f \in \mathrm{comap} (constantCoeff (R := A)) ^ n \iff \forall i, coeff i f \in I ^ (n - i)
+\]
+\end{theorem}
+\begin{proof}
+The claim follows directly from \emph{map C sup span X}~\leanlink{ReciprocityTheory.P1.map_C_sup_span_X}.
+\end{proof}
+
+\begin{theorem}[is Adic Complete comap constant Coeff]\leanlink{ReciprocityTheory.P1.isAdicComplete_comap_constantCoeff}
+\[
+: IsAdicComplete (\mathrm{comap} (constantCoeff (R := A))) A⟦X⟧
+\]
+\end{theorem}
+\begin{proof}
+Combining \emph{is Precomplete comap constant Coeff}~\leanlink{ReciprocityTheory.P1.isPrecomplete_comap_constantCoeff} with \emph{is Hausdorff comap constant Coeff}~\leanlink{ReciprocityTheory.P1.isHausdorff_comap_constantCoeff} yields the stated result.
+\end{proof}
+
+\begin{proposition}[is Precomplete comap constant Coeff]\leanlink{ReciprocityTheory.P1.isPrecomplete_comap_constantCoeff}
+\[
+: IsPrecomplete (\mathrm{comap} (constantCoeff (R := A))) A⟦X⟧
+\]
+\end{proposition}
+\begin{proof}
+The claim follows directly from \emph{mem pow comap constant Coeff iff}~\leanlink{ReciprocityTheory.P1.mem_pow_comap_constantCoeff_iff}.
+\end{proof}
+
+\begin{proposition}[map C sup span X]\leanlink{ReciprocityTheory.P1.map_C_sup_span_X}
+\[
+\mathrm{map} (C : A \to +* A⟦X⟧) ⊔ \mathrm{span} = \mathrm{comap} (constantCoeff (R := A))
+\]
+\end{proposition}
+\begin{proof}
+This result is established directly from standard library foundations within its local module (13~lines of formal proof).
+\end{proof}
+
+\begin{proposition}[is Hausdorff comap constant Coeff]\leanlink{ReciprocityTheory.P1.isHausdorff_comap_constantCoeff}
+\[
+: IsHausdorff (\mathrm{comap} (constantCoeff (R := A))) A⟦X⟧
+\]
+\end{proposition}
+\begin{proof}
+The claim follows directly from \emph{mem pow comap constant Coeff iff}~\leanlink{ReciprocityTheory.P1.mem_pow_comap_constantCoeff_iff}.
+\end{proof}
+
+\begin{proposition}[theta Quasi Period holds]\leanlink{ReciprocityTheory.PTheta.thetaQuasiPeriod_holds}
+\[
+ThetaQuasiPeriodStatement
+\]
+\end{proposition}
+\begin{proof}
+The argument operates on the structural objects aut Factor~\leanlink{ReciprocityTheory.PTheta.autFactor}, Theta Quasi Period Statement~\leanlink{ReciprocityTheory.PTheta.ThetaQuasiPeriodStatement}, e C~\leanlink{ReciprocityTheory.PTheta.eC}, of Real Vec~\leanlink{ReciprocityTheory.PTheta.ofRealVec}. Combining \emph{theta Int Char holds}~\leanlink{ReciprocityTheory.PTheta.thetaIntChar_holds}, \emph{theta Real Transl holds}~\leanlink{ReciprocityTheory.PTheta.thetaRealTransl_holds}, \emph{e C int}~\leanlink{ReciprocityTheory.PTheta.eC_int} with \emph{e C add}~\leanlink{ReciprocityTheory.PTheta.eC_add} yields the stated result.
+\end{proof}
+
+\begin{lemma}[theta Int Char holds]\leanlink{ReciprocityTheory.PTheta.thetaIntChar_holds}
+\[
+ThetaIntCharStatement
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Theta Int Char Statement~\leanlink{ReciprocityTheory.PTheta.ThetaIntCharStatement}, theta Term~\leanlink{ReciprocityTheory.PTheta.thetaTerm}, theta~\leanlink{ReciprocityTheory.PTheta.theta}, e C~\leanlink{ReciprocityTheory.PTheta.eC}. Combining \emph{e C int}~\leanlink{ReciprocityTheory.PTheta.eC_int}, \emph{e C add}~\leanlink{ReciprocityTheory.PTheta.eC_add}, \emph{shift Vec add int}~\leanlink{ReciprocityTheory.PTheta.shiftVec_add_int} with \emph{shift Vec dot int}~\leanlink{ReciprocityTheory.PTheta.shiftVec_dot_int} yields the stated result.
+\end{proof}
+
+\begin{lemma}[theta Real Transl holds]\leanlink{ReciprocityTheory.PTheta.thetaRealTransl_holds}
+\[
+ThetaRealTranslStatement
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects Theta Real Transl Statement~\leanlink{ReciprocityTheory.PTheta.ThetaRealTranslStatement}, theta Term~\leanlink{ReciprocityTheory.PTheta.thetaTerm}, theta~\leanlink{ReciprocityTheory.PTheta.theta}, of Real Vec~\leanlink{ReciprocityTheory.PTheta.ofRealVec}. Combining \emph{e C add}~\leanlink{ReciprocityTheory.PTheta.eC_add} with \emph{shift Vec add char}~\leanlink{ReciprocityTheory.PTheta.shiftVec_add_char} yields the stated result.
+\end{proof}
+
+\begin{lemma}[e C eq of int]\leanlink{ReciprocityTheory.PTheta.eC_eq_of_int}
+\[
+(x y : \mathbb{C} ) (k : \mathbb{Z} ) (h : x = y + k) : eC x = eC y
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects e C~\leanlink{ReciprocityTheory.PTheta.eC}. This result is established directly from standard library foundations within its local module (8~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[e C int]\leanlink{ReciprocityTheory.PTheta.eC_int}
+\[
+(k : \mathbb{Z} ) : eC (k : \mathbb{C} ) = 1
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects e C~\leanlink{ReciprocityTheory.PTheta.eC}. This result is established directly from standard library foundations within its local module (4~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[e C add]\leanlink{ReciprocityTheory.PTheta.eC_add}
+\[
+(x y : \mathbb{C} ) : eC (x + y) = eC x * eC y
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects e C~\leanlink{ReciprocityTheory.PTheta.eC}. This result is established directly from standard library foundations within its local module (4~lines of formal proof).
+\end{proof}
+
+\begin{lemma}[shift Vec add char]\leanlink{ReciprocityTheory.PTheta.shiftVec_add_char}
+\[
+(a u : ι \to \mathbb{R} ) (l : ι \to \mathbb{Z} ) : shiftVec (a + u) l = shiftVec a l + ofRealVec u
+\]
+\end{lemma}
+\begin{proof}
+The argument operates on the structural objects of Real Vec~\leanlink{ReciprocityTheory.PTheta.ofRealVec}, shift Vec~\leanlink{ReciprocityTheory.PTheta.shiftVec}. This result is established directly from standard library foundations within its local module (5~lines of formal proof).
+\end{proof}
+
+\appendix
+\section{Symbol Glossary}
+Table~\ref{tab:glossary} anchors each global LaTeX notation macro to its underlying Lean~4 definition and source module.
+
+\begin{table}[ht]
+\centering
+\caption{Global Symbol Registry}\label{tab:glossary}
+\small
+\begin{tabular}{llll}
+\toprule
+Symbol & Macro & Lean Constant & Module \\
+\midrule
+$\pcSp$ & \texttt{\detokenize{\pcSp}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Sp} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.IsCompletedStrictHens} \\
+$\pcLB$ & \texttt{\detokenize{\pcLB}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.SemiabelianSchemes.CubicalStructures.CubeSymmetricSwapFirst} \\
+$\pcK$ & \texttt{\detokenize{\pcK}} & \leanlink{Formalism.BasicNotions.ColumnChain.K} & \leanmod{Formalism.LocalRingCardinality.DataKernels} \\
+$\pcSpMap$ & \texttt{\detokenize{\pcSpMap}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.spMap} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.IsCompletedStrictHens} \\
+$\pcOver$ & \texttt{\detokenize{\pcOver}} & \leanlink{GlobalTheory.Ex.ArcF.Over} & \leanmod{Development.AbelianVarietyTheory.Definitions.Degenerations.CharZeroOfIsPrimitiveRoot} \\
+$\pcD$ & \texttt{\detokenize{\pcD}} & \leanlink{Formalism.MainNotions.S.RowsAut.D} & \leanmod{Formalism.SharpRestriction.CuspSpanNormBounds.GlobAut} \\
+$\pcHw$ & \texttt{\detokenize{\pcHw}} & \leanlink{Formalism.GradedWeylDivisibility.hw} & \leanmod{Formalism.GradedWeylDivisibility.StatementA} \\
+$\pcF$ & \texttt{\detokenize{\pcF}} & \leanlink{Formalism.HC.HostRaw.F} & \leanmod{Formalism.SharpRestriction.RamificationFrobenius.TotientGaloisClasses.ConjEMemHostFIff} \\
+$\pcPl$ & \texttt{\detokenize{\pcPl}} & \leanlink{GlobalTheory.BCT.Pl} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.SimpleTwistedTraceFormulaStable} \\
+$\pcX$ & \texttt{\detokenize{\pcX}} & \leanlink{Formalism.BasicNotions.LocWach.X} & \leanmod{Formalism.SharpRestriction.LevelLetterCocycles.DataNLoc} \\
+$\pcGA$ & \texttt{\detokenize{\pcGA}} & \leanlink{GlobalTheory.CuspRep.GA} & \leanmod{Development.AbelianVarietyTheory.Definitions.AutomorphicMembership.DifferentiableAtChart} \\
+$\pcSm$ & \texttt{\detokenize{\pcSm}} & \leanlink{GlobalTheory.CuspRep.Sm} & \leanmod{Development.AbelianVarietyTheory.Definitions.AutomorphicMembership.DifferentiableAtChart} \\
+$\pcIsAbelianScheme$ & \texttt{\detokenize{\pcIsAbelianScheme}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Semi.IsAbelianScheme} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.SemiabelianSchemes.AbelianSchemeQuotients.IsAbelianScheme} \\
+$\pcM$ & \texttt{\detokenize{\pcM}} & \leanlink{Formalism.MainNotions.G.Level.M} & \leanmod{Formalism.SharpRestriction.GrowthBounds.DataG} \\
+$\pcMat$ & \texttt{\detokenize{\pcMat}} & \leanlink{PositivityTheory.RgTw.Mat} & \leanmod{Development.WeilBound.RepresentationTheoryGL.ArchimedeanBaseChange.DiscreteSeriesTopClasses.IsInvOne} \\
+$\pcA$ & \texttt{\detokenize{\pcA}} & \leanlink{GlobalTheory.Ex.Match.A} & \leanmod{Development.AbelianVarietyTheory.Definitions.Degenerations.NotAllMatchRankZero} \\
+$\pcAA$ & \texttt{\detokenize{\pcAA}} & \leanlink{Formalism.BasicNotions.Scale.A} & \leanmod{Formalism.LocalRingCardinality.DataParams₂} \\
+$\pcHu$ & \texttt{\detokenize{\pcHu}} & \leanlink{Formalism.L2.DIV.RecNums.hu} & \leanmod{Formalism.LocalToGlobal.Divisibility.Inputs} \\
+$\pcMRing$ & \texttt{\detokenize{\pcMRing}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.MRing} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.IsIntersectionFamily} \\
+$\pcV$ & \texttt{\detokenize{\pcV}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Coeff.V} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.Clauses} \\
+$\pcLinComb$ & \texttt{\detokenize{\pcLinComb}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.LinComb} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.SemiabelianSchemes.CubicalStructures.CubeSymmetricSwapFirst} \\
+$\pcL$ & \texttt{\detokenize{\pcL}} & \leanlink{GlobalTheory.LGrp.LeviDatum.L} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.LineOppositeParabolicUnitaryLeviSectionEq} \\
+$\pcW$ & \texttt{\detokenize{\pcW}} & \leanlink{Formalism.MainNotions.Lnk.Mod.w} & \leanmod{Formalism.SharpRestriction.GlobalSchurBounds.QuadraticLogDerivCongr} \\
+$\pcFinExt$ & \texttt{\detokenize{\pcFinExt}} & \leanlink{Formalism.BasicNotions.Loc.FinExt} & \leanmod{Formalism.SharpRestriction.LevelLetterCocycles.DataNLoc} \\
+$\pcLA$ & \texttt{\detokenize{\pcLA}} & \leanlink{Formalism.BasicNotions.Scale.L} & \leanmod{Formalism.LocalRingCardinality.DataParams₂} \\
+$\pcVA$ & \texttt{\detokenize{\pcVA}} & \leanlink{Formalism.BasicNotions.Host.v} & \leanmod{Formalism.LocalRingCardinality.DataHost} \\
+$\pcShv$ & \texttt{\detokenize{\pcShv}} & \leanlink{GlobalTheory.EtC.Shv} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.GalMapMul} \\
+$\pcGen$ & \texttt{\detokenize{\pcGen}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.Gen} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.SemiabelianSchemes.CubicalStructures.CubeSymmetricSwapFirst} \\
+$\pcGLw$ & \texttt{\detokenize{\pcGLw}} & \leanlink{GlobalTheory.BCT.GLw} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.SimpleTwistedTraceFormulaStable} \\
+$\pcSec$ & \texttt{\detokenize{\pcSec}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.Sec} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.SemiabelianSchemes.CubicalStructures.CubeSymmetricSwapFirst} \\
+$\pcAf$ & \texttt{\detokenize{\pcAf}} & \leanlink{GlobalTheory.CuspRep.Af} & \leanmod{Development.AbelianVarietyTheory.Definitions.AutomorphicMembership.DifferentiableAtChart} \\
+$\pcSecA$ & \texttt{\detokenize{\pcSecA}} & \leanlink{GlobalTheory.EtC.Sec} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.GalMapMul} \\
+$\pcIsGrpPullback$ & \texttt{\detokenize{\pcIsGrpPullback}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.IsGrpPullback} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.IsGrpPullback} \\
+$\pcAd$ & \texttt{\detokenize{\pcAd}} & \leanlink{GlobalTheory.CuspRep.Ad} & \leanmod{Development.AbelianVarietyTheory.Definitions.AutomorphicMembership.DifferentiableAtChart} \\
+$\pcLBIso$ & \texttt{\detokenize{\pcLBIso}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.LBIso} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.IsGrpPullback} \\
+$\pcGood$ & \texttt{\detokenize{\pcGood}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Good} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.ValCalc} \\
+$\pcIrrGL$ & \texttt{\detokenize{\pcIrrGL}} & \leanlink{GlobalTheory.LocGL.IrrGL} & \leanmod{Development.AbelianVarietyTheory.Definitions.NonGaloisDescent.NonemptyEquivMultiProdOne} \\
+$\pcWA$ & \texttt{\detokenize{\pcWA}} & \leanlink{Formalism.L2.Pj.DeltaDat.w} & \leanmod{Formalism.LocalToGlobal.ProjectiveLattices.ThShort} \\
+$\pcSpc$ & \texttt{\detokenize{\pcSpc}} & \leanlink{GlobalTheory.EtC.Spc} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.GalMapMul} \\
+$\pcC$ & \texttt{\detokenize{\pcC}} & \leanlink{Formalism.L2.Indef.Tree.OnObj.C} & \leanmod{Formalism.LocalToGlobal.IndefiniteForms.IndefiniteTree.ExampleSatisfiesConditionsAtFive} \\
+$\pcB$ & \texttt{\detokenize{\pcB}} & \leanlink{GlobalTheory.Ex.Match.B} & \leanmod{Development.AbelianVarietyTheory.Definitions.Degenerations.NotAllMatchRankZero} \\
+$\pcIsSmooth$ & \texttt{\detokenize{\pcIsSmooth}} & \leanlink{GlobalTheory.PRep.IsSmooth} & \leanmod{Development.AbelianVarietyTheory.Definitions.Foundations.SmoothPartStable} \\
+$\pcGs$ & \texttt{\detokenize{\pcGs}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.gs} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.ValCalc} \\
+$\pcOm$ & \texttt{\detokenize{\pcOm}} & \leanlink{Formalism.BasicNotions.Loc.Om} & \leanmod{Formalism.SharpRestriction.LevelLetterCocycles.DataNLoc} \\
+$\pcGLs$ & \texttt{\detokenize{\pcGLs}} & \leanlink{PositivityTheory.RgBcC.GLs} & \leanmod{Development.WeilBound.RepresentationTheoryGL.ArchimedeanBaseChange.ArchimedeanBaseChangeProof.ArchimedeanGelfandKernels.IsMultZero} \\
+$\pcN$ & \texttt{\detokenize{\pcN}} & \leanlink{GlobalTheory.AnArc.N} & \leanmod{Development.AbelianVarietyTheory.Definitions.ArchimedeanThetaValues.DegeneratingToriPeriodMapEqBaseOfYEqZero} \\
+$\pcGm$ & \texttt{\detokenize{\pcGm}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.gm} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.PullCub} \\
+$\pcMarkedIdealWithBoundary$ & \texttt{\detokenize{\pcMarkedIdealWithBoundary}} & \leanlink{FunctorialResolution.EmbeddedResolution.MarkedIdealWithBoundary} & \leanmod{Development.ResolutionOfSingularities.EmbeddedResolution.IdealPrincipalization.MarkedBlowupSequence.MarkedSequenceOfBlowups} \\
+$\pcG$ & \texttt{\detokenize{\pcG}} & \leanlink{Formalism.ConjugateSelfDual.G} & \leanmod{Formalism.ConjugateSelfDual.Statement} \\
+$\pcR$ & \texttt{\detokenize{\pcR}} & \leanlink{Formalism.BasicNotions.DivData.R} & \leanmod{Formalism.LocalRingCardinality.DataArith} \\
+$\pcNA$ & \texttt{\detokenize{\pcNA}} & \leanlink{Formalism.BasicNotions.Ranks.N} & \leanmod{Formalism.LocalRingCardinality.Params} \\
+$\pcSch$ & \texttt{\detokenize{\pcSch}} & \leanlink{GlobalTheory.EtC.sch} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.GalMapMul} \\
+$\pcCinf$ & \texttt{\detokenize{\pcCinf}} & \leanlink{GlobalTheory.CuspRep.Cinf} & \leanmod{Development.AbelianVarietyTheory.Definitions.AutomorphicMembership.DifferentiableAtChart} \\
+$\pcVB$ & \texttt{\detokenize{\pcVB}} & \leanlink{Formalism.L2.Col.CoefPk.V} & \leanmod{Formalism.LocalToGlobal.Columns.CoefCol} \\
+$\pcDatum$ & \texttt{\detokenize{\pcDatum}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.Datum} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.BirationalGeometry.ToroidalCompactification.TwoWeightEqOneAddRoot} \\
+$\pcHTGroup$ & \texttt{\detokenize{\pcHTGroup}} & \leanlink{GlobalTheory.LKTrip.HTGroup} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.IsCyclotomicExtensionQI} \\
+$\pcIso$ & \texttt{\detokenize{\pcIso}} & \leanlink{ReciprocityTheory.ChartRestriction.G.Semi.LB.Iso} & \leanmod{ReciprocityTheory.ReductiveGroups.ArithmeticGeometry.SemiabelianSchemes.CubicalStructures.CubeSymmetricSwapFirst} \\
+$\pcIsSplitAt$ & \texttt{\detokenize{\pcIsSplitAt}} & \leanlink{GlobalTheory.UnitaryBC.IsSplitAt} & \leanmod{Development.AbelianVarietyTheory.PublishedTheorems.GaloisCohomology₂.BaseChangeDefiniteUnitary} \\
+$\pcGK$ & \texttt{\detokenize{\pcGK}} & \leanlink{Formalism.BasicNotions.Loc.GK} & \leanmod{Formalism.SharpRestriction.LevelLetterCocycles.DataNLoc} \\
+$\pcRes$ & \texttt{\detokenize{\pcRes}} & \leanlink{GlobalTheory.EtC.Sec.res} & \leanmod{Development.AbelianVarietyTheory.Definitions.Divisors.PullHlComp} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Compression and Deduplication Breakdown}
+Reverse-dependency reachability pruning removes 877,924 unreachable declarations (11,997,100~LOC). Within the reachable core, canonical type-signature hashing identifies 13,704 duplicate signature groups accounting for 25,749 redundant declarations (367,906~LOC of candidate consolidation).
+
+\section{Formal Verification and Axiom Summary}
+Root target declarations audited: \leanlink{LFunction_eq_zero_re}, \leanlink{LFunction_eq_zero_re_of_isPrimitive}, \leanlink{LFunction_ne_zero_of_half_lt_re}, \leanlink{riemannHypothesis}, \leanlink{riemannZeta_eq_zero_re}.
+Kernel axiom metadata was not populated in this database snapshot; run the Lean~4 \texttt{.olean} extractor or refactoring gate to record exact \texttt{\#print axioms} output.
+
+\end{document}
