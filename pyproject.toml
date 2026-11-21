@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "proof-compressor"
+version = "0.1.0"
+description = "Compress, analyze, and expose massive Lean 4 proof repositories into human-readable mathematics."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+proof-compressor = "proof_compressor.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/proof_compressor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
