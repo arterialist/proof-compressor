@@ -1,0 +1,11 @@
+name = "lean_extractor"
+version = "0.1.0"
+defaultTargets = ["extract_dag"]
+
+[[lean_lib]]
+name = "ExtractDag"
+
+[[lean_exe]]
+name = "extract_dag"
+root = "ExtractDag"
+supportInterpreter = true
