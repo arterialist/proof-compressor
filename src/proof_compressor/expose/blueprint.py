@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import html
 import json
+import re
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from proof_compressor.expose._db import (
     DbHandle,
@@ -54,6 +55,192 @@ def _extract_audit_status_by_const(audit_report: dict[str, Any] | None) -> dict[
     return issues
 
 
+def _clean_tex_snippet(text: str) -> str:
+    """Convert a short LaTeX prose snippet into readable plain/KaTeX text for HTML cards."""
+    s = re.sub(r"\\leanlink(?:\[[^\]]*\])?\{[^}]*\}", "", text)
+    s = re.sub(r"\\leanmod\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"\\label\{[^}]*\}", "", s)
+    s = re.sub(r"\\ref\{([^}]*)\}", r"§\1", s)
+    s = re.sub(r"\\textbf\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"\\emph\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"\\texttt\{([^}]*)\}", r"\1", s)
+    s = re.sub(r"\s+", " ", s)
+    return s.strip()
+
+
+def _parse_manuscript_chapters(
+    conn: sqlite3.Connection,
+    chapters_dir: str | Path,
+    *,
+    register_decl_fn: Any,
+    manuscript_href: str | None = "manuscript.pdf",
+    chapter_page_map: dict[int, int] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, int]]]:
+    """Parse hand-written `chNN_*.tex` chapters and resolve their anchored declarations."""
+    cdir = Path(chapters_dir)
+    paths = sorted(cdir.glob("ch[0-9][0-9]_*.tex"))
+    if not paths:
+        return [], []
+
+    default_pages = {1: 1, 2: 7, 3: 15, 4: 21, 5: 26}
+    pages = chapter_page_map if chapter_page_map is not None else default_pages
+
+    sec_re = re.compile(r"\\section\{([^}]+)\}")
+    sub_re = re.compile(r"\\subsection\{([^}]+)\}")
+    link_re = re.compile(r"\\leanlink(?:\[[^\]]*\])?\{([^}]+)\}")
+    thm_re = re.compile(
+        r"\\begin\{(theorem|proposition|lemma|corollary|definition|maintheorem)\}(?:\[([^\]]*)\])?(.*?)\\end\{\1\}",
+        re.S,
+    )
+
+    raw_chapters: list[dict[str, Any]] = []
+    all_needed_names: list[str] = []
+    seen_names: set[str] = set()
+
+    for idx, p in enumerate(paths, start=1):
+        txt = p.read_text(encoding="utf-8")
+        sec_m = sec_re.search(txt)
+        title = sec_m.group(1).strip() if sec_m else p.stem
+        subs = [m.group(1).strip() for m in sub_re.finditer(txt)]
+        links = list(dict.fromkeys(m.group(1).strip() for m in link_re.finditer(txt)))
+
+        # Extract opening prose summary (lines between \label{sec:...} and first \subsection or \begin)
+        body_start = sec_m.end() if sec_m else 0
+        sub_m = sub_re.search(txt, body_start)
+        intro_chunk = txt[body_start : sub_m.start()] if sub_m else txt[body_start : body_start + 1200]
+        intro_paras = [
+            _clean_tex_snippet(par)
+            for par in intro_chunk.split("\n\n")
+            if par.strip() and not par.strip().startswith(("\\label{", "%", "\\begin{", "\\end{"))
+        ]
+        summary = " ".join(intro_paras[:2])
+        if len(summary) > 520:
+            summary = summary[:517].rsplit(" ", 1)[0] + "..."
+
+        # Prose word count
+        prose = link_re.sub("", txt)
+        prose = re.sub(r"\\leanmod\{[^}]*\}", "", prose)
+        prose = re.sub(r"\\[A-Za-z]+\*?", " ", prose)
+        word_count = len(re.findall(r"[A-Za-z0-9']+", prose))
+
+        # Extract theorem environments and their primary \leanlink
+        thm_entries: list[dict[str, str]] = []
+        for tm in thm_re.finditer(txt):
+            lm = link_re.search(tm.group(3))
+            if lm is None:
+                continue
+            cname = lm.group(1).strip()
+            thm_entries.append(
+                {
+                    "kind": tm.group(1),
+                    "title": (tm.group(2) or "").strip(),
+                    "name": cname,
+                }
+            )
+            if cname not in seen_names:
+                seen_names.add(cname)
+                all_needed_names.append(cname)
+
+        for cname in links:
+            if cname not in seen_names:
+                seen_names.add(cname)
+                all_needed_names.append(cname)
+
+        page_no = pages.get(idx)
+        pdf_link = f"{manuscript_href}#page={page_no}" if (manuscript_href and page_no) else (manuscript_href or "")
+        raw_chapters.append(
+            {
+                "id": idx,
+                "order": idx - 1,
+                "filename": p.name,
+                "tex_href": f"chapters/{p.name}",
+                "pdf_href": pdf_link,
+                "page_no": page_no,
+                "title": title,
+                "subsections": subs,
+                "summary": summary,
+                "word_count": word_count,
+                "line_count": len(txt.splitlines()),
+                "links": links,
+                "thm_entries": thm_entries,
+            }
+        )
+
+    # Batch-fetch declaration rows from SQLite for all anchors in ch01..ch05
+    name_to_id: dict[str, int] = {}
+    if all_needed_names:
+        for i in range(0, len(all_needed_names), 400):
+            batch = all_needed_names[i : i + 400]
+            ph = ",".join("?" for _ in batch)
+            rows = query_all(
+                conn,
+                f"""
+                SELECT d.id, d.name, d.short_name, d.kind, d.type_sig, d.body_loc,
+                       d.docstring, d.start_line, d.end_line, d.axioms_json, d.is_bookkeeping,
+                       COALESCE(mod.path, '') AS module_path,
+                       COALESCE(m.bottleneck_score, 0.0) AS bottleneck_score,
+                       COALESCE(m.in_degree, 0) AS in_degree,
+                       COALESCE(m.out_degree, 0) AS out_degree,
+                       m.cluster_id
+                FROM declarations d
+                LEFT JOIN metrics m ON m.decl_id = d.id
+                LEFT JOIN modules mod ON mod.id = d.module_id
+                WHERE d.name IN ({ph})
+                """,
+                tuple(batch),
+            )
+            for r in rows:
+                rec = register_decl_fn(r)
+                name_to_id[rec["name"]] = rec["id"]
+
+    manuscript_chapters: list[dict[str, Any]] = []
+    for ch in raw_chapters:
+        decl_ids: list[int] = []
+        seen_ids: set[int] = set()
+        for te in ch["thm_entries"]:
+            did = name_to_id.get(te["name"])
+            if did is not None and did not in seen_ids:
+                seen_ids.add(did)
+                decl_ids.append(did)
+        all_link_ids = [name_to_id[nm] for nm in ch["links"] if nm in name_to_id]
+        manuscript_chapters.append(
+            {
+                "id": ch["id"],
+                "order": ch["order"],
+                "filename": ch["filename"],
+                "tex_href": ch["tex_href"],
+                "pdf_href": ch["pdf_href"],
+                "page_no": ch["page_no"],
+                "title": ch["title"],
+                "subsections": ch["subsections"],
+                "summary": ch["summary"],
+                "word_count": ch["word_count"],
+                "line_count": ch["line_count"],
+                "unique_links_count": len(ch["links"]),
+                "theorem_entries": ch["thm_entries"],
+                "decl_ids": decl_ids,
+                "all_link_ids": all_link_ids,
+            }
+        )
+
+    # Natural 5-chapter mathematical dependency DAG if there are 5 chapters
+    edges: list[dict[str, int]] = []
+    if len(manuscript_chapters) >= 5:
+        edges = [
+            {"from": 4, "to": 5},
+            {"from": 4, "to": 2},
+            {"from": 3, "to": 5},
+            {"from": 3, "to": 2},
+            {"from": 5, "to": 1},
+            {"from": 2, "to": 1},
+        ]
+    else:
+        for i in range(1, len(manuscript_chapters)):
+            edges.append({"from": i, "to": i + 1})
+
+    return manuscript_chapters, edges
+
+
 def _build_blueprint_payload(
     conn: sqlite3.Connection,
     *,
@@ -62,6 +249,11 @@ def _build_blueprint_payload(
     max_pillars: int = 30,
     max_chapters: int = 24,
     max_decls_per_chapter: int = 16,
+    chapters_dir: str | Path | None = None,
+    manuscript_href: str | None = None,
+    readers_guide_href: str | None = None,
+    overview: dict[str, Any] | None = None,
+    chapter_page_map: dict[int, int] | None = None,
 ) -> dict[str, Any]:
     """Extract a compact JSON payload powering all three zoom levels of blueprint.html."""
     registry = _load_or_build_registry(conn)
@@ -306,6 +498,18 @@ def _build_blueprint_payload(
             }
         )
 
+    # Populate manuscript chapters if supplied (registering all anchored decls before edge lookup)
+    manuscript_chapters: list[dict[str, Any]] = []
+    manuscript_edges: list[dict[str, int]] = []
+    if chapters_dir is not None:
+        manuscript_chapters, manuscript_edges = _parse_manuscript_chapters(
+            conn,
+            chapters_dir,
+            register_decl_fn=_register_decl,
+            manuscript_href=manuscript_href or "manuscript.pdf",
+            chapter_page_map=chapter_page_map,
+        )
+
     # Populate direct dependencies / dependents for all registered Level-2 declarations
     reg_ids = list(decl_records_by_id.keys())
     if reg_ids:
@@ -425,6 +629,13 @@ def _build_blueprint_payload(
         },
         "chapters": chapters_payload,
         "chapter_edges": chapter_dag_edges,
+        "manuscript_chapters": manuscript_chapters,
+        "manuscript_edges": manuscript_edges,
+        "overview": overview or {},
+        "links": {
+            "manuscript_href": manuscript_href or "",
+            "readers_guide_href": readers_guide_href or "",
+        },
         "pillar_ids": pillar_ids,
         "pillar_edges": pillar_edges,
         "declarations": list(decl_records_by_id.values()),
@@ -739,6 +950,48 @@ _BLUEPRINT_TEMPLATE = r"""<!DOCTYPE html>
     cursor: pointer;
   }
   .dep-chip:hover { border-color: var(--accent); }
+  .overview-card {
+    background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(63,185,80,0.06));
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+  }
+  .overview-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .overview-links { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ext-link {
+    display: inline-block;
+    background: var(--surface-2);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .ext-link:hover { background: var(--accent-soft); }
+  .subsec-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0 12px;
+  }
+  .subsec-pill {
+    font-size: 0.76rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 2px 10px;
+    color: var(--text);
+  }
 </style>
 </head>
 <body>
@@ -755,10 +1008,12 @@ _BLUEPRINT_TEMPLATE = r"""<!DOCTYPE html>
 </header>
 
 <main>
+  <div id="overview-banner"></div>
   <!-- Level 0 -->
   <section id="view-0" class="view active">
     <div class="dag-toolbar">
       <div class="btn-group">
+        <button id="mode-manuscript" class="ctrl-btn" style="display:none;" onclick="setDagMode('manuscript')">5-Chapter Proof Architecture</button>
         <button id="mode-chapters" class="ctrl-btn active" onclick="setDagMode('chapters')">Chapters DAG</button>
         <button id="mode-pillars" class="ctrl-btn" onclick="setDagMode('pillars')">Bottleneck Pillars Spine</button>
       </div>
@@ -783,9 +1038,15 @@ _BLUEPRINT_TEMPLATE = r"""<!DOCTYPE html>
 
   <!-- Level 1 -->
   <section id="view-1" class="view">
-    <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <input id="chapter-filter" class="search-input" style="max-width:340px; margin:0;" placeholder="Filter chapters or idioms..." oninput="renderChapters()" />
-      <button class="ctrl-btn" onclick="clearChapterFilter()">Show All Chapters</button>
+    <div style="margin-bottom:12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:space-between;">
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input id="chapter-filter" class="search-input" style="max-width:340px; margin:0;" placeholder="Filter chapters or idioms..." oninput="renderChapters()" />
+        <button class="ctrl-btn" onclick="clearChapterFilter()">Show All Chapters</button>
+      </div>
+      <div id="level1-mode-group" class="btn-group" style="display:none;">
+        <button id="l1-manuscript" class="ctrl-btn active" onclick="setLevel1Mode('manuscript')">Manuscript Chapters (5)</button>
+        <button id="l1-clusters" class="ctrl-btn" onclick="setLevel1Mode('clusters')">Lean Cluster Graph</button>
+      </div>
     </div>
     <div id="chapter-grid" class="chapter-grid"></div>
   </section>
@@ -811,11 +1072,14 @@ const DECL_BY_ID = new Map(PROOF_DATA.declarations.map(d => [d.id, d]));
 const DECL_BY_NAME = new Map(PROOF_DATA.declarations.map(d => [d.name, d]));
 const CHAPTER_BY_ID = new Map(PROOF_DATA.chapters.map(c => [c.id, c]));
 
-let dagMode = "chapters";
+const HAS_MANUSCRIPT = Array.isArray(PROOF_DATA.manuscript_chapters) && PROOF_DATA.manuscript_chapters.length > 0;
+let dagMode = HAS_MANUSCRIPT ? "manuscript" : "chapters";
+let level1Mode = HAS_MANUSCRIPT ? "manuscript" : "clusters";
 let dagScale = 1.0;
 let dagTx = 24;
 let dagTy = 24;
 let activeChapterFilterId = null;
+let activeManuscriptChapterId = null;
 let selectedDeclId = PROOF_DATA.pillar_ids[0] || (PROOF_DATA.declarations[0] && PROOF_DATA.declarations[0].id) || null;
 
 function esc(s) {
@@ -879,11 +1143,58 @@ function switchLevel(level) {
   }
 }
 
+function renderOverview() {
+  const el = document.getElementById("overview-banner");
+  const ov = PROOF_DATA.overview || {};
+  const links = PROOF_DATA.links || {};
+  if (!ov.headline && !HAS_MANUSCRIPT) {
+    el.innerHTML = "";
+    return;
+  }
+  const linkBtns = [
+    links.readers_guide_href ? `<a class="ext-link" href="${esc(links.readers_guide_href)}" target="_blank">Reader's Guide (6 pp. PDF)</a>` : "",
+    links.manuscript_href ? `<a class="ext-link" href="${esc(links.manuscript_href)}" target="_blank">Full Manuscript (35 pp. PDF)</a>` : ""
+  ].filter(Boolean).join("");
+  const bullets = Array.isArray(ov.pillars) && ov.pillars.length
+    ? `<ul style="margin:6px 0 0; padding-left:18px; font-size:0.86rem; color:var(--text);">${ov.pillars.map(p => `<li>${esc(p)}</li>`).join("")}</ul>`
+    : "";
+  el.innerHTML = `
+    <section class="overview-card">
+      <div class="overview-head">
+        <div>
+          <strong style="font-size:0.96rem;">Big-Picture Proof Overview</strong>
+          ${ov.headline ? `<span class="badge verified" style="margin-left:8px;">${esc(ov.headline)}</span>` : ""}
+        </div>
+        <div class="overview-links">${linkBtns}</div>
+      </div>
+      ${ov.summary ? `<p style="margin:4px 0 0; font-size:0.88rem; color:var(--text);">${esc(ov.summary)}</p>` : ""}
+      ${bullets}
+    </section>
+  `;
+  if (HAS_MANUSCRIPT) {
+    document.getElementById("mode-manuscript").style.display = "inline-block";
+    document.getElementById("level1-mode-group").style.display = "flex";
+    document.getElementById("mode-manuscript").classList.toggle("active", dagMode === "manuscript");
+    document.getElementById("mode-chapters").classList.toggle("active", dagMode === "chapters");
+    document.getElementById("mode-pillars").classList.toggle("active", dagMode === "pillars");
+  }
+  window.__renderAllMath(el);
+}
+
 function setDagMode(mode) {
   dagMode = mode;
+  const msBtn = document.getElementById("mode-manuscript");
+  if (msBtn) msBtn.classList.toggle("active", mode === "manuscript");
   document.getElementById("mode-chapters").classList.toggle("active", mode === "chapters");
   document.getElementById("mode-pillars").classList.toggle("active", mode === "pillars");
   resetDag();
+}
+
+function setLevel1Mode(mode) {
+  level1Mode = mode;
+  document.getElementById("l1-manuscript").classList.toggle("active", mode === "manuscript");
+  document.getElementById("l1-clusters").classList.toggle("active", mode === "clusters");
+  renderChapters();
 }
 
 function applyDagTransform() {
@@ -958,7 +1269,21 @@ function renderDag() {
 
   let nodes = [];
   let edges = [];
-  if (dagMode === "chapters") {
+  if (dagMode === "manuscript" && HAS_MANUSCRIPT) {
+    nodes = PROOF_DATA.manuscript_chapters.map(c => ({
+      id: c.id,
+      title: `Ch. ${c.id}: ${c.title}`,
+      meta: `${fmtNum(c.word_count)} words · ${c.unique_links_count} anchors`,
+      tooltip: `<strong>Ch. ${c.id}: ${esc(c.title)}</strong><br/>${fmtNum(c.word_count)} words · ${c.unique_links_count} verified \\leanlink anchors${c.page_no ? " · manuscript.pdf p. " + c.page_no : ""}`,
+      isRoot: c.id === 1,
+      onClick: () => {
+        activeManuscriptChapterId = c.id;
+        level1Mode = "manuscript";
+        switchLevel(1);
+      }
+    }));
+    edges = PROOF_DATA.manuscript_edges || [];
+  } else if (dagMode === "chapters") {
     nodes = PROOF_DATA.chapters.map(c => ({
       id: c.id,
       title: c.title,
@@ -1055,13 +1380,89 @@ function renderDag() {
 
 function clearChapterFilter() {
   activeChapterFilterId = null;
+  activeManuscriptChapterId = null;
   document.getElementById("chapter-filter").value = "";
   renderChapters();
+}
+
+function renderManuscriptChapters(grid, q) {
+  const filtered = PROOF_DATA.manuscript_chapters.filter(c => {
+    if (activeManuscriptChapterId !== null && c.id !== activeManuscriptChapterId) return false;
+    if (!q) return true;
+    return c.title.toLowerCase().includes(q)
+      || c.summary.toLowerCase().includes(q)
+      || c.subsections.some(s => s.toLowerCase().includes(q));
+  });
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="chapter-card" style="color:var(--muted);">No matching manuscript chapters.</div>`;
+    return;
+  }
+  grid.innerHTML = filtered.map(c => {
+    const subsHtml = c.subsections.map(s => `<span class="subsec-pill">${esc(s)}</span>`).join("");
+    const thmByName = new Map((c.theorem_entries || []).map(t => [t.name, t]));
+    const declsHtml = c.decl_ids.map(id => DECL_BY_ID.get(id)).filter(Boolean).map(d => {
+      const te = thmByName.get(d.name);
+      const heading = (te && te.title) ? te.title : d.display_title;
+      const kind = (te && te.kind) ? te.kind : d.kind;
+      const auditBadge = d.audit_status === "verified"
+        ? `<span class="badge verified">verified</span>`
+        : (d.audit_status === "issue" ? `<span class="badge issue">audit flag</span>` : "");
+      return `
+        <div class="stmt-item">
+          <div class="stmt-head">
+            <span class="badge">${esc(kind)}</span>
+            <strong>${esc(heading)}</strong>
+            ${auditBadge}
+            <button class="stmt-link" onclick="inspectDecl(${d.id})">${esc(d.name)}</button>
+          </div>
+          <div class="math-box">\\[${d.latex_stmt}\\]</div>
+        </div>`;
+    }).join("");
+    const extraChips = c.all_link_ids
+      .filter(id => !c.decl_ids.includes(id))
+      .slice(0, 24)
+      .map(id => DECL_BY_ID.get(id))
+      .filter(Boolean)
+      .map(d => `<button class="dep-chip" onclick="inspectDecl(${d.id})">${esc(d.name)}</button>`)
+      .join("");
+    return `
+      <article class="chapter-card">
+        <div class="chapter-head">
+          <div>
+            <h2 class="chapter-title">Chapter ${c.id}. ${esc(c.title)}</h2>
+            <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
+              ${c.pdf_href ? `<a class="ext-link" href="${esc(c.pdf_href)}" target="_blank">Read in manuscript.pdf${c.page_no ? ` (p. ${c.page_no})` : ""}</a>` : ""}
+              <a class="ext-link" href="${esc(c.tex_href)}" target="_blank">${esc(c.filename)}</a>
+            </div>
+          </div>
+          <div>
+            <span class="badge">${fmtNum(c.word_count)} words</span>
+            <span class="badge verified">${c.unique_links_count} verified \\leanlinks</span>
+            <span class="badge">${c.theorem_entries.length} statements</span>
+          </div>
+        </div>
+        <p style="font-size:0.9rem; margin:4px 0 8px;">${esc(c.summary)}</p>
+        ${subsHtml ? `<div class="subsec-list">${subsHtml}</div>` : ""}
+        ${declsHtml}
+        ${extraChips ? `<details class="iface-box"><summary>All Anchored Lean Constants in Chapter ${c.id} (${c.all_link_ids.length})</summary><div style="margin-top:8px;">${extraChips}</div></details>` : ""}
+      </article>`;
+  }).join("");
+  window.__renderAllMath(grid);
 }
 
 function renderChapters() {
   const q = (document.getElementById("chapter-filter").value || "").toLowerCase().trim();
   const grid = document.getElementById("chapter-grid");
+  if (HAS_MANUSCRIPT && level1Mode === "manuscript") {
+    document.getElementById("l1-manuscript").classList.add("active");
+    document.getElementById("l1-clusters").classList.remove("active");
+    renderManuscriptChapters(grid, q);
+    return;
+  }
+  if (HAS_MANUSCRIPT) {
+    document.getElementById("l1-manuscript").classList.remove("active");
+    document.getElementById("l1-clusters").classList.add("active");
+  }
   const filtered = PROOF_DATA.chapters.filter(c => {
     if (activeChapterFilterId !== null && c.id !== activeChapterFilterId) return false;
     if (!q) return true;
@@ -1207,6 +1608,7 @@ function renderDeclDetail(id) {
 }
 
 renderMetrics();
+renderOverview();
 renderDag();
 </script>
 </body>
@@ -1222,6 +1624,11 @@ def generate_blueprint(
     audit_report: dict[str, Any] | None = None,
     max_pillars: int = 30,
     max_chapters: int = 24,
+    chapters_dir: str | Path | None = None,
+    manuscript_href: str | None = None,
+    readers_guide_href: str | None = None,
+    overview: dict[str, Any] | None = None,
+    chapter_page_map: dict[int, int] | None = None,
 ) -> str:
     """Generate a self-contained, zero-build interactive HTML blueprint (`blueprint.html`)."""
     with open_db(db, readonly=False) as conn:
@@ -1231,6 +1638,11 @@ def generate_blueprint(
             audit_report=audit_report,
             max_pillars=max_pillars,
             max_chapters=max_chapters,
+            chapters_dir=chapters_dir,
+            manuscript_href=manuscript_href,
+            readers_guide_href=readers_guide_href,
+            overview=overview,
+            chapter_page_map=chapter_page_map,
         )
 
     safe_title = html.escape(payload["title"])

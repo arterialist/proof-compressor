@@ -107,9 +107,10 @@ Key measured highlights (`outputs/rh_merged.tar.gz`, emitted in `153.28s` with z
 
 ### Sample Outputs (`examples/rh_alpo/`)
 
+- [readers_guide.pdf](examples/rh_alpo/readers_guide.pdf) / [readers_guide.tex](examples/rh_alpo/readers_guide.tex) — **6-page** standalone Big-Picture Conceptual Reader's Guide with TikZ proof-architecture diagram, plain-math exposition of the iterated theta-lift / $2/3$-barrier resolution, 10-row quantitative closure table, and Reading Map (`PASS`, fidelity **`1.0000`**, **39** unique / **55** total verified `\leanlink` anchors in [readers_guide_audit.md](examples/rh_alpo/readers_guide_audit.md)).
 - [manuscript.pdf](examples/rh_alpo/manuscript.pdf) / [manuscript.tex](examples/rh_alpo/manuscript.tex) — **35-page** human-readable Annals-style mathematical monograph synthesized across 5 curated chapters ([chapters/](examples/rh_alpo/chapters/)), audited against `outputs/rh_full.db` (`PASS`, fidelity **`1.0000`**, **360** unique / **597** total verified `\leanlink` anchors, **0** issues across all 7 checks in [manuscript_audit.md](examples/rh_alpo/manuscript_audit.md)).
 - [paper.pdf](examples/rh_alpo/paper.pdf) / [paper.tex](examples/rh_alpo/paper.tex) — Compiled 36-page deterministic cluster-driven PDF manuscript (`1.0000` audit fidelity across **769** unique / **1,128** total verified `\leanlink` anchors).
-- [blueprint.html](examples/rh_alpo/blueprint.html) — Interactive 3-zoom-level proof DAG, KaTeX chapter explorer, and Lean declaration inspector (436 KB).
+- [blueprint.html](examples/rh_alpo/blueprint.html) — Upgraded interactive 3-zoom-level proof map featuring the 5-chapter proof architecture DAG, direct links to `readers_guide.pdf` and `manuscript.pdf`, KaTeX chapter explorer, and Level 2 Lean declaration inspector (508 inspectable declarations).
 - [audit_report.md](examples/rh_alpo/audit_report.md) / [audit_report.json](examples/rh_alpo/audit_report.json) — Automated statement/dependency audit (`PASS`, fidelity `1.0000`, 0 issues).
 - [optimization_report.md](examples/rh_alpo/optimization_report.md) — Quantitative 10-stage compression waterfall, module-import vs declaration-reachability breakdown, package-by-package deduplication audit, and system optimization roadmap.
 - [refactor_plan.md](examples/rh_alpo/refactor_plan.md) — Top 20 ranked Stage 4 refactoring work orders.
