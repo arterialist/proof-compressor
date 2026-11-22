@@ -42,13 +42,20 @@ _STANDARD_TEX_MACROS = frozenset(
         "arraybackslash", "textwidth",
         # Text styling
         "textbf", "textit", "texttt", "textrm", "textsf", "textsc", "textup",
+        "bfseries", "itshape", "ttfamily", "sffamily", "rmfamily", "scshape",
+        "upshape", "mdseries", "color", "textcolor",
         "emph", "text", "mbox", "hbox", "vbox", "tiny", "scriptsize", "footnotesize",
         "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge",
         "textsuperscript", "textsubscript", "textbackslash", "textasciitilde",
         "textasciicircum", "LaTeX", "TeX",
-        # Tables (booktabs)
+        # Tables (booktabs / longtable / array)
         "toprule", "midrule", "bottomrule", "hline", "cline", "multicolumn",
-        "multirow", "cmidrule",
+        "multirow", "cmidrule", "endhead", "endfirsthead", "endfoot", "endlastfoot",
+        "setcounter", "addcontentsline", "setlength",
+        # TikZ diagram primitives
+        "draw", "node", "path", "coordinate", "fill", "filldraw", "clip",
+        "foreach", "tikzset", "tikzstyle", "pgfonlayer", "usetikzlibrary",
+        "matrix", "phantomsection", "hypersetup",
         # Math fonts & operators
         "mathbb", "mathcal", "mathfrak", "mathrm", "mathbf", "mathsf", "mathit",
         "mathtt", "mathscr", "boldsymbol", "bm", "operatorname", "limits", "nolimits",

@@ -1,0 +1,510 @@
+\section{Abelian Varieties, the Theorem of the Cube, Isogenies, and Weil Bounds}
+\label{sec:abelian-varieties-weil}
+
+A proof of the Generalized Riemann Hypothesis built from unitary theta lifts and
+PEL Shimura varieties cannot treat the geometry of abelian varieties or
+resolution of singularities as informal background. Two separate pillars of the
+global argument force the formalization to construct this geometry from the
+ground up. On the arithmetic side, constructing Galois representations attached
+to conjugate-self-dual automorphic forms requires abelian schemes over arbitrary
+bases, polarizations, finite flat kernels of isogenies, $\ell$-adic Tate
+modules, $p$-divisible groups, and characteristic polynomials of endomorphisms.
+On the Arakelov-geometric side, controlling covolumes and arithmetic
+intersection numbers on toroidal compactifications of Shimura varieties requires
+functorial resolution of singularities in characteristic zero, Moriwaki's
+arithmetic Hilbert--Samuel bigness theorem, and multiplicative height bounds of
+Weil and Mahler type. Together these components account for a large share of the
+reachable proof graph: $17{,}719$ modules in
+\leanmod{Development.AbelianVarietyTheory}, $2{,}277$ in
+\leanmod{Development.WeilBound}, $466$ in
+\leanmod{Development.ResolutionOfSingularities}, $107$ in
+\leanmod{GroundTheory.ArithmeticGeometry}, and $4$ in
+\leanmod{ReciprocityTheory.SemistableReduction}.
+
+We organize the algebraic-geometric architecture in four stages: spreading out
+and the Theorem of the Cube, multiplication-by-$n$ and the isogeny calculus,
+characteristic polynomials of endomorphisms and norm-degree identities, and
+finally characteristic-zero resolution, multiplicative heights, and the
+Jacquet--Shalika and Jacquet--Rallis inputs that bridge upward to
+Section~\ref{sec:galois-cohomology-assembly}.
+
+\subsection{Abelian schemes, spreading out, and the Theorem of the Cube}
+
+Over a field $K$, an abelian variety $A$ of dimension $g$
+\leanlink{GlobalTheory.AV.AbVar} is a smooth, proper, geometrically connected
+group scheme $A \to \Spec K$ of relative dimension $g$. Properness and
+geometrical connectedness force the group law on $A$ to be commutative. The
+base case $g = 1$ of elliptic curves is developed explicitly in
+\leanmod{GroundTheory.ArithmeticGeometry} via affine Weierstrass equations,
+function-field transcendence of translates
+\leanlink{GroundTheory.Arith.Abelian.transcendental_xOf_translate},
+elliptic divisibility sequences and Somos recurrences for division points
+\leanlink{GroundTheory.Arith.Abelian.uw_rel}
+\leanlink{GroundTheory.Arith.Abelian.good}, and dual isogenies
+\leanlink{GroundTheory.Arith.Abelian.mem_isogHom_iff}. For general dimension $g$
+and over arbitrary base schemes $S$, the single highest-bottleneck theorem of
+the entire algebraic-geometric layer is the Theorem of the Cube.
+
+\begin{theorem}[Theorem of the Cube over an arbitrary base]
+\leanlink{GlobalTheory.CubeTop.cubeTheorem}
+\label{thm:cube-arbitrary-base}
+Let $S$ be a scheme, let $A \to S$ be an abelian scheme, and let $\mathcal{L}$
+be a line bundle on $A$. For every $S$-scheme $T$ and every triple of
+$T$-valued points $a, b, c : T \to A$, the alternating tensor product
+\[
+  (a+b+c)^*\mathcal{L} \otimes (a+b)^*\mathcal{L}^{-1}
+  \otimes (a+c)^*\mathcal{L}^{-1} \otimes (b+c)^*\mathcal{L}^{-1}
+  \otimes a^*\mathcal{L} \otimes b^*\mathcal{L} \otimes c^*\mathcal{L}
+  \otimes 0^*\mathcal{L}^{-1}
+\]
+is trivial on $T$ in the sense of the abelian-scheme line-bundle calculus
+\leanlink{GlobalTheory.Published.CubeTheorem}.
+\end{theorem}
+
+\begin{proof}
+The statement is established by reducing from an arbitrary base $S$ to
+finitely generated models and then to perfect bases in
+\leanlink{GlobalTheory.SpreadingModels.cubeTheorem_holds}.
+\end{proof}
+
+Why does the formalization place the spreading-out proof of
+Theorem~\ref{thm:cube-arbitrary-base} inside \leanmod{Development.WeilBound}?
+Because the reduction to finite-type models is a general scheme-theoretic
+engine reused wherever rigidity or cohomology over general bases must be
+descended from Noetherian or perfect rings.
+
+\begin{proposition}[Spreading-out reduction for the Theorem of the Cube]
+\leanlink{GlobalTheory.SpreadingModels.cubeTheorem_holds}
+\label{prop:cube-spreading}
+The universal Theorem of the Cube \leanlink{GlobalTheory.Published.CubeTheorem}
+holds over every base scheme $S$.
+\end{proposition}
+
+\begin{proof}
+One first spreads out the scheme data \leanlink{GlobalTheory.T.scheme_models_spread},
+smoothness \leanlink{GlobalTheory.T.smooth_spreads_out}, properness
+\leanlink{GlobalTheory.T.isProper_spreads_out}, and the line bundle
+\leanlink{GlobalTheory.T.line_bundle_spreads_out'} from an arbitrary base to
+finitely presented models \leanlink{GlobalTheory.T.has_model_of_spreading}.
+From finite-type models one deduces the statement over perfect bases
+\leanlink{GlobalTheory.T.perfect_of_models}, and finally passes from perfect
+bases to arbitrary bases \leanlink{GlobalTheory.T.cube_theorem_of_perfect}.
+\end{proof}
+
+The Theorem of the Cube drives the entire Picard and intersection calculus of
+abelian varieties. Given a class $c \in \Pic(A)$ and two $Y$-points
+$x, y : Y \to A$, the Mumford class
+\[
+  \Lambda(c; x, y) := (x + y)^* c - x^* c - y^* c \in \Pic(Y)
+\]
+measures the failure of pullback along $c$ to be additive. By
+Theorem~\ref{thm:cube-arbitrary-base}, $\Lambda(c; x, y)$ is biadditive in $x$
+and $y$.
+
+\begin{lemma}[Additivity of the Mumford class]
+\leanlink{GlobalTheory.AV.AbVar.lam_mul_left_of_cube}
+\label{lem:mumford-additive}
+Let $A$ be an abelian variety over a field $K$ and let $c \in \Pic(A)$. For any
+$K$-scheme $Y$ and any $Y$-points $x, x', y : Y \to A$,
+\[
+  \Lambda(c; x + x', y) = \Lambda(c; x, y) + \Lambda(c; x', y).
+\]
+\end{lemma}
+
+\begin{proof}
+Lift $c \in \Pic(A)$ to a line bundle $\mathcal{L}$ via
+\leanlink{GlobalTheory.CechPic.cls_surj} and apply
+\leanlink{GlobalTheory.CubeTop.cubeTheorem} to the triple $(x, x', y)$. Passing
+back to $\Pic(Y)$ via \leanlink{GlobalTheory.CechPic.cls_linComb} yields the
+eight-term alternating identity, which rearranges directly into
+$\Lambda(c; x + x', y) - \Lambda(c; x, y) - \Lambda(c; x', y) = 0$.
+\end{proof}
+
+A symmetric line bundle class $d \in \Pic(B)$, meaning $[-1]_B^* d = d$,
+therefore satisfies the quadratic pullback law
+\[
+  (f + g)^* d + (f - g)^* d = 2 f^* d + 2 g^* d
+\]
+and $(n f)^* d = n^2 f^* d$ for all $f, g \in \Hom(A, B)$ and $n \in \Z$
+\leanlink{GlobalTheory.T.mumfordClass_symmetric_pullback_quadratic}. To turn
+this algebraic identity into a metric on $\Hom(A, B)$, one first needs
+projectivity and an ample symmetric class. Over an algebraically closed field,
+projectivity of every abelian scheme is proved directly via charts in
+\leanlink{GlobalTheory.AbelianProjective.isProjBy_of_isAbelianScheme}, and then
+descended to an arbitrary base field $K$ using norm-chart base change
+\leanlink{GlobalTheory.ProjField.isProjBy_of_isAbelianScheme}. Symmetrizing an
+ample class $c_0 \in \Pic(A)$ via $c := c_0 + [-1]_A^* c_0$ produces a
+symmetric ample class on every abelian variety.
+
+\begin{proposition}[Existence of symmetric ample classes]
+\leanlink{GlobalTheory.AV.AbVar.exists_symm_ample}
+\label{prop:symm-ample}
+For every field $K$ and every abelian variety $A$ over $K$, there exists an
+ample class $c \in \Pic(A)$ satisfying $[-1]_A^* c = c$.
+\end{proposition}
+
+\begin{proof}
+Choose an ample class $c_0 \in \Pic(A)$ from
+\leanlink{GlobalTheory.T.abelianVariety_exists_ampleClass}. Since
+$[-1]_A \circ [-1]_A = \mathrm{id}_A$
+\leanlink{GlobalTheory.AV.AbVar.neg_one_left_comp_self}, the involution $[-1]_A$
+is a finite automorphism, so $[-1]_A^* c_0$ is again ample and the sum
+$c = c_0 + [-1]_A^* c_0$ is ample and fixed by $[-1]_A^*$ by
+\leanlink{GlobalTheory.CechPic.pull_comp} and
+\leanlink{GlobalTheory.CechPic.pull_id}.
+\end{proof}
+
+Combining a symmetric ample class $d \in \Pic(B)$ with an ample class
+$c \in \Pic(A)$ and the multilinear symmetric intersection number on $A$
+\leanlink{GlobalTheory.AV.AbVar.inter_update_add} produces a positive-definite
+integer-valued quadratic form $Q : \Hom(A, B) \to \Z$
+\leanlink{GlobalTheory.AV.AbVar.exists_posDef_quadratic_hom} (exported as
+\leanlink{GlobalTheory.T.exists_posDef_quadraticForm_hom}). Explicitly, when
+$\dim A = 0$ every homomorphism vanishes and $Q \equiv 0$; when
+$\dim A = n + 1 \ge 1$, one takes a symmetric ample class $d \in \Pic(B)$ from
+Proposition~\ref{prop:symm-ample} and an ample class $c \in \Pic(A)$
+\leanlink{GlobalTheory.AV.exists_isAmpleCls}, and sets
+\[
+  Q(f) := \bigl(f^* d \cdot c^n\bigr)_A.
+\]
+Multilinearity of intersection numbers together with the quadratic pullback
+identity \leanlink{GlobalTheory.AV.AbVar.pull_add_add_pull_sub} yields the
+parallelogram law
+\[
+  Q(f + g) + Q(f - g) = 2 Q(f) + 2 Q(g)
+\]
+for all $f, g \in \Hom(A, B)$, while
+\leanlink{GlobalTheory.T.mumfordClass_symmetric_pullback_quadratic} gives
+$Q(0) = 0$ and positivity of ample intersection degrees gives $Q(f) > 0$ for
+every $f \neq 0$. Combined with torsion-freeness of $\Hom(A, B)$
+\leanlink{GlobalTheory.AV.AbVar.hom_torsionFree}, this positive-definite
+quadratic form implies that $\Hom(A, B)$ is a free $\Z$-module of finite rank
+at most $4 (\dim A)(\dim B)$
+\leanlink{GlobalTheory.T.hom_finite_free_finrank_le_four_mul_dim}. That finite
+rank is later essential for proving integrality of characteristic polynomials
+of endomorphisms.
+
+\subsection{Isogenies, multiplication-by-$n$, torsion, and $p$-divisible groups}
+
+A homomorphism $f : A \to B$ of abelian varieties over $K$ is an
+\emph{isogeny} \leanlink{GlobalTheory.AV.AbVar.IsIsogeny} if the underlying
+scheme morphism is finite and surjective. Its degree $\deg(f)$
+\leanlink{GlobalTheory.AV.AbVar.deg} is the generic-fiber rank of the finite
+flat morphism $f$. The cornerstone calculation of the isogeny theory is the
+degree of multiplication by a nonzero integer.
+
+\begin{theorem}[Multiplication-by-$n$ is an isogeny of degree $|n|^{2g}$]
+\leanlink{GlobalTheory.MulIsogeny.mul_isogeny}
+\label{thm:mul-isogeny}
+Let $A$ be an abelian variety of dimension $g$ over a field $K$. For every
+integer $n \in \Z$ with $n \neq 0$, the endomorphism $[n]_A := n \cdot \mathrm{id}_A$
+is an isogeny of degree
+\[
+  \deg([n]_A) = |n|^{2g}.
+\]
+\end{theorem}
+
+\begin{proof}
+For $n > 0$, one base-changes to an algebraic closure $\overline{K}$ using
+isogeny and degree invariance under field extension
+\leanlink{GlobalTheory.AV.AbVar.isIsogeny_bcMap_iff_and_deg_bcMap}. Over
+$\overline{K}$, multiplication by $n$ is finite and flat, hence surjective
+because $A_{\overline{K}}$ is geometrically integral, and its generic-fiber
+rank equals $n^{2g}$. For $n < 0$, write $[n]_A = [-1]_A \circ [|n|]_A$. The
+inversion $[-1]_A$ is an involution and therefore an isogeny of degree $1$ by
+\leanlink{GlobalTheory.MulIsogeny.neg_one}, so multiplicativity of isogeny
+degrees gives $\deg([n]_A) = |n|^{2g}$.
+\end{proof}
+
+When $n$ is invertible in $K$, the finite flat group scheme $A[n] = \ker([n]_A)$
+is étale, so its geometric point count equals the degree of $[n]_A$.
+
+\begin{theorem}[Geometric $n$-torsion cardinality]
+\leanlink{GlobalTheory.AV.AbVar.card_torsion_pt}
+\label{thm:card-torsion}
+Let $A$ be an abelian variety of dimension $g$ over a field $K$. For every
+positive integer $n$ with $n \neq 0$ in $K$, the group of geometric $n$-torsion
+points satisfies
+\[
+  \bigl|A[n](\overline{K})\bigr| = n^{2g}.
+\]
+\end{theorem}
+
+\begin{proof}
+Since $n \neq 0$ in $K$, we have $n \neq 0$ in $\Z$, so $[n]_A$ is an isogeny
+of degree $n^{2g}$. The action of $[n]_A$ on points is raising to the $n$-th
+power by \leanlink{GlobalTheory.AV.AbVar.comp_pow_id_torscard}, and the kernel
+is killed by the invertible integer $n$, so the degree of $[n]_A$ coincides
+with the cardinality of its geometric kernel.
+\end{proof}
+
+Two structural consequences follow immediately. First, any homomorphism
+$f : A \to C$ vanishing on $A[n](\overline{K})$ for an invertible integer $n$
+is divisible by $n$ in $\Hom(A, C)$
+\leanlink{GlobalTheory.AV.AbVar.exists_nsmul_eq_of_kills_torsion}: because
+$A[n]$ is reduced, vanishing on geometric $n$-torsion forces vanishing on the
+scheme-theoretic kernel of $[n]_A$, allowing $f$ to factor through the isogeny
+$[n]_A$. Second, every isogeny $f : A \to B$ admits a quasi-inverse
+\leanlink{GlobalTheory.AV.AbVar.exists_quasiInverse_isogeny} (exported as
+\leanlink{GlobalTheory.T.exists_quasiInverse_isogeny'}): there exist an
+integer $n > 0$ and an isogeny $g : B \to A$ satisfying
+\[
+  g \circ f = [n]_A \qquad \text{and} \qquad f \circ g = [n]_B.
+\]
+To construct $g$, one observes that $A$ and $B$ have equal dimension and that
+the finite kernel of $f$ is annihilated by some integer $n > 0$
+\leanlink{GlobalTheory.AV.KerKill.kernel_killed}. Flat-surjective descent over
+$\Spec K$ in \leanlink{GlobalTheory.IsogenyQuasiInverse.exists_quasiInverse}
+then produces a homomorphism $g : B \to A$ with $g \circ f = [n]_A$ and
+$f \circ g = [n]_B$ (verified via \leanlink{GlobalTheory.AV.AbVar.hom_ext});
+since $[n]_B = f \circ g$ is an isogeny by Theorem~\ref{thm:mul-isogeny}, the
+factor $g$ is also an isogeny.
+
+Theorem~\ref{thm:card-torsion} and the existence of quasi-inverse isogenies
+connect the scheme-theoretic category of abelian varieties to $\ell$-adic
+linear algebra and $p$-adic Dieudonné theory. For any prime $\ell$ invertible
+in $K$, the $\ell$-adic Tate module
+$T_\ell(A) = \lim_{\leftarrow r} A[\ell^r](\overline{K})$ is a free
+$\Z_\ell$-module of rank $2g$, and
+$V_\ell(A) = T_\ell(A) \otimes_{\Z_\ell} \Q_\ell$ is a $2g$-dimensional
+$\Q_\ell$-vector space.
+
+\begin{proposition}[Tate-module criterion for finiteness and isogenies]
+\leanlink{GlobalTheory.AV.AbVar.isFinite_iff_tmap_injective_and_isIsogeny_iff_vmap_bijective}
+\label{prop:tate-isogeny}
+Let $K$ be a field, let $\ell$ be a prime with $\ell \neq 0$ in $K$, and let
+$f : A \to B$ be a homomorphism of abelian varieties over $K$. Then:
+\begin{enumerate}
+  \item $f$ is finite if and only if the induced map
+  $T_\ell(f) : T_\ell(A) \to T_\ell(B)$ is injective;
+  \item $f$ is an isogeny if and only if
+  $V_\ell(f) : V_\ell(A) \to V_\ell(B)$ is bijective.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+If $f$ is an isogeny, its quasi-inverse $g : B \to A$ with $g \circ f = [n]_A$
+and $f \circ g = [n]_B$ implies that $V_\ell(f)$ is bijective because
+multiplication by $n > 0$ is invertible on $V_\ell(A)$ and $V_\ell(B)$
+\leanlink{GlobalTheory.AV.AbVar.IsogTate.vmap_bijective_of_isIsogeny}.
+Conversely, if $V_\ell(f)$ is bijective, then $T_\ell(f)$ is injective by
+\leanlink{GlobalTheory.AV.AbVar.IsogTate.tmap_injective_of_vmap_injective},
+making $f$ finite, and comparing ranks $2 \dim A = \dim_{\Q_\ell} V_\ell(A) =
+\dim_{\Q_\ell} V_\ell(B) = 2 \dim B$ forces $\dim A = \dim B$, hence
+surjectivity of $f$.
+\end{proof}
+
+At the residue characteristic $p$ (where $[p^r]_A$ is no longer étale), the
+role of $T_\ell(A)$ is played by the $p$-divisible group $A[p^\infty]$.
+
+\begin{proposition}[The $p$-divisible group of an abelian variety]
+\leanlink{GlobalTheory.AVTower.exists_tower}
+\label{prop:pdiv-tower}
+For every prime $p$, every field $k$, and every abelian variety $A$ of
+dimension $g$ over $k$, there exists a $p$-divisible group $G$ over $k$ of
+height $2g$ realized as a torsion tower of $A$ (representing the system
+$\{A[p^n]\}_{n \ge 1}$).
+\end{proposition}
+
+\begin{proof}
+At each level $n$, the finite flat kernel $A[p^n]$ has $k$-rank $p^{2gn}$ by
+\leanlink{GlobalTheory.AVTower.finrank_torsion}, proved from
+Theorem~\ref{thm:mul-isogeny}. The compatible transition maps yield a
+$p$-divisible group $G$ whose level-$1$ rank $p^{\mathrm{ht}(G)}$ equals
+$p^{2g}$, fixing $\mathrm{ht}(G) = 2g$.
+\end{proof}
+
+\subsection{Characteristic polynomials of endomorphisms and norm-degree identities}
+
+On PEL Shimura varieties, Frobenius endomorphisms and Hecke correspondences
+act on the abelian varieties parameterized by moduli points, and one must
+compute their characteristic polynomials independently of $\ell$ and relate the
+degrees of endomorphisms coming from an order $\mathcal{O}_F$ to field norms.
+In Lean, a polynomial $P \in \Z[X]$ is called a characteristic polynomial of
+$f \in \End(A)$ \leanlink{GlobalTheory.AV.AbVar.IsCharpoly} if $P$ is monic of
+degree $2g$ and satisfies
+\[
+  P(n) = \deg([n]_A - f) \qquad \text{for all } n \in \Z.
+\]
+
+\begin{theorem}[Existence and uniqueness of the characteristic polynomial]
+\leanlink{GlobalTheory.AV.AbVar.isCharpoly_charpoly_unique}
+\label{thm:charpoly-unique}
+For every field $K$, every abelian variety $A$ of dimension $g$ over $K$, and
+every endomorphism $f \in \End(A)$, there exists a unique monic polynomial
+$P_f \in \Z[X]$ of degree $2g$ satisfying $P_f(n) = \deg([n]_A - f)$ for all
+$n \in \Z$, namely $P_f = \mathrm{charpoly}(f)$.
+\end{theorem}
+
+\begin{proof}
+Existence is proved in \leanlink{GlobalTheory.AV.AbVar.exists_isCharpoly} by
+combining three ingredients. First, the degree of an integer linear combination
+of homomorphisms is a homogeneous polynomial of degree $2g$
+\leanlink{GlobalTheory.T.homDegree_integerCombination_isHomogeneous}, which
+yields a monic rational polynomial $P \in \Q[X]$ of degree $2g$ interpolating
+$\deg([n]_A - f)$. Second, one picks an auxiliary prime $\ell$ invertible in
+$K$ (taking $\ell = 2$ if $\operatorname{char} K \neq 2$ and $\ell = 3$
+otherwise) and identifies $P$ over $\Q_\ell$ with the characteristic polynomial
+of $V_\ell(f)$ on the $2g$-dimensional $\Q_\ell$-space $V_\ell(A)$. Third,
+because $\End(A)$ is a finitely generated free $\Z$-module, $f$ satisfies a
+monic integral polynomial $Q \in \Z[X]$, which annihilates $V_\ell(f)$ and forces
+every coefficient of $P$ to be an integer. Uniqueness then follows immediately
+because two polynomials over $\Z$ agreeing at all $n \in \Z$ are identical.
+\end{proof}
+
+The published interface to Theorem~\ref{thm:charpoly-unique} is exported as
+\leanlink{GlobalTheory.T.abelianVarietyEndCharpoly_spec}. A clean application
+is the norm-degree identity for abelian varieties with real or complex
+multiplication by the ring of integers $\mathcal{O}_F$ of a number field $F$.
+
+\begin{theorem}[Norm-degree identity for number-field actions]
+\leanlink{GlobalTheory.AV.AbVar.DegNorm.deg_pow_finrank_eq_natAbs_norm_pow}
+\label{thm:norm-degree}
+Let $B$ be an abelian variety of dimension $g$ over a field $K$, let $F$ be a
+number field, and let $\psi : \mathcal{O}_F \to \End(B)$ be a ring
+homomorphism. For every nonzero element $c \in \mathcal{O}_F$,
+\[
+  \deg(\psi(c))^{[F:\Q]} = \bigl|N_{F/\Q}(c)\bigr|^{2g}.
+\]
+\end{theorem}
+
+\begin{proof}
+When $g = 0$, choosing $y \in \mathcal{O}_F$ with $c y = N_{F/\Q}(c)$ gives
+$\psi(y) \circ \psi(c) = [N_{F/\Q}(c)]_B$, which has degree $1$ by
+\leanlink{GlobalTheory.MulIsogeny.mul_isogeny}, forcing $\deg(\psi(c)) = 1$.
+When $g > 0$, the characteristic polynomial of $\psi(c)$ from
+\leanlink{GlobalTheory.AV.AbVar.isCharpoly_charpoly_unique} is a power
+$m_c^k$ of the minimal polynomial $m_c$ of $c$ over $\Q$, with
+$k [\Q(c):\Q] = 2g$. Equating $\deg(\psi(c))$ with the product of roots of
+$P_{\psi(c)}$ in $\overline{\Q}$ and comparing with the norm formula
+$N_{F/\Q}(c) = N_{\Q(c)/\Q}(c)^{[F:\Q(c)]}$ yields
+$\deg(\psi(c))^{[F:\Q(c)]} = |N_{F/\Q}(c)|^k$; raising both sides to the power
+$[\Q(c):\Q]$ and substituting $k [\Q(c):\Q] = 2g$ gives the result.
+\end{proof}
+
+\subsection{Resolution of singularities, multiplicative heights, and Arakelov--Weil bounds}
+
+The algebraic geometry of abelian varieties handles the moduli objects
+themselves; the remaining three domains of this chapter supply the compactification,
+volume, and automorphic matching tools needed to extract quantitative bounds
+from them.
+
+\paragraph{Functorial resolution of singularities in characteristic zero.}
+In \leanmod{Development.ResolutionOfSingularities}, the proof builds a
+scheme-theoretic blowup and embedded-resolution engine from scratch. The
+foundational existence theorem constructs the blowup along any ideal sheaf by
+gluing local $\operatorname{Proj}$ schemes.
+
+\begin{theorem}[Existence of blowups along ideal sheaves]
+\leanlink{FunctorialResolution.Blowup.exists_isBlowupAlongIdealSheaf}
+\label{thm:blowup-exists}
+For every scheme $X$ and every ideal sheaf $\mathcal{I}$ on $X$, there exists a
+morphism of schemes $\pi : Y \to X$ that is a blowup of $X$ along $\mathcal{I}$.
+\end{theorem}
+
+\begin{proof}
+The scheme $Y$ and projection $\pi$ are constructed by gluing the local
+projective blowups over affine opens, verified in
+\leanlink{FunctorialResolution.Blowup.isBlowupAlongIdealSheaf_gluedProj}.
+\end{proof}
+
+Building on blowup existence, étale coordinate charts
+\leanlink{FunctorialResolution.EmbeddedResolution.isSmoothDivisor_of_locally_coordIdeal},
+monomial boundary order analysis
+\leanlink{FunctorialResolution.EmbeddedResolution.MonomialChart.orderAt_boundary_eq_one},
+and canonical divisor reduction
+\leanlink{FunctorialResolution.EmbeddedResolution.divisorRestrictionFieldBaseChange},
+the proof obtains characteristic-zero resolution of singularities and
+principalization of ideal sheaves in
+\leanlink{PositivityTheory.ResPlug.FromRes.resK}.
+
+\paragraph{Moriwaki's arithmetic bigness theorem and Arakelov volumes.}
+Resolution of singularities in characteristic zero plugs directly into the
+Arakelov-geometric heart of \leanmod{Development.WeilBound}. Pairing
+\leanlink{PositivityTheory.ResPlug.FromRes.resK} with the Poincaré--Lelong
+arithmetic intersection system yields Moriwaki's arithmetic bigness theorem
+and the accompanying arithmetic Hilbert--Samuel lower bound
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.hsUse_outright}.
+
+\begin{theorem}[Moriwaki arithmetic bigness]
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwakiBig_outright}
+\label{thm:moriwaki-big}
+The arithmetic bigness criterion of Moriwaki
+(\leanlink{ReciprocityTheory.ChartRestriction.G.ArakelovGeometry.MoriwakiBigStatement})
+holds unconditionally for Hermitian line bundles on arithmetic varieties.
+\end{theorem}
+
+\begin{proof}
+The proof combines characteristic-zero resolution of singularities
+\leanlink{PositivityTheory.ResPlug.FromRes.resK} with the arithmetic
+intersection system derived from the Poincaré--Lelong equation and the dense
+curve criterion in
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwakiBig_of_classicalTheorems}.
+\end{proof}
+
+In the global architecture, Theorem~\ref{thm:moriwaki-big} and
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.hsUse_outright} feed
+directly into the self-intersection volume estimates on toroidal
+compactifications of Siegel and unitary Shimura varieties inside
+\leanlink{UpperTheory.LiteratureTheorems.every_character_of_literature_of_vWin},
+supplying the lower bounds on arithmetic volumes that balance the Bost slope
+inequality.
+
+\paragraph{Multiplicative heights, Jacquet--Shalika rigidity, and Jacquet--Rallis transfer.}
+Three auxiliary pillars in this layer feed the automorphic and archimedean
+estimates:
+\begin{itemize}
+  \item \emph{Multiplicative heights and Borel--Weil polynomials.} The package
+  \leanmod{ReciprocityTheory.SemistableReduction} formalizes Hermitian forms
+  \leanlink{ReciprocityTheory.MultiplicativeHeights.HermForm}, Gauss absolute
+  values \leanlink{ReciprocityTheory.MultiplicativeHeights.gaussAbs}, Mahler
+  torus means \leanlink{ReciprocityTheory.MultiplicativeHeights.torusMean},
+  and block-sphere logarithmic averages
+  \leanlink{ReciprocityTheory.MultiplicativeHeights.blockSphereMean} for
+  multihomogeneous polynomials
+  \leanlink{ReciprocityTheory.MultiplicativeHeights.IsMultiHomogeneous}
+  (together with almost-everywhere nonvanishing of nonzero multivariate
+  polynomials
+  \leanlink{ReciprocityTheory.MultiplicativeHeights.ae_eval_ne_zero_of_ne_zero_fin}).
+  \item \emph{Jacquet--Shalika rigidity and Rankin--Selberg poles.} Inside
+  \leanmod{Development.WeilBound}, the proof establishes Rankin--Selberg pole
+  detection \leanlink{PositivityTheory.AdelicQuotientData.rsPole} and
+  Jacquet--Shalika strong multiplicity-one rigidity
+  \leanlink{PositivityTheory.AdelicQuotientData.jacquetShalikaRigidity}, which
+  guarantee that cuspidal automorphic representations of $\GL_n$ are uniquely
+  pinned by almost all local spherical parameters.
+  \item \emph{Jacquet--Rallis unit matching and rank-one transfer.} Within
+  \leanmod{Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues}, the
+  fundamental lemma and unit matching for the Jacquet--Rallis relative trace
+  formula are established in all ranks \leanlink{GlobalTheory.JR.unitMatch_all}
+  (exported as \leanlink{GlobalTheory.T.jacquetRallisUnitMatch_all_ranks})
+  from the quadratic-field Weil representation
+  \leanlink{GlobalTheory.T.jacquetRallisUnitMatch_of_weilRep_quadratic},
+  together with rank-one étale orbital Fourier transfer
+  \leanlink{GlobalTheory.JR.RankOneTransfer.rankOne}.
+\end{itemize}
+
+Table~\ref{tab:ch04-pillars} summarizes how the main algebraic-geometric
+theorems of this chapter feed upward into the Galois-theoretic and
+cohomological assembly of Section~\ref{sec:galois-cohomology-assembly}.
+
+\begin{table}[ht]
+\centering
+\caption{Algebraic-geometric pillars of Section~\ref{sec:abelian-varieties-weil} and their downstream roles.}
+\label{tab:ch04-pillars}
+{\small
+\begin{tabular}{@{}p{0.23\textwidth}>{\raggedright\arraybackslash}p{0.41\textwidth}>{\raggedright\arraybackslash}p{0.30\textwidth}@{}}
+\toprule
+Result & Lean anchor & Downstream consumer \\
+\midrule
+Theorem of the Cube & \leanlink{GlobalTheory.CubeTop.cubeTheorem} & Mumford biextensions, polarizations \\
+Spreading out & \leanlink{GlobalTheory.SpreadingModels.cubeTheorem_holds} & Arbitrary-base Cube Theorem \\
+Degree of $[n]_A$ & \leanlink{GlobalTheory.MulIsogeny.mul_isogeny} & Torsion counts, $p$-divisible height \\
+$n$-torsion points & \leanlink{GlobalTheory.AV.AbVar.card_torsion_pt} & $\ell$-adic Tate modules, level structures \\
+Quasi-inverse isogeny & \leanlink{GlobalTheory.AV.AbVar.exists_quasiInverse_isogeny} & $V_\ell$ bijectivity, Dieudonné integrality \\
+Char.\ polynomial & \leanlink{GlobalTheory.AV.AbVar.isCharpoly_charpoly_unique} & Norm-degree law, Frobenius eigenvalues \\
+Blowups \& resolution & \leanlink{PositivityTheory.ResPlug.FromRes.resK} & Moriwaki arithmetic bigness \\
+Moriwaki bigness & \leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwakiBig_outright} & Shimura-variety arithmetic volumes \\
+\bottomrule
+\end{tabular}}
+\end{table}

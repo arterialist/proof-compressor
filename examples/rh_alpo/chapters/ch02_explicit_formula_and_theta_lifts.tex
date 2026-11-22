@@ -1,0 +1,688 @@
+\section{Explicit Formulas, Positivity Determinants, and Iterated Theta Lifts}
+\label{sec:ch02-explicit-formula-theta-lifts}
+
+A classical approach to the Riemann Hypothesis seeks a quadratic form or
+determinant whose positivity forces the zeros of Dirichlet $L$-functions onto
+the critical line $\operatorname{Re}(s) = \tfrac{1}{2}$.
+In function fields over finite fields, Stepanov's method achieves this by
+constructing an auxiliary function vanishing to high order $m$ at a large set
+of points, thereby converting an analytic zero-counting problem into an
+algebraic nonvanishing bound.
+Over the integers, however, there is no literal differentiation operator on
+prime numbers.
+The central analytic-automorphic mechanism of the formalized proof replaces
+high-order vanishing with a chain of $m \asymp \sqrt{X}$ iterated theta lifts
+between totally definite unitary groups, controlled simultaneously by
+Arakelov slope inequalities, determinant positivity bounds, integral dual Weyl
+modules, and Moriwaki arithmetic bigness.
+
+In this chapter we expose this analytic engine directly from the verified Lean
+development, progressing from the critical-line reduction and Selmer-window
+formulation through Euclidean and Hermitian lattice slopes, iterated definite
+theta lifts, graded Weyl divisibility, and the arithmetic height bounds that
+close the global inequality.
+
+% -----------------------------------------------------------------------------
+\subsection{From Half-Plane Nonvanishing to the Critical Line}
+\label{subsec:ch02-critical-line}
+
+The global analytic target of the proof is the universal right-half-plane
+nonvanishing statement \leanlink{UpperTheory.EveryCharacter}: for every modulus
+$N \ge 1$, every Dirichlet character $\chi \pmod{N}$, and every
+$s \in \mathbb{C}$ with $\operatorname{Re}(s) > \tfrac{1}{2}$ (and
+either $\chi \neq 1$ or $s \neq 1$), one has $L(s, \chi) \neq 0$.
+Once this half-plane nonvanishing is established, the functional equation of
+completed Dirichlet $L$-functions reflects the zero-free region across
+$\operatorname{Re}(s) = \tfrac{1}{2}$ and confines every nontrivial zero to the
+critical line.
+
+The reflection argument relies on two elementary but essential analytic facts:
+the conductor of a Dirichlet character is invariant under inversion, and the
+archimedean gamma factor has no zeros in the right half-plane
+$\operatorname{Re}(s) > 0$.
+
+\begin{lemma}[Conductor inversion and gamma-factor nonvanishing]
+\label{lem:ch02-gamma-nonvanishing}
+\leanlink{Formalism.VW.gammaFactor_ne_zero}
+Let $N \in \mathbb{N}$, let $\chi$ be a Dirichlet character modulo $N$, and let
+$s \in \mathbb{C}$ satisfy $0 < \operatorname{Re}(s)$.
+Then the archimedean gamma factor satisfies $\gamma(s, \chi) \neq 0$.
+Moreover, the conductor of $\chi^{-1}$ coincides with the conductor of $\chi$
+\leanlink{PI.EF.conductor_inv}.
+\end{lemma}
+
+\begin{proof}
+Every Dirichlet character $\chi$ is either even or odd.
+In the even case $\gamma(s, \chi) = \Gamma_{\mathbb{R}}(s) = \pi^{-s/2}\Gamma(s/2)$,
+and in the odd case $\gamma(s, \chi) = \Gamma_{\mathbb{R}}(s + 1)$.
+Since $\Gamma_{\mathbb{R}}(z) \neq 0$ whenever $\operatorname{Re}(z) > 0$,
+the hypothesis $0 < \operatorname{Re}(s)$ guarantees $\gamma(s, \chi) \neq 0$ in
+both cases.
+\end{proof}
+
+For the Riemann zeta function itself, right-half-plane nonvanishing immediately
+yields the classical Riemann Hypothesis via Riemann's functional equation.
+
+\begin{proposition}[Critical-line reflection for $\zeta(s)$]
+\label{prop:ch02-rh-of-right}
+\leanlink{Formalism.VW.rh_of_right}
+Suppose that for every $s \in \mathbb{C}$ satisfying $\tfrac{1}{2} < \operatorname{Re}(s)$
+and $s \neq 1$, we have $\zeta(s) \neq 0$.
+Then the Riemann Hypothesis holds: every zero $s \in \mathbb{C}$ of $\zeta(s)$
+other than the trivial zeros $s = -2k$ ($k \in \mathbb{Z}_{\ge 1}$) and $s = 1$
+satisfies $\operatorname{Re}(s) = \tfrac{1}{2}$.
+\end{proposition}
+
+\begin{proof}
+Let $s \in \mathbb{C}$ be a nontrivial zero of $\zeta(s)$ with $s \neq 1$.
+By hypothesis, $\operatorname{Re}(s)$ cannot strictly exceed $\tfrac{1}{2}$.
+Suppose for contradiction that $\operatorname{Re}(s) < \tfrac{1}{2}$.
+Since $\zeta(0) = -\tfrac{1}{2} \neq 0$, we have $s \neq 0$, so
+$w := 1 - s$ satisfies $\operatorname{Re}(w) > \tfrac{1}{2}$ and $w \neq 1$,
+and in particular $w \notin \mathbb{Z}_{\le 0}$.
+By Riemann's functional equation,
+\[
+  \zeta(s)
+  = 2 (2\pi)^{-w}\,\Gamma(w)\,\cos\!\left(\frac{\pi w}{2}\right)\,\zeta(w).
+\]
+On the right-hand side, $2(2\pi)^{-w} \neq 0$, $\Gamma(w) \neq 0$ because
+$\operatorname{Re}(w) > 0$, and $\zeta(w) \neq 0$ by the right-half-plane
+assumption.
+Hence $\cos(\pi w / 2) = 0$, which forces $w = 2k + 1$, i.e., $s = -2k$, for
+some integer $k$.
+The inequalities $\operatorname{Re}(s) < \tfrac{1}{2}$ and $s \neq 0$ rule out
+$k \le 0$, leaving $k \ge 1$ and contradicting the nontriviality of $s$.
+Therefore $\operatorname{Re}(s) = \tfrac{1}{2}$.
+\end{proof}
+
+Applying the same reflection mechanism to the completed $L$-function
+$\Lambda(s, \chi) = \gamma(s, \chi)\,L(s, \chi)$ of an arbitrary primitive
+Dirichlet character gives both the Generalized Riemann Hypothesis on the
+critical strip and the classical Riemann Hypothesis as direct consequences of
+\leanlink{UpperTheory.EveryCharacter}.
+
+\begin{theorem}[Critical-line localization for primitive Dirichlet $L$-functions]
+\label{thm:ch02-crit-line}
+\leanlink{Formalism.VW.critLine}
+Assume \leanlink{UpperTheory.EveryCharacter}.
+Let $N \ge 1$, let $\chi$ be a primitive Dirichlet character modulo $N$, and
+let $s \in \mathbb{C}$ satisfy $0 < \operatorname{Re}(s) < 1$ and
+$L(s, \chi) = 0$.
+Then $\operatorname{Re}(s) = \tfrac{1}{2}$.
+\end{theorem}
+
+\begin{proof}
+Because $0 < \operatorname{Re}(s) < 1$, we have $s \neq 0$ and $s \neq 1$.
+The assumption \leanlink{UpperTheory.EveryCharacter} immediately rules out
+$\operatorname{Re}(s) > \tfrac{1}{2}$.
+If $\operatorname{Re}(s) < \tfrac{1}{2}$, then $\chi^{-1}$ is again primitive
+by conductor invariance \leanlink{PI.EF.conductor_inv}.
+Writing $L(s, \chi) = \Lambda(s, \chi) / \gamma(s, \chi)$ and applying
+Lemma~\ref{lem:ch02-gamma-nonvanishing} (\leanlink{Formalism.VW.gammaFactor_ne_zero})
+gives $\Lambda(s, \chi) = 0$.
+By the functional equation relating $\Lambda(1 - s, \chi^{-1})$ and
+$\Lambda(s, \chi)$, it follows that $\Lambda(1 - s, \chi^{-1}) = 0$, and hence
+$L(1 - s, \chi^{-1}) = 0$ at $1 - s$ with $\operatorname{Re}(1 - s) > \tfrac{1}{2}$
+and $1 - s \neq 1$, contradicting \leanlink{UpperTheory.EveryCharacter}.
+\end{proof}
+
+\begin{corollary}[Riemann Hypothesis from universal character nonvanishing]
+\label{cor:ch02-rh-of-every}
+\leanlink{Formalism.VW.rh_of_every}
+If \leanlink{UpperTheory.EveryCharacter} holds, then the Riemann Hypothesis
+holds.
+\end{corollary}
+
+\begin{proof}
+Specializing \leanlink{UpperTheory.EveryCharacter} to the trivial character of
+modulus $N = 1$, whose $L$-function equals $\zeta(s)$, supplies the hypothesis
+of Proposition~\ref{prop:ch02-rh-of-right} (\leanlink{Formalism.VW.rh_of_right}).
+\end{proof}
+
+To prove \leanlink{UpperTheory.EveryCharacter}, the formalization factors the
+analytic explicit-formula contradiction through a quantitative Vandiver-type
+cohomological window condition \leanlink{UpperTheory.Top.VWin} (defined in
+\leanmod{Development.AutomorphicArithmetic.CharacterBoxes.ExistsPageN}).
+For each primitive character $\psi$, small exponent $0 < \varepsilon < 1/52$,
+and scale $x \ge 1$, one selects a dyadic level $2^e \in [x^{2 + 8\varepsilon},
+2 x^{2 + 8\varepsilon}]$ (\leanlink{UpperTheory.Top.PageN}) and a pair of
+auxiliary primes $(q, d)$ satisfying the congruence and logarithmic-size
+constraints \leanlink{UpperTheory.Top.WinPair}:
+\[
+  q \equiv 3 \pmod{8}, \qquad d \equiv 7 \pmod{16}, \qquad q \mid d + 1,
+\]
+with $\log q \asymp Y^{\varepsilon/5}$,
+$\log d \asymp Y^{\varepsilon/5}(\log Y)^2$, and $p \mid d + 1$ for every odd
+prime $p \le Y^{\varepsilon/5}$.
+To each tuple $(\psi, e, q, d)$ is attached an abelian number field $E$
+(\leanlink{UpperTheory.Top.IsChiField}) cut out inside a cyclotomic field
+$\mathbb{Q}(\zeta_N)$ by the subgroup where $a \equiv \pm 1 \pmod{2^{e+2}}$,
+$\psi(a) = 1$, and $\bigl(\frac{a}{q}\bigr) = \bigl(\frac{a}{d}\bigr) = 1$.
+The window predicate \leanlink{UpperTheory.Top.VAt} requires that for every
+finite set $S$ of primes, the Tate--Shafarevich / étale cohomology length
+weighted by $\log \ell$ obeys the subexponential bound
+\leanlink{UpperTheory.Top.VVle}:
+\[
+  \sum_{\ell \in S} (\log \ell) \sum_{1 \le k < \lfloor x^{401} \rfloor}
+    \operatorname{len}\!\left(\operatorname{Sel}_\ell(E, k)\right)
+  \;\le\;
+  \exp\!\left(\tfrac{1}{2} x^{\varepsilon}\right).
+\]
+Assembling the automorphic window theorem \leanlink{UpperTheory.One.vwin_of_row}
+with the analytic-arithmetic implication
+\leanlink{UpperTheory.LiteratureTheorems.every_character_of_literature_of_vWin}
+closes the top-level deduction of \leanlink{UpperTheory.EveryCharacter} from
+the Galois-automorphic row hypothesis \leanlink{UpperTheory.GalStar.Row0b}
+via \leanlink{UpperTheory.FinalTheorems.everyCharacter_of_row}.
+
+% -----------------------------------------------------------------------------
+\subsection{Stepanov-Style Multiplicity, Arakelov Slopes, and Positivity Determinants}
+\label{subsec:ch02-slopes-determinants}
+
+Why does a bound on Selmer cohomology lengths over cyclotomic-quadratic fields
+prevent an off-line zero of $L(s, \chi)$?
+Conceptually, the Guinand--Weil explicit formula converts a hypothetical zero
+with $\operatorname{Re}(\rho) > \tfrac{1}{2}$ into a persistent macroscopic
+imbalance in weighted von Mangoldt sums $\sum_{n \le X} \Lambda(n)\chi(n) w(n)$
+across dyadic windows.
+In the proof's quantitative core (\leanmod{Formalism.SizeWindowBrackets}),
+these size windows are parameterized by the structure
+\leanlink{Formalism.LFunctionChainParameters.PrimeWindowSizeBounds.Par}
+together with the explicit threshold scaling
+\leanlink{Formalism.LFunctionChainParameters.PrimeWindowSizeBounds.Facts.hsg},
+which evaluates the auxiliary window parameter as
+$\operatorname{sg}(P, K) = 100 K z^4 P.x^{-1}$.
+To contradict this imbalance in the spirit of Stepanov, one constructs a
+lattice of integral automorphic sections whose evaluation map has small
+operator norm at the archimedean places while possessing high divisibility at
+finite places.
+The comparison between the finite-place divisibility gain and the archimedean
+height loss is governed by Bost's Arakelov slope inequality for Euclidean and
+Hermitian lattices.
+
+In \leanmod{Formalism.LatticeSlopes} and \leanmod{Formalism.HarderNarasimhan},
+the formalization builds this slope calculus from first principles.
+For a discrete $\mathbb{Z}$-submodule $L$ of a finite-dimensional real inner
+product space $E$, its covolume (\leanlink{Formalism.F.covol}), rank
+(\leanlink{Formalism.F.rk}), Arakelov degree (\leanlink{Formalism.F.deg}), and
+slope (\leanlink{Formalism.F.slope}) are defined by
+\[
+  \operatorname{covol}(L) = \sqrt{\det\bigl(\operatorname{Gram}(b_1, \dots, b_r)\bigr)},
+  \qquad
+  \widehat{\deg}(L) = -\log\operatorname{covol}(L),
+  \qquad
+  \mu(L) = \frac{\widehat{\deg}(L)}{\operatorname{rk}(L)},
+\]
+where $(b_1, \dots, b_r)$ is any $\mathbb{Z}$-basis of $L$.
+For a sublattice $N \le L$, its saturation
+$\operatorname{satur}_L(N) = L \cap \operatorname{span}_{\mathbb{R}}(N)$
+maximizes the Arakelov degree among all sublattices of $L$ spanning the same
+real subspace, because passing to a finite-index superlattice divides the
+covolume by the index and strictly increases $-\log\operatorname{covol}$.
+
+\begin{proposition}[Lattice saturation and Harder--Narasimhan rank identity]
+\label{prop:ch02-lattice-saturation}
+\leanlink{Formalism.F.saturation_properties}
+Let $E$ be a finite-dimensional real inner product space and $L \subset E$ a
+discrete $\mathbb{Z}$-lattice.
+For any sublattice $N \le L$, the saturation $\operatorname{satur}_L(N)$ is
+saturated in $L$, contains $N$, and satisfies
+$\operatorname{rk}(\operatorname{satur}_L(N)) = \operatorname{rk}(N)$.
+In particular, for every discrete lattice $N \subset E$, the algebraic rank
+equals the dimension of its real span \leanlink{Formalism.F.rank_eq_finrank_span}:
+\[
+  \operatorname{rk}(N) = \dim_{\mathbb{R}} \operatorname{span}_{\mathbb{R}}(N).
+\]
+\end{proposition}
+
+\begin{proof}
+By \leanlink{Formalism.F.rank_eq_finrank_span}, any discrete
+$\mathbb{Z}$-submodule $M \subset E$ becomes a full $\mathbb{Z}$-lattice inside
+its own real span $V = \operatorname{span}_{\mathbb{R}}(M)$, so its
+$\mathbb{Z}$-rank agrees with $\dim_{\mathbb{R}}(V)$.
+Since $N \le \operatorname{satur}_L(N) \le \operatorname{span}_{\mathbb{R}}(N)$,
+both $N$ and $\operatorname{satur}_L(N)$ have the same real span, whence
+$\operatorname{rk}(\operatorname{satur}_L(N)) = \operatorname{rk}(N)$, and
+saturation in $L$ follows immediately from intersecting $L$ with that span.
+\end{proof}
+
+Over a number field $K$, the same saturation mechanism extends to
+$\mathcal{O}_K$-lattices equipped with Hermitian metrics at all infinite places
+$v \mid \infty$ (\leanlink{Formalism.HN.ht}, \leanlink{Formalism.HN.muDef}),
+via the real saturation theorem \leanlink{Formalism.HN.real_saturation_property},
+which enables the Harder--Narasimhan filtration and Bost's slope inequality
+comparing maximal slopes under linear maps of bounded operator norm
+(\leanlink{Formalism.HN.opNormAt}).
+
+To evaluate the Arakelov degrees of lattices arising from Fock spaces and
+theta series, the formalization proves the exact duality and index-determinant
+identities for Hermitian lattices in \leanmod{Formalism.FockGram}.
+Given a nondegenerate Hermitian form $B$ on a $K$-vector space $V$ and an
+$\mathcal{O}_K$-lattice $L \subset V$, its Hermitian dual lattice
+$L^{\#} = \{x \in V : B(x, L) \subseteq \mathcal{O}_K\}$
+(\leanlink{Formalism.E.hdual}) satisfies the covolume-Gram and index-norm
+relations below.
+
+\begin{proposition}[Hermitian dual lattices and Fock-Gram covolumes]
+\label{prop:ch02-fock-gram}
+\leanlink{Formalism.E.hermDual}
+For finite-rank Hermitian lattices equipped with Euclidean/Hermitian inner
+products:
+\begin{enumerate}
+  \item The covolume of a lattice equals the square root of the determinant of
+        its Gram matrix \leanlink{Formalism.E.covolumeEqSqrtDetGram}.
+  \item For any full-rank sublattice $M \le L$, the index $[L : M]$ equals the
+        absolute norm of the determinant of the change-of-basis matrix
+        \leanlink{Formalism.E.subIndexNorm}.
+  \item The Hermitian dual lattice $L^{\#}$ satisfies the standard dual-volume
+        and duality identities (\leanlink{Formalism.E.hermDual}, proved from
+        \leanlink{Formalism.E.subIndexNorm} via \leanlink{Formalism.E.hermDual_of}).
+\end{enumerate}
+\end{proposition}
+
+Alongside lattice covolumes, the positivity arguments repeatedly compare
+determinants of positive semidefinite Gram matrices when passing to subfamilies
+or adding positive spectral contributions.
+This monotonicity is established directly in
+\leanmod{Development.AutomorphicSpectrum.Proofs.BlockDecomposition.DeterminantMonotonicity}.
+
+\begin{proposition}[Hermitian determinant monotonicity]
+\label{prop:ch02-det-monotone}
+\leanlink{GlobalTheory.CompanionTheory.DetMonotone.detMono}
+If $X$ and $Y$ are finite-dimensional complex Hermitian matrices such that $X$
+and $Y - X$ are positive semidefinite, then
+\[
+  \operatorname{Re}(\det X) \;\le\; \operatorname{Re}(\det Y).
+\]
+\end{proposition}
+
+\begin{proof}
+If $\det X = 0$, the inequality reduces to $\operatorname{Re}(\det Y) \ge 0$,
+which holds because $Y = X + (Y - X)$ is positive semidefinite.
+Otherwise $X$ is strictly positive definite, and unitary diagonalization
+(\leanlink{GlobalTheory.CompanionTheory.DetMonotone.exists_unitary_diagonal_eigenvalues_of_isHermitian})
+yields $X = B^{*} B$ with $B$ invertible.
+Writing $Y = B^{*}(I + Q)B$ where $Q = (B^{*})^{-1}(Y - X)B^{-1}$ is positive
+semidefinite reduces the inequality to $\det(I + Q) \ge 1$, which follows from
+expanding $\det(I + Q) = \prod_i (1 + \lambda_i(Q))$ with all eigenvalues
+$\lambda_i(Q) \ge 0$.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\subsection{Iterated Theta Lifts and Definite Unitary Period Integrals}
+\label{subsec:ch02-iterated-theta-lifts}
+
+The mechanism that generates effective multiplicity $m$ over $\mathbb{Z}$ is
+an $m$-fold chain of theta lifts
+\[
+  \mathrm{U}(X_0) \longrightarrow \mathrm{U}(X_1) \longrightarrow \cdots
+  \longrightarrow \mathrm{U}(X_m)
+\]
+between totally definite unitary groups.
+At each step, lifting a form along the reductive dual pair shifts the
+automorphic representation by a Hecke character packet
+$\pi \mapsto \pi \oplus \mu_j[t]$, gaining one order of algebraic vanishing
+in the Stepanov determinant while multiplying the integral denominators by a
+controlled local mass factor.
+Because every group $\mathrm{U}(X_j)$ is totally definite, its automorphic
+quotient at fixed level decomposes into a finite set $\iota_j$ of isometry
+classes of Hermitian lattices (\leanlink{Formalism.ThetaLiftIndependence.IsClassReps}),
+and each theta lift acts as an explicit weighted finite-sum kernel operator.
+
+In \leanmod{Formalism.ThetaLiftIndependence.Statement}, the formalization
+captures this discrete kernel algebra cleanly over any commutative ring $R$
+and any sequence of finite class sets $(\iota_j)_{j \ge 0}$.
+Given weights $w_j : \iota_j \to R$ (encoding inverse automorphism-group sizes
+$|\operatorname{Aut}(L_i)|^{-1}$, with lattice automorphism groups formalized
+by \leanlink{Formalism.ThetaLiftIndependence.autL}) and module-valued kernel
+operators $K_j(i, i') : M_j \to M_{j+1}$, the one-step theta lift operator
+\leanlink{Formalism.ThetaLiftIndependence.kerOpM} is
+\[
+  (\mathcal{K}_{w_j, K_j} f)(y) = \sum_{x \in \iota_j} w_j(x)\, K_j(x, y)\bigl(f(x)\bigr),
+\]
+and the $m$-fold iterated lift \leanlink{Formalism.ThetaLiftIndependence.chainOpM}
+is defined inductively by
+\[
+  \mathcal{C}_0(f) = f,
+  \qquad
+  \mathcal{C}_{m+1}(f) = \mathcal{K}_{w_m, K_m}\!\bigl(\mathcal{C}_m(f)\bigr).
+\]
+This formulation makes three structural properties transparent:
+\begin{itemize}
+  \item \emph{Adjointness, composition, and multiplicative denominator control}:
+        with respect to the mass-weighted inner product
+        $\langle f, g \rangle_w = \sum_i w_i \overline{f(i)} g(i)$, the adjoint
+        of a kernel operator is given by the conjugate-transpose kernel, and
+        if scalars $D_j \in R$ clear the mass denominators $D_j w_j(x)$ while
+        each kernel $K_j(x, y)$ maps an integral lattice $\Lambda_j \subset M_j$
+        into $\Lambda_{j+1} \subset M_{j+1}$, then the $m$-fold iterated lift
+        satisfies
+        \[
+          \left(\prod_{j=0}^{m-1} D_j\right) \cdot \mathcal{C}_m(f)(y) \in \Lambda_m
+        \]
+        for every integral input $f$ with $f(x) \in \Lambda_0$.
+  \item \emph{Definite class-set independence}: for a definite Hermitian space
+        $(V, h)$, the action of isometries on $\mathcal{O}_K$-lattices is
+        functorial (\leanlink{Formalism.ThetaLiftIndependence.LatticeLiftIndependence.gmap_mul},
+        \leanlink{Formalism.ThetaLiftIndependence.LatticeLiftIndependence.gmap_inv_gmap})
+        and induces an isometry equivalence relation
+        (\leanlink{Formalism.ThetaLiftIndependence.DefiniteClassRepresentatives.isoSetoid})
+        whose chosen class representatives
+        (\leanlink{Formalism.ThetaLiftIndependence.DefiniteClassRepresentatives.pick})
+        preserve membership in finite genus sets
+        (\leanlink{Formalism.ThetaLiftIndependence.DefiniteClassRepresentatives.pick_spec}).
+  \item \emph{Finite-field Plancherel orthogonality}: local character-sum
+        cancellation and orthogonality over finite residue fields are supplied
+        by \leanlink{Formalism.ThetaLiftIndependence.FiniteFieldPlancherel.charSum}
+        and \leanlink{Formalism.ThetaLiftIndependence.FiniteFieldPlancherel.orth}.
+\end{itemize}
+
+To evaluate the norms and periods of these iterated theta lifts, one invokes
+the seesaw identity and the Rallis inner product formula, which express the
+period of an iterated lift in terms of Bessel periods and local formal degrees.
+Two key pillars of this local-global period machinery appear in
+\leanmod{Formalism.PeriodIntegrals} and \leanmod{Formalism.FormalDegreeBessel}.
+
+First, on level-zero Hermitian matrix spaces equipped with a Haar measure
+$\mu$ satisfying the smooth-test-space axioms \leanlink{PI.QnHermHaar.Hyp},
+the differential / Lie-algebra operators $E_{a,b}$ acting on the test space
+\leanlink{PI.QnHermHaar.testSub} admit explicit formal adjoints $E'_{a,b}$
+under integration against $\mu$.
+
+\begin{proposition}[Formal adjointness on level-zero Hermitian Haar spaces]
+\label{prop:ch02-herm-haar-adj}
+\leanlink{PI.QnHermHaar.adjOp_E}
+Let $k, r \in \mathbb{N}$, $i \in \{0, \dots, r\}$, and let $\mu$ be a measure
+on the Hermitian matrix space satisfying the level-zero hypothesis
+\leanlink{PI.QnHermHaar.Hyp}.
+Then for every pair of matrix indices $a, b$, the operator $E_{a,b}$ on the
+test submodule $\mathcal{F} = \operatorname{testSub}_{k,r,i}$
+(\leanlink{PI.QnHermHaar.testSub}) has formal $\mu$-adjoint $E'_{a,b}$
+relative to the Hermitian pairing.
+\end{proposition}
+
+\begin{proof}
+This follows by integrating by parts on the level-zero Hermitian chart and
+identifying the transposed action via \leanlink{PI.QnHermHaar.EOp'_eq}.
+\end{proof}
+
+Second, the archimedean formal-degree ratios and Bessel positivity estimates
+rely on algebraic identities for quantum-determinant projectors $H_{p,k}$
+acting on Hermitian spaces of signature $(p, q)$.
+
+\begin{theorem}[Hermitian positivity identities for Bessel formal-degree projectors]
+\label{thm:ch02-bessel-pos-facts}
+\leanlink{Formalism.QuantumDeterminants.hermitian_pos_facts_hold}
+The projector family $H_{p,k}$ on Hermitian representation spaces satisfies the
+complete package of positivity, idempotence, and symmetry relations
+(exported as \leanlink{Formalism.QuantumDeterminants.hpkFacts}): each $H_{p,k}$
+is Hermitian, satisfies the quadratic relation $H_{p,k}^2 = H_{p,k}$ up to
+explicit scalar normalization, and intertwines the signature form $J$ via the
+projected operator identity $P J P$.
+\end{theorem}
+
+\begin{proof}
+In the formalization, the three structural properties are established
+individually as the Hermiticity relation
+\leanlink{Formalism.QuantumDeterminants.GBasic.Hpk_herm}, the quadratic
+identity \leanlink{Formalism.QuantumDeterminants.GBasic.Hpk_sq}, and the
+projected signature identity \leanlink{Formalism.QuantumDeterminants.GBasic.PJP},
+which combine directly to yield
+\leanlink{Formalism.QuantumDeterminants.hermitian_pos_facts_hold}.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\subsection{Graded Weyl Divisibility and Integral Dual Weyl Coordinates}
+\label{subsec:ch02-weyl-divisibility}
+
+A critical quantitative hurdle in the iterated theta-lift chain is to prove
+sufficiently strong finite-place divisibility for the $m$-fold lift so that
+its Arakelov slope beats the archimedean norm growth.
+Because the archimedean components of the theta lifts live in algebraic
+representations of $\mathrm{GL}_r$ realized inside polynomial Fock spaces
+$R[X_{a,b}]_{1 \le a \le r,\, 1 \le b \le n}$, establishing exact divisibility
+at primes $p$ requires working over $\mathbb{Z}$ (and arbitrary integral
+domains $R$), not merely over $\mathbb{C}$.
+This integral representation theory is developed in
+\leanmod{Formalism.GradedWeylDivisibility} and
+\leanmod{Formalism.ThetaLogCoordinates}.
+
+Over a commutative ring $R$, let $P_{r,n}(R) = R[X_{a,b}]$ be the polynomial
+ring in an $r \times n$ matrix of indeterminates.
+Given a column-degree tuple $\nu = (\nu_1, \dots, \nu_n) \in \mathbb{N}^n$,
+the \emph{integral dual Weyl module}
+\leanlink{Formalism.GradedWeylDivisibility.dualWeyl}, denoted
+$\nabla_R(r, n; \nu)$, is defined as the intersection of the
+$\nu$-weighted column-homogeneous submodule with the common kernel of the
+strictly upper-triangular column-addition derivations
+\leanlink{Formalism.GradedWeylDivisibility.colAddGen}:
+\[
+  \nabla_R(r, n; \nu)
+  \;=\;
+  P_{r,n}(R)_{\nu} \;\cap\;
+  \bigcap_{1 \le l < j \le n}
+  \ker\bigl(\operatorname{colAddGen}_{l,j} - \iota\bigr).
+\]
+Equivalently, $\nabla_R(r, n; \nu)$ consists of column-homogeneous polynomials
+invariant under the unipotent subgroup $U_n^+$ acting on columns.
+Its canonical generators are \emph{bideterminants}
+\leanlink{Formalism.GradedWeylDivisibility.bideterminant}: products
+$\prod_{k=1}^K \det\bigl(X_{I_k(p), q}\bigr)_{1 \le p, q \le s_k}$ of initial
+minors (\leanlink{Formalism.GradedWeylDivisibility.initMinor}) of sizes $s_k$
+determined by the conjugate partition of $\nu$.
+Row operations $\mathrm{GL}_r(R)$ act on the left via
+\leanlink{Formalism.GradedWeylDivisibility.rowAct}, together with divided-power
+raising and lowering operators \leanlink{Formalism.GradedWeylDivisibility.rowDiv}.
+
+\begin{theorem}[Highest-weight structure, semistandard peeling, and rational Weyl identification]
+\label{thm:ch02-weyl-structure}
+\leanlink{Formalism.GradedWeylDivisibility.weylRational}
+Let $r, n \in \mathbb{N}$ with $n \le r$ and let $\nu : \{1, \dots, n\} \to \mathbb{N}$
+be an antitone weight (a partition).
+\begin{enumerate}
+  \item \emph{Highest-weight line} (\leanlink{Formalism.GradedWeylDivisibility.highest_weight_line}):
+        the highest-weight space inside $\nabla_{\mathbb{Q}}(r, n; \nu)$ is
+        one-dimensional, spanned by the canonical product of leading principal
+        minors.
+  \item \emph{Semistandard tableau peeling} (\leanlink{Formalism.GradedWeylDivisibility.semistandardPeel}):
+        iterated leading-monomial extraction peels any nonzero polynomial in
+        $\nabla_R(r, n; \nu)$ into semistandard Young tableau bideterminants,
+        controlling leading exponents in column-lexicographic order.
+  \item \emph{Rational identification} (\leanlink{Formalism.GradedWeylDivisibility.weylRational}):
+        over $\mathbb{Q}$ (and hence over $\mathbb{C}$), the Weyl module
+        generated by divided-power row operators from the highest-weight line
+        coincides with the dual Weyl module $\nabla_{\mathbb{Q}}(r, n; \nu)$.
+        Over $\mathbb{C}$, the inclusion
+        $\nabla_{\mathbb{C}}(r, n; \nu) \subseteq \Delta_{\mathbb{C}}(r, n; \nu)$
+        holds for every antitone $\nu$
+        \leanlink{Formalism.BranchingDeterminantCap.bs_dual_le_weyl}.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+In the Lean formalization, the rational identification
+\leanlink{Formalism.GradedWeylDivisibility.weylRational} is assembled directly
+from \leanlink{Formalism.GradedWeylDivisibility.weylEqNablaQ} and
+\leanlink{Formalism.GradedWeylDivisibility.weyl_module_rational}.
+Conceptually, the Fischer inner product on the rational Fock space is positive
+definite and makes the divided-power row operators adjoint to one another;
+combined with uniqueness of the highest-weight line
+(\leanlink{Formalism.GradedWeylDivisibility.highest_weight_line}), any
+orthogonal complement to the Weyl module inside $\nabla_{\mathbb{Q}}(r, n; \nu)$
+would contain a nonzero highest-weight vector and hence vanish.
+\end{proof}
+
+To pass from rational representations to integral coordinates on the algebraic
+group $\mathrm{GL}_n$ (where negative determinant powers also occur for general
+dominant weights $\mu \in \mathbb{Z}^n$),
+\leanmod{Formalism.ThetaLogCoordinates.DualWeylCoordinates} proves the integral
+straightening law and the standard bideterminant basis theorem over arbitrary
+integral domains.
+
+\begin{theorem}[Integral straightening and standard basis theorem for dual Weyl modules]
+\label{thm:ch02-standard-basis}
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.dualWeyl_eq_span_standard_tableauBideterminant}
+Let $B$ be a commutative integral domain, let $n \ge 1$, and let
+$\mu \in \mathbb{Z}^n$ be a dominant weight ($\mu_1 \ge \mu_2 \ge \dots \ge \mu_n$).
+Then the integral dual Weyl module $\nabla_B(n, n; \nu(\mu))$ is freely
+generated over $B$ by the bideterminants indexed by standard tableaux
+$I \in \operatorname{StdT}(\mu)$:
+\[
+  \nabla_B\bigl(n, n; \nu(\mu)\bigr)
+  \;=\;
+  \operatorname{span}_B\!\bigl\{\, P_B(I) \;\big|\; I \in \operatorname{StdT}(\mu) \,\bigr\}.
+\]
+Twisting by $(\det U)^{\mu_n}$ inside the coordinate ring of $\mathrm{GL}_n$
+over $\mathbb{Z}$ yields the integral standard basis theorem
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.standard_basis_theorem}
+and the straightening law
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.claimA_straightening}.
+\end{theorem}
+
+\begin{proof}
+Each standard tableau bideterminant lies in the dual Weyl module by
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.tableauBideterminant_mem_dualWeyl}.
+Conversely, given any element of $\nabla_B(n, n; \nu(\mu))$, its leading
+exponent is interlaced by \leanlink{Formalism.GradedWeylDivisibility.leadInterlaced}
+and is hit by a standard tableau bideterminant via
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.qa_exp_surj}.
+Subtracting that scalar multiple strictly lowers the leading term in the
+monomial order, so well-founded induction expresses every element as a
+$B$-linear combination of standard bideterminants.
+\end{proof}
+
+Using the straightening law and standard basis theorem, the formalization
+establishes the closure of column-family modules under trivial representations,
+dual Weyl modules, and determinant twists
+(\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.closure_first_part_of}),
+as well as the generic-point filtration criterion.
+
+\begin{theorem}[Generic-point criterion for good filtrations]
+\label{thm:ch02-filtration-criterion}
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.filtration_criterion_of}
+Assuming the integral straightening law ($\mathrm{LemmaA}$,
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.claimA_straightening}),
+let $M$ be a rational $\mathrm{GL}_n$-module equipped with a column family
+$\mathcal{CF}$, let $\pi \subset \mathbb{Z}^n$ be a lower set of dominant
+weights, and let $F$ be any field.
+Then a vector $x \in M \otimes_{\mathbb{Z}} F$ lies in the $F$-span of the
+standard-tableau basis vectors of weights in $\pi$ if and only if its
+generic-point evaluation projections vanish for all dominant weights
+$\mu \notin \pi$.
+\end{theorem}
+
+\begin{proof}
+This is a direct reformulation of
+\leanlink{Formalism.InvariantFactorPaths.ColumnFamilies.mem_span_standard_iff_proj_zero},
+which combines straightening with the linear independence of standard tableau
+evaluations over arbitrary fields $F$.
+\end{proof}
+
+These integral dual Weyl coordinates are precisely what permit integral
+structures on automorphic representations to be glued across varying Hecke
+characters and pushed through the $m$-fold theta-lift chain without losing
+control of prime-power denominators.
+
+% -----------------------------------------------------------------------------
+\subsection{Arithmetic Heights, Moriwaki Bigness, and Automorphic Positivity}
+\label{subsec:ch02-heights-positivity}
+
+The final analytic-geometric link in Chapter~2 connects the algebraic
+divisibility of iterated theta lifts to global arithmetic height lower bounds
+and automorphic positivity inputs.
+Across \leanmod{GroundTheory.HeightsAndTheta},
+\leanmod{PositivityTheory}, and \leanmod{Development.AutomorphicSpectrum}, the
+Lean proof formalizes the full Arakelov-geometric infrastructure needed to
+extract nonzero small integral sections (arithmetic Hilbert--Samuel and
+Moriwaki bigness) and to supply automorphic positivity and base-change data.
+
+On the arithmetic-height side (\leanmod{GroundTheory.HeightsAndTheta}),
+measuring the arithmetic volume of line bundles on arithmetic varieties
+requires relating the transcendence degree of multihomogeneous coordinate cones
+to Krull dimension and computing local intersection lengths on integral models:
+\begin{itemize}
+  \item \emph{Multihomogeneous cone transcendence degree}
+        (\leanlink{GroundTheory.Heights₂.Heights.ConeTrdeg.proof}): controls
+        the transcendence degree of the multihomogeneous coordinate ring of a
+        projective arithmetic subvariety in terms of its geometric dimension.
+  \item \emph{Function-field dimension lower bound}
+        (\leanlink{GroundTheory.Heights₂.Heights.LowerBoundFree.FnFieldTrdeg.full}):
+        establishes the transcendence-degree and Krull-dimension bridge used in
+        Hodge-index and height lower bounds.
+  \item \emph{Arithmetic B\'ezout local section lengths}
+        (\leanlink{GroundTheory.Heights₂.Heights.LocalSectionLengthSum.proof}):
+        evaluates the finite-place contribution to arithmetic intersection
+        numbers as a sum of finite-length quotients of local section modules on
+        an integral model.
+\end{itemize}
+
+These height foundations culminate in the unconditional Moriwaki bigness and
+arithmetic Hilbert--Samuel theorems in
+\leanmod{Development.WeilBound.CoreStatements.AutomorphicKernels.MoriwakiBigness},
+which feed directly into the top-level deduction
+\leanlink{UpperTheory.LiteratureTheorems.every_character_of_literature_of_vWin}.
+
+\begin{theorem}[Unconditional Moriwaki bigness and arithmetic Hilbert--Samuel]
+\label{thm:ch02-moriwaki-big}
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwakiBig_outright}
+Moriwaki's arithmetic bigness criterion
+(\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwakiBig_outright})
+and its arithmetic Hilbert--Samuel application
+(\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.hsUse_outright}) hold
+unconditionally for Hermitian line bundles on projective arithmetic varieties:
+a Hermitian line bundle with positive arithmetic top self-intersection
+$\widehat{c}_1(\overline{L})^{d+1} > 0$ and ample generic fiber is
+arithmetically big, admitting exponentially many small integral global
+sections in high tensor powers.
+\end{theorem}
+
+\begin{proof}
+The theorem
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwakiBig_outright} is
+derived from three unconditionally proved pillars: characteristic-zero
+resolution of singularities (\leanlink{PositivityTheory.ResPlug.FromRes.resK}),
+the Poincar\'e--Lelong current formula
+(\leanlink{PositivityTheory.Tls2.Pl.poincareLelong}), and the resulting
+arithmetic intersection system
+(\leanlink{GlobalTheory.T.arith_intersection_system_of_poincare_lelong}),
+together with the dense-curves Moriwaki reduction
+(\leanlink{PositivityTheory.MbAis.DenseCurves.main}); the same inputs
+simultaneously establish the arithmetic Hilbert--Samuel application stated
+above.
+\end{proof}
+
+Finally, the positivity and automorphic-spectrum layers supply the structural
+inputs that keep the automorphic representations along the iterated lift chain
+well-behaved at both archimedean and finite places:
+\begin{enumerate}
+  \item \emph{Conjugate-self-dual pullback stability}
+        (\leanlink{UpperTheory.CBC.SConjSpaceC_holds}): under a cyclic
+        automorphism $\sigma$ of a CM field $E$, pullback preserves the space
+        of smooth automorphic forms, intertwines the Lie algebra and center of
+        the universal enveloping algebra, and preserves cuspidal
+        subrepresentations.
+  \item \emph{Generic existence of Satake parameters}
+        (\leanlink{UpperTheory.CBC.SatakeParameterExistence.re}): for any
+        totally real number field $F$, any rank $n$, and any cuspidal
+        subrepresentation $\pi$, there exists a Satake parameter matrix at all
+        but finitely many finite places $v$ of $\mathcal{O}_F$.
+  \item \emph{Special lattices for nonzero types}
+        (\leanlink{UpperTheory.TNZ.step_spLat}): constructs special integral
+        lattices witnessing nonvanishing of local automorphic types.
+  \item \emph{Theorem of the cube and cyclic-algebra Hilbert~90}
+        (\leanlink{GlobalTheory.CompanionTheory.CubePerf.cubeTheorem_of_perfAll},
+        \leanlink{GlobalTheory.T.cyclic_algebra_hilbert_ninety}): in the
+        abelian-scheme and twisted-factor layers of
+        \leanmod{Development.AutomorphicSpectrum}, the theorem of the cube is
+        established from spreading of perfect models, and cyclic-algebra
+        Hilbert~90 controls local norm-one cocycles on discrete valuation rings.
+\end{enumerate}
+
+Together, these results show how an off-line zero of a Dirichlet $L$-function
+is transformed---via the critical-line reduction, Selmer windows, Arakelov
+lattice slopes, iterated definite theta lifts, integral dual Weyl divisibility,
+and Moriwaki arithmetic bigness---into a problem of comparing automorphic periods
+and spectral norms.
+That comparison is governed by the Jacquet--Rallis relative trace formula and
+its accompanying analytic and representation-theoretic estimates, to which we
+turn in the next chapter.

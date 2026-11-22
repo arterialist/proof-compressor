@@ -7,14 +7,32 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from proof_compressor.analyze.cluster import ClusterReport, cluster_graph
+from proof_compressor.analyze.consolidate import (
+    ConsolidationOp,
+    ConsolidationPlan,
+    ConsolidationReport,
+    apply_consolidations_to_lines,
+    plan_consolidation,
+    verify_consolidation_plan_with_sources,
+)
 from proof_compressor.analyze.dedup import DedupReport, analyze_dedup, normalize_signature
 from proof_compressor.analyze.materialize import (
-     VALID_MATERIALIZE_MODES,
+    VALID_MATERIALIZE_MODES,
     MaterializeReport,
     PrunePlan,
+    TransformResult,
     compute_prune_plan,
+    is_pure_import_barrel_source,
     materialize_project,
+    strip_lean_comments,
     transform_lean_source,
+    transform_lean_source_full,
+)
+from proof_compressor.analyze.merge_modules import (
+    MergeReport,
+    MergeUnit,
+    merge_project_modules,
+    parse_lakefile_lib_globs,
 )
 from proof_compressor.analyze.prune import PruneStats, prune_reachability, resolve_roots
 from proof_compressor.analyze.topology import (
@@ -31,8 +49,14 @@ __all__ = [
     "DedupReport",
     "TopologyReport",
     "ClusterReport",
+    "ConsolidationOp",
+    "ConsolidationPlan",
+    "ConsolidationReport",
     "PrunePlan",
+    "TransformResult",
     "MaterializeReport",
+    "MergeUnit",
+    "MergeReport",
     "VALID_MATERIALIZE_MODES",
     "resolve_roots",
     "prune_reachability",
@@ -43,9 +67,17 @@ __all__ = [
     "compute_dominators_chk",
     "transitive_reduction",
     "cluster_graph",
+    "plan_consolidation",
+    "verify_consolidation_plan_with_sources",
+    "apply_consolidations_to_lines",
     "compute_prune_plan",
+    "strip_lean_comments",
+    "is_pure_import_barrel_source",
     "transform_lean_source",
+    "transform_lean_source_full",
     "materialize_project",
+    "merge_project_modules",
+    "parse_lakefile_lib_globs",
     "run_analysis",
 ]
 

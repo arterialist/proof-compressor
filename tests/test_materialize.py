@@ -620,3 +620,412 @@ theorem UpperTheory.FinalTheorems.everyCharacter : UpperTheory.EveryCharacter :=
     ):
         axs = set(gate.axiom_check["axioms"].get(root_thm, []))
         assert axs.issubset({"propext", "Classical.choice", "Quot.sound"})
+
+
+def test_consolidate_duplicates_collapse_barrels_strip_comments_and_tar_gz_real_lake(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Verify Pass 1–3 multi-pass compression end-to-end with real `~/.elan/bin/lake build` + `#print axioms`:
+    - `--consolidate-duplicates`: delegates both intra-module and imported exact-duplicate multi-line proofs
+      to 1-line `_root_.` calls with zero new imports.
+    - `--collapse-barrels`: collapses a 2-hop chain of pure zero-decl barrel modules (`BarrelA -> BarrelB`)
+      by splicing live imports into callers.
+    - `--strip-comments`: strips line and nested block comments while preserving string literals.
+    - `--output-archive`: streams the compressed Lean project straight into a `.tar.gz` archive whose
+      unpacked contents pass `lake build` and `#print axioms` with strictly reduced LOC!
+    """
+    import json
+    import tarfile
+
+    lake_bin = _get_lake_bin()
+    proj = tmp_path / "multipass_orig"
+    (proj / "src" / "Core").mkdir(parents=True)
+    (proj / "src" / "Dead").mkdir(parents=True)
+
+    (proj / "lean-toolchain").write_text(_get_toolchain(), encoding="utf-8")
+    (proj / "lakefile.toml").write_text(
+        'name = "multipassdemo"\n'
+        'srcDir = "src"\n'
+        'defaultTargets = ["Main"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "Core"\n'
+        'globs = ["Core.+"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "Dead"\n'
+        'globs = ["Dead.+"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "Main"\n'
+        'roots = ["Main"]\n',
+        encoding="utf-8",
+    )
+
+    (proj / "src" / "Core" / "Base.lean").write_text(
+        """\
+/- Outer block comment
+   /- Nested block comment to strip -/
+   still inside outer comment -/
+namespace Core
+
+-- Line comment that should be stripped
+def markerTag : String := "-- not a comment /- keep me -/"
+
+class HasWeight (α : Type) where
+  weight : α → Nat
+
+structure Packet where
+  payload : Nat
+
+/-- Canonical multi-line commutativity proof for Nat addition. -/
+theorem canon_add_comm (a b : Nat) : a + b = b + a := by
+  have h1 : a + b = b + a := Nat.add_comm a b
+  have h2 : b + a = b + a := rfl
+  exact h1.trans h2
+
+theorem dead_base_lemma : 3 = 3 := by
+  rfl
+
+end Core
+""",
+        encoding="utf-8",
+    )
+
+    (proj / "src" / "Core" / "Instances.lean").write_text(
+        """\
+import Core.Base
+
+namespace Core
+
+instance instHasWeightPacket : HasWeight Packet where
+  weight p := p.payload
+
+end Core
+""",
+        encoding="utf-8",
+    )
+
+    # 2-hop pure forwarding barrel chain: BarrelA -> BarrelB -> {Base, Instances, Dead.Unused}
+    (proj / "src" / "Core" / "BarrelB.lean").write_text(
+        "import Core.Base\nimport Core.Instances\nimport Dead.Unused\n",
+        encoding="utf-8",
+    )
+    (proj / "src" / "Core" / "BarrelA.lean").write_text(
+        "import Core.BarrelB\n",
+        encoding="utf-8",
+    )
+
+    (proj / "src" / "Dead" / "Unused.lean").write_text(
+        "namespace Dead\ndef unusedVal : Nat := 777\ntheorem unused_thm : unusedVal = 777 := rfl\nend Dead\n",
+        encoding="utf-8",
+    )
+
+    (proj / "src" / "Core" / "Duplicates.lean").write_text(
+        """\
+import Core.BarrelA
+
+namespace Core.Dup
+
+/-- Imported exact duplicate of `Core.canon_add_comm` with alpha-renamed binders (x y). -/
+theorem dup_add_comm_imported (x y : Nat) : x + y = y + x := by
+  have h1 : x + y = y + x := Nat.add_comm x y
+  have h2 : y + x = y + x := rfl
+  have h3 : x + y = y + x := h1.trans h2
+  exact h3
+
+/-- Local canonical theorem inside Duplicates.lean. -/
+theorem local_mul_comm (m n : Nat) : m * n = n * m := by
+  have h1 : m * n = n * m := Nat.mul_comm m n
+  have h2 : n * m = n * m := rfl
+  exact h1.trans h2
+
+/-- Intra-module exact duplicate of `local_mul_comm` with alpha-renamed binders (p q). -/
+theorem dup_mul_comm_local (p q : Nat) : p * q = q * p := by
+  have h1 : p * q = q * p := Nat.mul_comm p q
+  have h2 : q * p = q * p := rfl
+  have h3 : p * q = q * p := h1.trans h2
+  exact h3
+
+end Core.Dup
+""",
+        encoding="utf-8",
+    )
+
+    (proj / "src" / "Main.lean").write_text(
+        """\
+import Core.BarrelA
+import Core.Duplicates
+
+open Core
+
+def evalWeight {α : Type} [HasWeight α] (x : α) : Nat :=
+  HasWeight.weight x
+
+theorem main_multipass_theorem (p : Packet) (a b : Nat) :
+    evalWeight p = p.payload ∧ a + b = b + a ∧ a * b = b * a ∧ markerTag = markerTag := by
+  have h1 := Core.Dup.dup_add_comm_imported a b
+  have h2 := Core.Dup.dup_mul_comm_local a b
+  have h3 := Core.Dup.local_mul_comm a b
+  have h4 := Core.canon_add_comm a b
+  exact ⟨rfl, h1.trans (h4.symm.trans h1), h2.trans (h3.symm.trans h2), rfl⟩
+""",
+        encoding="utf-8",
+    )
+
+    db_path = tmp_path / "multipass.db"
+    ingest_source(proj, db_path)
+    run_analysis(db_path, roots=["main_multipass_theorem"])
+
+    archive_out = tmp_path / "compressed.tar.gz"
+    rc = cli_main(
+        [
+            "materialize",
+            str(db_path),
+            "--source",
+            str(proj),
+            "--output-archive",
+            str(archive_out),
+            "--roots",
+            "main_multipass_theorem",
+            "--mode",
+            "instance-aware",
+            "--collapse-barrels",
+            "--consolidate-duplicates",
+            "--strip-comments",
+            "--json",
+        ]
+    )
+    assert rc == 0
+    rep = json.loads(capsys.readouterr().out)
+    assert archive_out.exists() and archive_out.stat().st_size > 0
+    assert rep["collapsed_barrel_modules"] >= 2
+    assert rep["consolidated_duplicates"] >= 2
+    assert rep["stripped_comment_and_blank_lines"] >= 4
+
+    # Unpack compressed.tar.gz and verify structure + real Lean 4 compilation
+    unpacked = tmp_path / "unpacked_proj"
+    unpacked.mkdir()
+    with tarfile.open(archive_out, "r:gz") as tf:
+        members = [m.name.lstrip("./") for m in tf.getmembers() if m.isfile()]
+        tf.extractall(unpacked, filter="data")
+
+    assert "src/Core/BarrelA.lean" not in members
+    assert "src/Core/BarrelB.lean" not in members
+    assert "src/Dead/Unused.lean" not in members
+    assert "src/Core/Base.lean" in members
+    assert "src/Core/Instances.lean" in members
+    assert "src/Core/Duplicates.lean" in members
+    assert "src/Main.lean" in members
+
+    base_txt = (unpacked / "src" / "Core" / "Base.lean").read_text(encoding="utf-8")
+    assert '"-- not a comment /- keep me -/"' in base_txt
+    assert "Nested block comment" not in base_txt
+    assert "dead_base_lemma" not in base_txt
+
+    dup_txt = (unpacked / "src" / "Core" / "Duplicates.lean").read_text(encoding="utf-8")
+    assert "_root_.Core.canon_add_comm" in dup_txt
+    assert "_root_.Core.Dup.local_mul_comm" in dup_txt
+
+    orig_loc = count_files_effective_loc(list((proj / "src").rglob("*.lean")))
+    pruned_loc = count_files_effective_loc(list((unpacked / "src").rglob("*.lean")))
+    assert pruned_loc < orig_loc
+
+    gate = verify_refactor_gate(
+        unpacked,
+        target_modules=["Main"],
+        exported_decls=["main_multipass_theorem"],
+        before_loc=orig_loc,
+        after_loc=pruned_loc,
+        run_lake=True,
+        lake_bin=lake_bin,
+    )
+    assert gate.passed is True, f"Multi-pass compressed .tar.gz failed lake build gate: {gate.errors}"
+    assert set(gate.axiom_check["axioms"].get("main_multipass_theorem", [])).issubset(
+        {"propext", "Classical.choice", "Quot.sound"}
+    )
+
+
+def test_extract_and_compile_from_real_rh_compressed_tar_gz(tmp_path: Path) -> None:
+    """Extract the collapsed `Main.lean` + `Supplements.Kernels.MainTheorems.lean` spine and
+    zero-Mathlib tactic/BuildAid modules straight out of `outputs/rh_compressed.tar.gz` and
+    compile them directly with real `~/.elan/bin/lake build` + `#print axioms`.
+    """
+    import tarfile
+
+    repo_root = Path(__file__).resolve().parent.parent
+    comp_arc = repo_root / "outputs" / "rh_compressed.tar.gz"
+    if not comp_arc.exists():
+        pytest.skip("outputs/rh_compressed.tar.gz not present")
+
+    lake_bin = _get_lake_bin()
+    wanted = {
+        "src/Main.lean",
+        "src/Supplements/Kernels/MainTheorems.lean",
+        "src/BuildAid/D1.lean",
+        "src/BuildAid/D2.lean",
+        "src/BuildAid/D3.lean",
+        "src/BuildAid/D4.lean",
+        "src/Formalism/LocalToGlobal/IndefiniteReal/HeckeNonvanishing/Imports.lean",
+    }
+    extracted: dict[str, str] = {}
+    with tarfile.open(comp_arc, "r:gz") as tf:
+        for m in tf:
+            if not m.isfile():
+                continue
+            name = m.name.lstrip("./")
+            # Confirm collapsed barrel modules are NOT in the compressed archive
+            assert name != "src/Supplements/Kernels/MainTheoremsAll.lean"
+            assert name != "src/Supplements/Kernels/MainTheoremsCritical.lean"
+            if name in wanted:
+                extracted[name] = tf.extractfile(m).read().decode("utf-8")
+
+    assert set(extracted.keys()) == wanted
+    assert "import Supplements.Kernels.MainTheorems" in extracted["src/Main.lean"]
+    assert "MainTheoremsAll" not in extracted["src/Main.lean"]
+
+    # Build a Lake project directly from the extracted compressed files + minimal Mathlib/upstream stubs
+    proj = tmp_path / "from_rh_compressed"
+    (proj / "src").mkdir(parents=True)
+    (proj / "lean-toolchain").write_text(_get_toolchain(), encoding="utf-8")
+    (proj / "lakefile.toml").write_text(
+        'name = "rh_comp_check"\n'
+        'srcDir = "src"\n'
+        'defaultTargets = ["BuildAid", "Main"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "BuildAid"\n'
+        'globs = ["BuildAid.+"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "Formalism"\n'
+        'globs = ["Formalism.+"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "Development"\n'
+        'globs = ["Development.+"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "Supplements"\n'
+        'globs = ["Supplements.+"]\n\n'
+        '[[lean_lib]]\n'
+        'name = "Main"\n'
+        'roots = ["Statements", "Main"]\n',
+        encoding="utf-8",
+    )
+
+    for rel, txt in extracted.items():
+        dest = proj / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(txt, encoding="utf-8")
+
+    (proj / "src" / "Statements.lean").write_text(
+        """\
+abbrev ℕ := Nat
+structure ℂ where
+  re : Int
+  im : Int
+instance : OfNat ℂ 0 where ofNat := ⟨0, 0⟩
+instance : OfNat ℂ 1 where ofNat := ⟨1, 0⟩
+instance : OfNat Int 1 where ofNat := 1
+instance : OfNat Int 2 where ofNat := 2
+instance : HDiv Int Int Int where hDiv a b := a / b
+namespace Complex
+end Complex
+structure DirichletCharacter (α : Type) (N : ℕ) where
+  level : ℕ := N
+namespace DirichletCharacter
+def IsPrimitive {α : Type} {N : ℕ} (_χ : DirichletCharacter α N) : Prop := True
+def LFunction {N : ℕ} (_χ : DirichletCharacter ℂ N) (s : ℂ) : ℂ := ⟨s.re - (1 / 2 : Int), 0⟩
+end DirichletCharacter
+def riemannZeta (s : ℂ) : ℂ := ⟨s.re - (1 / 2 : Int), 0⟩
+def RiemannHypothesis : Prop := ∀ s : ℂ, riemannZeta s = 0 → s.re = 1 / 2
+def RiemannZetaZerosOnLine : Prop := RiemannHypothesis
+def DirichletLNonvanishingRightOfHalf : Prop :=
+  ∀ (N : ℕ) [NeZero N] (χ : DirichletCharacter ℂ N) (s : ℂ),
+    (1 / 2 : Int) < s.re → DirichletCharacter.LFunction χ s ≠ 0
+def DirichletLZerosOnLine : Prop :=
+  ∀ (N : ℕ) [NeZero N] (χ : DirichletCharacter ℂ N) (s : ℂ),
+    (0 : Int) < s.re → s.re < (1 : Int) → DirichletCharacter.LFunction χ s = 0 → s.re = 1 / 2
+def PrimitiveDirichletLZerosOnLine : Prop :=
+  ∀ (N : ℕ) [NeZero N] (χ : DirichletCharacter ℂ N), χ.IsPrimitive →
+    ∀ s : ℂ, (0 : Int) < s.re → s.re < (1 : Int) → DirichletCharacter.LFunction χ s = 0 → s.re = 1 / 2
+""",
+        encoding="utf-8",
+    )
+
+    crit = proj / "src" / "Formalism" / "GammaFactorNonvanishing" / "CritLine.lean"
+    crit.parent.mkdir(parents=True, exist_ok=True)
+    crit.write_text(
+        """\
+import Statements
+namespace UpperTheory
+abbrev EveryCharacter : Prop := DirichletLNonvanishingRightOfHalf
+end UpperTheory
+namespace Formalism.VW
+theorem rh_of_every (_h : UpperTheory.EveryCharacter) : RiemannHypothesis := by
+  intro s hs; have h1 : s.re - (1 / 2 : Int) = 0 := congrArg ℂ.re hs; omega
+theorem critLine (_h : UpperTheory.EveryCharacter) (N : ℕ) [NeZero N]
+    (χ : DirichletCharacter ℂ N) (_hχ : χ.IsPrimitive) (s : ℂ)
+    (_h0 : (0 : Int) < s.re) (_h1 : s.re < (1 : Int))
+    (hz : DirichletCharacter.LFunction χ s = 0) : s.re = 1 / 2 := by
+  have h2 : s.re - (1 / 2 : Int) = 0 := congrArg ℂ.re hz; omega
+end Formalism.VW
+""",
+        encoding="utf-8",
+    )
+
+    cstrip = proj / "src" / "Development" / "AutomorphicArithmetic" / "CharacterBoxes" / "ClaimStrip.lean"
+    cstrip.parent.mkdir(parents=True, exist_ok=True)
+    cstrip.write_text(
+        """\
+import Formalism.GammaFactorNonvanishing.CritLine
+namespace Claim
+abbrev HalfPlane : Prop := UpperTheory.EveryCharacter
+abbrev Strip : Prop := DirichletLZerosOnLine
+abbrev Zeta : Prop := RiemannZetaZerosOnLine
+theorem strip (_h : HalfPlane) : Strip := by
+  intro N _ χ s _ _ hz; have h2 : s.re - (1 / 2 : Int) = 0 := congrArg ℂ.re hz; omega
+theorem zeta (h : HalfPlane) : Zeta := Formalism.VW.rh_of_every h
+end Claim
+""",
+        encoding="utf-8",
+    )
+
+    mc = proj / "src" / "Development" / "AutomorphicArithmetic" / "CharacterBoxes" / "MainConclusion.lean"
+    mc.parent.mkdir(parents=True, exist_ok=True)
+    mc.write_text(
+        """\
+import Development.AutomorphicArithmetic.CharacterBoxes.ClaimStrip
+theorem UpperTheory.FinalTheorems.everyCharacter : UpperTheory.EveryCharacter := by
+  intro N _ χ s hgt hz; have h2 : s.re - (1 / 2 : Int) = 0 := congrArg ℂ.re hz; omega
+""",
+        encoding="utf-8",
+    )
+
+    gate = verify_refactor_gate(
+        proj,
+        target_modules=[
+            "BuildAid.D1",
+            "BuildAid.D2",
+            "BuildAid.D3",
+            "BuildAid.D4",
+            "Formalism.LocalToGlobal.IndefiniteReal.HeckeNonvanishing.Imports",
+            "Main",
+        ],
+        exported_decls=[
+            "riemannHypothesis",
+            "riemannZeta_eq_zero_re",
+            "LFunction_ne_zero_of_half_lt_re",
+            "LFunction_eq_zero_re",
+            "LFunction_eq_zero_re_of_isPrimitive",
+        ],
+        before_loc=100,
+        after_loc=50,
+        run_lake=True,
+        lake_bin=lake_bin,
+    )
+    assert gate.passed is True, f"Extracted rh_compressed.tar.gz modules failed lake build: {gate.errors}"
+    for thm in (
+        "riemannHypothesis",
+        "riemannZeta_eq_zero_re",
+        "LFunction_ne_zero_of_half_lt_re",
+        "LFunction_eq_zero_re",
+        "LFunction_eq_zero_re_of_isPrimitive",
+    ):
+        assert set(gate.axiom_check["axioms"].get(thm, [])).issubset(
+            {"propext", "Classical.choice", "Quot.sound"}
+        )

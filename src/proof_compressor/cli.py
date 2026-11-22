@@ -578,15 +578,24 @@ def _cmd_materialize(args: argparse.Namespace) -> int:
     roots = _parse_roots(args.roots)
     t0 = time.perf_counter()
 
+    has_output = (args.out is not None) or (args.output_archive is not None)
     rep = materialize_project(
         db_path,
         source=args.source,
         output_dir=args.out,
+        output_archive=args.output_archive,
         roots=roots,
         mode=args.mode,
         strip_dead_decls=not args.no_strip_decls,
         rewrite_imports=not args.no_rewrite_imports,
-        dry_run=args.dry_run or (args.source is None or args.out is None),
+        collapse_barrels=args.collapse_barrels,
+        consolidate_duplicates=args.consolidate_duplicates,
+        strip_comments=args.strip_comments,
+        keep_docstrings=args.keep_docstrings,
+        merge_modules=args.merge_modules,
+        target_module_loc=args.target_module_loc,
+        allow_cross_bundle_consolidation=not args.no_cross_bundle_consolidation,
+        dry_run=args.dry_run or (args.source is None or not has_output),
         max_files=args.max_files,
     )
     elapsed = round(time.perf_counter() - t0, 2)
@@ -603,14 +612,31 @@ def _cmd_materialize(args: argparse.Namespace) -> int:
         f"  Modules: {rep.raw_modules:,} raw | {rep.import_closure_modules:,} import-closure | "
         f"{rep.decl_reachable_modules:,} decl-reachable | "
         f"+{rep.instance_support_modules:,} instance-support | "
-        f"+{rep.barrel_bridge_modules:,} barrel-bridge -> "
-        f"{rep.kept_modules:,} kept (-{rep.module_reduction_pct:.1f}%)"
+        f"+{rep.syntax_support_modules:,} syntax-support | "
+        f"+{rep.barrel_bridge_modules:,} barrel-bridge | "
+        f"-{rep.collapsed_barrel_modules:,} collapsed-barrels -> "
+        f"{rep.kept_modules:,} kept (-{rep.module_reduction_pct:.2f}%)"
     )
     print(
         f"  LOC:     {rep.raw_loc:,} raw -> {rep.kept_modules_raw_loc:,} kept-module LOC -> "
-        f"{rep.materialized_loc:,} after intra-module strip "
-        f"(-{rep.intra_module_stripped_loc:,} intra-module LOC, -{rep.total_loc_reduction_pct:.1f}% total)"
+        f"{rep.materialized_loc:,} final non-blank LOC ({rep.final_total_lines:,} total lines, "
+        f"-{rep.total_loc_reduction_pct:.2f}% total)"
     )
+    print(
+        f"  Passes:  -{rep.intra_module_stripped_loc:,} intra-module dead LOC "
+        f"({rep.stripped_intra_module_declarations:,} decls) | "
+        f"-{rep.consolidated_saved_loc:,} consolidated dup LOC "
+        f"({rep.consolidated_duplicates:,} proofs; hoist potential: "
+        f"{rep.hoistable_redundant_decls:,} decls / -{rep.hoistable_estimated_saved_loc:,} LOC) | "
+        f"-{rep.stripped_comment_and_blank_lines:,} comment/blank lines"
+    )
+    if rep.merge_modules_enabled:
+        print(
+            f"  Merged:  {rep.pre_merge_modules:,} -> {rep.merged_output_modules:,} modules "
+            f"(target={rep.target_module_loc} LOC, -{rep.eliminated_import_lines_by_merge:,} import lines, "
+            f"-{rep.loc_saved_by_merge:,} LOC by merge, +{rep.phase_b_consolidations:,} Phase-B dups / "
+            f"-{rep.phase_b_saved_loc:,} LOC, dangling={rep.merge_dangling_imports}, cycles={rep.merge_cycle_count})"
+        )
     print(
         f"  Decls:   {rep.raw_declarations:,} raw -> {rep.kept_declarations:,} kept "
         f"({rep.stripped_intra_module_declarations:,} dead intra-module theorems/lemmas stripped)"
@@ -639,12 +665,31 @@ def _cmd_materialize(args: argparse.Namespace) -> int:
         f"    - pure unused thm mods:   {rep.imported_unused_theorem_modules:,} mods "
         f"({rep.imported_unused_theorem_loc:,} LOC)"
     )
-    if rep.output_dir:
+    if rep.output_dir or rep.output_archive:
+        targets = ", ".join(x for x in (rep.output_dir, rep.output_archive) if x)
         print(
             f"  Materialized {rep.files_written:,} .lean files "
-            f"(+{rep.config_files_copied} config files) into {rep.output_dir} "
+            f"(+{rep.config_files_copied} config files) -> {targets} "
             f"(dropped {rep.dropped_import_lines:,} imports, rewrote {rep.rewritten_import_lines:,} barrel imports)"
         )
+        if rep.raw_uncompressed_bytes > 0:
+            raw_mb = rep.raw_uncompressed_bytes / 1_000_000
+            comp_mb = rep.compressed_uncompressed_bytes / 1_000_000
+            print(
+                f"  Uncompressed bytes: {rep.raw_uncompressed_bytes:,} B ({raw_mb:.2f} MB) -> "
+                f"{rep.compressed_uncompressed_bytes:,} B ({comp_mb:.2f} MB)"
+            )
+        if rep.output_archive and rep.output_archive_bytes > 0:
+            arc_mb = rep.output_archive_bytes / 1_000_000
+            raw_arc_str = (
+                f"{rep.raw_archive_bytes / 1_000_000:.2f} MB -> "
+                if rep.raw_archive_bytes > 0
+                else ""
+            )
+            print(
+                f"  Archive (.tar.gz):  {raw_arc_str}{arc_mb:.2f} MB "
+                f"({rep.output_archive_bytes:,} B) at {rep.output_archive}"
+            )
     return 0
 
 
@@ -931,6 +976,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_mt.add_argument("--source", default=None, help="Source dir, .tar.gz, or .part01/glob to stream files from.")
     p_mt.add_argument("--out", default=None, help="Target directory for materialized Lean project.")
     p_mt.add_argument(
+        "--output-archive",
+        default=None,
+        help="Stream-write compressed Lean project directly into a .tar.gz archive (zero intermediate disk unpack).",
+    )
+    p_mt.add_argument(
         "--mode",
         choices=VALID_MATERIALIZE_MODES,
         default="instance-aware",
@@ -944,6 +994,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_mt.add_argument("--no-strip-decls", action="store_true", help="Do not strip dead intra-module theorems/lemmas.")
     p_mt.add_argument("--no-rewrite-imports", action="store_true", help="Do not rewrite/prune import headers.")
+    p_mt.add_argument(
+        "--collapse-barrels",
+        action="store_true",
+        help="Collapse pure import-only zero-declaration barrel modules by splicing live imports into callers.",
+    )
+    p_mt.add_argument(
+        "--consolidate-duplicates",
+        action="store_true",
+        help="Apply safe in-scope exact-duplicate proof delegation (zero new imports).",
+    )
+    p_mt.add_argument(
+        "--strip-comments",
+        action="store_true",
+        help="Strip Lean 4 line/block comments and redundant blank lines safely.",
+    )
+    p_mt.add_argument(
+        "--keep-docstrings",
+        action="store_true",
+        help="Preserve /-- ... -/ docstrings when --strip-comments is enabled.",
+    )
+    p_mt.add_argument(
+        "--merge-modules",
+        action="store_true",
+        help="Fuse linear chains and pack cycle-free topological module bundles up to --target-module-loc.",
+    )
+    p_mt.add_argument(
+        "--target-module-loc",
+        type=int,
+        default=1400,
+        help="Target non-blank LOC limit per merged Lean 4 module bundle (default: 1400).",
+    )
+    p_mt.add_argument(
+        "--no-cross-bundle-consolidation",
+        action="store_true",
+        help="Restrict Phase B post-merge duplicate consolidation to zero-new-import pairs only.",
+    )
     p_mt.add_argument("--dry-run", action="store_true", help="Compute pruning plan & stats without writing files.")
     p_mt.add_argument("--max-files", type=int, default=None, help="Optional cap on streamed .lean files.")
     p_mt.add_argument("--json", action="store_true", help="Emit JSON output.")

@@ -1,0 +1,482 @@
+\section{Overview, Architecture of the Proof, and Top-Level Reduction}
+\label{sec:ch01-overview-and-spine}
+
+This paper gives a self-contained, human-readable mathematical exposition of a
+complete formal proof of the Generalized Riemann Hypothesis (GRH) for all
+Dirichlet $L$-functions and, as an immediate specialization, the Riemann
+Hypothesis (RH) for the Riemann zeta function $\zeta(s)$.
+The underlying formal development in Lean~4 comprises $175{,}187$ source
+modules totaling $15{,}531{,}759$ lines of code; exact declaration-level
+dependency analysis rooted at the five headline theorems of \leanmod{Main}
+identifies a reachable proof cone of $35{,}669$ modules, $183{,}501$
+declarations, and $2{,}252{,}399$ declaration body lines.
+Every mathematical claim presented in this manuscript is anchored to its
+corresponding kernel-checked Lean constant via inline pointers of the form
+\leanlink{riemannHypothesis}, allowing the reader to pass effortlessly
+between classical mathematical prose and the formal source.
+
+% -----------------------------------------------------------------------------
+\subsection{Statement of the Main Results}
+\label{subsec:ch01-main-results}
+
+For a modulus $N \ge 1$ and a Dirichlet character
+$\chi : (\Z/N\Z)^{\times} \to \C^{\times}$ (extended by zero to integers not
+coprime to $N$), let $L(s, \chi)$ denote the analytic continuation of the
+Dirichlet series $\sum_{n=1}^{\infty} \chi(n) n^{-s}$ ($\re(s) > 1$), and let
+$\zeta(s) = L(s, \mathbf{1}_1)$ denote the Riemann zeta function.
+The top-level module \leanmod{Statements} formulates the four canonical
+zero-free and critical-line predicates
+\leanlink{DirichletLNonvanishingRightOfHalf},
+\leanlink{DirichletLZerosOnLine},
+\leanlink{PrimitiveDirichletLZerosOnLine}, and
+\leanlink{RiemannZetaZerosOnLine} directly in terms of Mathlib's definitions of
+$L(s, \chi)$ and $\zeta(s)$, and \leanmod{Main} proves all five headline
+theorems unconditionally.
+
+\begin{theorem}[Right-half-plane nonvanishing for Dirichlet $L$-functions]
+\label{thm:ch01-half-plane}
+\leanlink{LFunction_ne_zero_of_half_lt_re}
+For every integer $N \ge 1$, every Dirichlet character $\chi \pmod{N}$, and
+every complex number $s \in \C$ with $\re(s) > \tfrac{1}{2}$ satisfying either
+$\chi \neq 1$ or $s \neq 1$, one has
+\[
+  L(s, \chi) \neq 0.
+\]
+\end{theorem}
+
+\begin{proof}
+In the formal development, the target predicate
+\leanlink{DirichletLNonvanishingRightOfHalf} is definitionally identical to
+\leanlink{UpperTheory.EveryCharacter}.
+The theorem is established by \leanlink{allChi} in
+\leanmod{Supplements.Kernels.MainTheorems}, which instantiates
+\leanlink{UpperTheory.FinalTheorems.everyCharacter} from
+Section~\ref{sec:galois-cohomology-assembly}.
+\end{proof}
+
+Combining right-half-plane nonvanishing with primitive-character reduction,
+nonvanishing of the archimedean gamma factor, and the functional equation of
+completed Dirichlet $L$-functions confines every nontrivial zero in the
+critical strip to the critical line $\re(s) = \tfrac{1}{2}$.
+
+\begin{theorem}[Generalized Riemann Hypothesis for all Dirichlet $L$-functions]
+\label{thm:ch01-grh-all}
+\leanlink{LFunction_eq_zero_re}
+For every integer $N \ge 1$, every Dirichlet character $\chi \pmod{N}$, and
+every $s \in \C$ in the critical strip $0 < \re(s) < 1$,
+\[
+  L(s, \chi) = 0 \implies \re(s) = \frac{1}{2}.
+\]
+\end{theorem}
+
+\begin{proof}
+The predicate \leanlink{DirichletLZerosOnLine} coincides with
+\leanlink{Claim.Strip}.
+By \leanlink{claimAll}, applying \leanlink{Claim.strip} to the half-plane
+nonvanishing result \leanlink{allChi} (Proposition~\ref{prop:ch01-claim-strip}
+below) yields the conclusion for all moduli $N \ge 1$ and all characters
+$\chi \pmod{N}$, whether primitive or imprimitive.
+\end{proof}
+
+\begin{corollary}[Primitive Dirichlet $L$-functions]
+\label{cor:ch01-grh-primitive}
+\leanlink{LFunction_eq_zero_re_of_isPrimitive}
+For every integer $N \ge 1$, every primitive Dirichlet character
+$\chi \pmod{N}$, and every $s \in \C$ with $0 < \re(s) < 1$ such that
+$L(s, \chi) = 0$, one has $\re(s) = \tfrac{1}{2}$.
+\end{corollary}
+
+\begin{proof}
+The statement \leanlink{PrimitiveDirichletLZerosOnLine} is proved directly by
+\leanlink{critAll}, which invokes the direct functional-equation reflection
+\leanlink{Formalism.VW.critLine} on \leanlink{allChi}.
+\end{proof}
+
+\begin{corollary}[The Riemann Hypothesis]
+\label{cor:ch01-rh}
+\leanlink{riemannHypothesis}
+Every nontrivial zero $s \in \C$ of the Riemann zeta function $\zeta(s)$---that
+is, every $s \in \C$ with $\zeta(s) = 0$, $s \neq -2(n+1)$ for all $n \in \N$,
+and $s \neq 1$---lies on the critical line $\re(s) = \tfrac{1}{2}$.
+\end{corollary}
+
+\begin{proof}
+This is established by \leanlink{rhOfAll}, which applies
+\leanlink{Formalism.VW.rh_of_every} to \leanlink{allChi} (specializing
+$\chi = \mathbf{1}_1$ and reflecting via \leanlink{Formalism.VW.rh_of_right}).
+\end{proof}
+
+\begin{remark}[Equivalent formalizations of RH]
+\label{rem:ch01-rh-equiv}
+The explicit zero-localization formulation \leanlink{riemannZeta_eq_zero_re}
+for \leanlink{RiemannZetaZerosOnLine} is definitionally identical to
+\leanlink{riemannHypothesis}, and is independently witnessed as the third
+component of \leanlink{claimAll} via \leanlink{Claim.zeta}.
+\end{remark}
+
+% -----------------------------------------------------------------------------
+\subsection{Conceptual Architecture and Reader's Roadmap}
+\label{subsec:ch01-roadmap}
+
+At its conceptual core, the proof realizes a number-field analogue of
+Stepanov's polynomial-multiplicity method for curves over finite fields.
+In characteristic $p$, high-order vanishing of an auxiliary polynomial at a
+large set of rational points converts an analytic zero-counting problem into an
+algebraic lower bound.
+Over $\Q$, where no literal differentiation operator acts on prime numbers,
+high-order vanishing is replaced by a tower of iterated definite unitary theta
+lifts whose automorphic periods are simultaneously bounded from above by
+Arakelov slope inequalities and positivity determinants, and bounded from below
+by integral dual Weyl divisibility and Moriwaki's arithmetic bigness theorem.
+Closing the resulting global inequality requires controlling the Galois and
+Iwasawa-theoretic obstructions that appear in the Selmer windows attached to
+cyclotomic and CM extensions.
+
+The proof therefore interlocks four deep mathematical pillars before closing at
+the top-level reduction spine.
+The remainder of this manuscript is organized so that each pillar can be read
+both in logical sequence and as a self-contained mathematical unit:
+
+\begin{enumerate}
+  \item \textbf{Section~\ref{sec:ch01-overview-and-spine} (Overview and
+  Top-Level Reduction Spine).}
+  States the five main theorems, establishes global notation and conventions,
+  and traces the exact formal reduction chain from \leanmod{Main} down to the
+  two interface inputs entering from the automorphic and Galois-theoretic
+  layers: strong Galois local--global compatibility and the Selmer-window
+  bound.
+
+  \item \textbf{Section~\ref{sec:ch02-explicit-formula-theta-lifts} (Explicit
+  Formulas, Positivity Determinants, and Iterated Theta Lifts).}
+  Develops the analytic-automorphic engine that drives zero-free regions: the
+  critical-line reflection mechanism, the Selmer-window reduction
+  (\leanlink{UpperTheory.Top.VWin}), Euclidean and Hermitian Arakelov lattice
+  slopes and determinant monotonicity, iterated definite unitary theta lifts
+  and Bessel period integrals, integral dual Weyl divisibility via standard
+  bideterminant bases, and unconditional arithmetic bigness of Moriwaki type.
+
+  \item \textbf{Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis}
+  (Relative Trace Formulas, Jacquet--Rallis Matching, and Spectral Analysis).}
+  Supplies the harmonic-analytic and representation-theoretic inputs comparing
+  automorphic periods on definite unitary groups against periods on general
+  linear groups.
+  Its centerpiece is an unconditional all-ranks proof of the Jacquet--Rallis
+  fundamental lemma via Wei Zhang's Fourier-transform method, together with
+  inert principal-congruence matching, H\"ormander's weighted $L^2$
+  $\bar{\partial}$-estimates on complex atlases, sharp restriction and
+  Hermitian curvature bounds, $\GL_3$ cumulant estimates, and Harish-Chandra
+  $(\mathfrak{g}, K)$-module spectral geometry.
+  The underlying local automorphic $L$-function interface is likewise built
+  from scratch in \leanmod{GroundTheory.AutomorphicForms}, including
+  Godement--Jacquet local zeta integrals
+  \leanlink{GroundTheory.Automorphic.GodementJacquet.zetaIntegral},
+  their fractional zeta ideals
+  \leanlink{GroundTheory.Automorphic.GodementJacquet.zetaIdeal},
+  and local $L$-polynomials and $L$-factors
+  \leanlink{GroundTheory.Automorphic.GodementJacquet.LPolynomial} and
+  \leanlink{GroundTheory.Automorphic.GodementJacquet.LFunction}.
+
+  \item \textbf{Section~\ref{sec:abelian-varieties-weil} (Abelian Varieties,
+  the Theorem of the Cube, Isogenies, and Weil Bounds).}
+  Constructs the algebraic- and arithmetic-geometric foundations required both
+  for unitary PEL Shimura varieties and for Arakelov intersection bounds on
+  their toroidal compactifications.
+  This is the single largest portion of the formal dependency graph: spreading
+  out and the Theorem of the Cube over arbitrary bases, multiplication-by-$n$
+  isogenies, torsion cardinality and $p$-divisible groups, characteristic
+  polynomials of endomorphisms and norm-degree identities, characteristic-zero
+  resolution of singularities, and multiplicative height bounds of Weil and
+  Mahler type.
+
+  \item \textbf{Section~\ref{sec:galois-cohomology-assembly} (Galois
+  Local--Global Compatibility, Cohomological Obstructions, and Closing the
+  Proof of GRH).}
+  Brings all preceding layers together in the upper arithmetic theory:
+  \'etale local acyclicity over strictly Henselian bases, perfectoid tilting
+  and Fontaine's period ring $A_{\mathrm{inf}}$, finite \'etale level models on
+  unitary PEL Shimura varieties, strong Galois local--global compatibility for
+  regular algebraic conjugate-self-dual cuspidal automorphic representations of
+  $\GL_a(\A_E)$ (\leanlink{UpperTheory.Gal.Int.galoisLocalGlobalStrong_recParameter}),
+  local Galois Euler characteristics, Wach dual-fibre lattices and Bost's slope
+  inequality yielding the weakened Vandiver window
+  (\leanlink{UpperTheory.One.vwin_of_row}), and the final assembly of
+  \leanlink{UpperTheory.FinalTheorems.everyCharacter}.
+\end{enumerate}
+
+Table~\ref{tab:ch01-architecture} summarizes the distribution of the
+$35{,}669$ reachable modules and $2{,}252{,}399$ reachable declaration body
+lines across the major namespaces of the formal proof, indicating where each
+pillar is treated in this manuscript.
+
+\begin{table}[ht]
+\centering
+\caption{Quantitative architecture of the reachable formal proof cone rooted at \leanmod{Main} ($35{,}669$ reachable modules, $183{,}501$ declarations, $2{,}252{,}399$ declaration body LOC).}
+\label{tab:ch01-architecture}
+{\small
+\begin{tabular}{@{}lrrrl@{}}
+\toprule
+Primary Lean package & Reachable mods & Reachable decls & Body LOC & Exposition \\
+\midrule
+\leanmod{Development.AbelianVarietyTheory} & 17,719 & 70,255 & 919,429 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{Development.AutomorphicSpectrum} & 4,196 & 20,375 & 253,854 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Development.AutomorphicArithmetic} & 4,122 & 22,650 & 310,923 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch02-explicit-formula-theta-lifts}, \ref{sec:galois-cohomology-assembly} \\
+\leanmod{GroundTheory.HeightsAndTheta} & 2,553 & 10,893 & 161,050 & Section~\ref{sec:ch02-explicit-formula-theta-lifts} \\
+\leanmod{Development.WeilBound} & 2,277 & 16,938 & 173,102 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{Development.EtaleCohomology} & 773 & 4,740 & 40,705 & Section~\ref{sec:galois-cohomology-assembly} \\
+\leanmod{ReciprocityTheory.ReductiveGroups} & 531 & 4,147 & 42,247 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Development.ResolutionOfSingularities} & 466 & 5,961 & 96,926 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{Formalism.LocalToGlobal} & 405 & 3,059 & 16,920 & Section~\ref{sec:galois-cohomology-assembly} \\
+\leanmod{GroundTheory.AutomorphicForms} & 310 & 4,518 & 50,054 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+All remaining reachable packages & 2,317 & 19,965 & 187,112 & Sections~\ref{sec:ch02-explicit-formula-theta-lifts}--\ref{sec:galois-cohomology-assembly} \\
+\midrule
+\textbf{Total reachable proof cone} & \textbf{35,669} & \textbf{183,501} & \textbf{2,252,399} & Sections~1--5 \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\subsection{Notation and Conventions}
+\label{subsec:ch01-notation}
+
+Throughout the paper we adhere to standard conventions of analytic number
+theory, automorphic forms, and arithmetic geometry, summarized in
+Table~\ref{tab:ch01-notation}.
+Whenever a formal declaration is cited, a bracketed anchor such as
+\texttt{[Const]} identifies the exact kernel-checked Lean constant in the
+reachable cone of \leanmod{Main}, and \leanmod{Mod.Path} identifies a Lean
+module path.
+Appendix~\ref{app:lean-concordance} collects a concordance mapping every
+anchored theorem, proposition, lemma, corollary, and definition in the text to
+its defining module and formal proof length.
+
+\begin{table}[ht]
+\centering
+\caption{Global notation and conventions used across Sections~1--5.}
+\label{tab:ch01-notation}
+{\small
+\begin{tabular}{@{}p{0.26\textwidth}p{0.68\textwidth}@{}}
+\toprule
+Symbol & Meaning \\
+\midrule
+$\N, \Z, \Q, \R, \C, \F_q$ & Nonnegative integers, integers, rationals, reals, complexes, and finite field of order $q$. \\
+$\A_F, \A_F^{\times}, \mathcal{O}_F$ & Adeles, ideles, and ring of integers of a global or local field $F$. \\
+$\chi \pmod{N}$, $\chi^{\circ}$, $f_{\chi}$ & Dirichlet character modulo $N \ge 1$, its associated primitive character, and its conductor $f_{\chi} \mid N$. \\
+$L(s, \chi)$, $\Lambda(s, \chi)$, $\gamma_{\chi}(s)$ & Dirichlet $L$-function, completed $L$-function $\Lambda(s, \chi) = \gamma_{\chi}(s) L(s, \chi)$, and archimedean gamma factor $\Gamma_{\R}(s + a_{\chi})$. \\
+$\zeta(s)$, $\Gamma_{\R}(s)$ & Riemann zeta function $\zeta(s) = L(s, \mathbf{1}_1)$ and $\Gamma_{\R}(s) = \pi^{-s/2}\Gamma(s/2)$. \\
+$E/F$, $x \mapsto \bar{x}$, $\eta$, $\psi$ & Quadratic extension (CM global or unramified local), nontrivial Galois involution, associated quadratic character, and additive character. \\
+$\GL_n$, $\SL_n$, $\U(V)$, $\U(n)$ & General linear, special linear, and (definite or quasi-split) unitary groups. \\
+$Z(\Phi, f, s)$, $L(s, \pi)$ & Local Godement--Jacquet zeta integral and local $L$-factor of an irreducible admissible representation $\pi$ of $\GL_n(F)$. \\
+$A/S$, $A^{\vee}$, $A[n]$, $T_{\ell}(A)$ & Abelian scheme over a base scheme $S$, dual abelian scheme, $n$-torsion group scheme, and $\ell$-adic Tate module. \\
+$\Gal(\bar{K}/K)$, $H^i_{\mathrm{\acute{e}t}}$ & Absolute Galois group of $K$ and $\ell$-adic \'etale cohomology. \\
+$A_{\mathrm{inf}}, A_{\mathrm{cris}}, B_{\mathrm{dR}}^+$ & Fontaine's $p$-adic period rings attached to a perfectoid tilt. \\
+$H^1(\mathcal{O}_E[1/\ell], \Q_\ell/\Z_\ell(-e))$ & Global Galois cohomology group governing the weakened Vandiver / Selmer-window obstruction \leanlink{UpperTheory.Top.VWin}. \\
+\bottomrule
+\end{tabular}
+}
+\end{table}
+
+% -----------------------------------------------------------------------------
+\subsection{The Top-Level Formal Reduction Spine}
+\label{subsec:ch01-spine}
+
+Before entering the detailed analytic, automorphic, geometric, and
+cohomological theories of Sections~2--5, we record the exact logical spine that
+reduces all five headline results of \leanmod{Main} to the two upper-theory
+inputs proved in Sections~2 and~5.
+Reading from bottom to top, the spine splits cleanly into two halves: an
+\emph{arithmetic assembly} producing right-half-plane nonvanishing for every
+Dirichlet character, and an \emph{analytic reflection} deducing critical-line
+localization for all Dirichlet $L$-functions and $\zeta(s)$.
+
+\subsubsection{Arithmetic assembly of right-half-plane nonvanishing}
+
+The single bottleneck hub through which the entire formalization passes is the
+unconditional theorem \leanlink{UpperTheory.FinalTheorems.everyCharacter} in
+\leanmod{Development.AutomorphicArithmetic.CharacterBoxes.MainConclusion}.
+Its proof factors through two transparent steps: a conditional reduction from
+strong Galois local--global compatibility, and the unconditional supply of that
+compatibility from unitary theta lifts and geometric realizations on Shimura
+varieties.
+
+\begin{proposition}[Conditional half-plane nonvanishing from strong local--global compatibility]
+\label{prop:ch01-every-of-row}
+\leanlink{UpperTheory.FinalTheorems.everyCharacter_of_row}
+Assume that strong Galois local--global compatibility holds for the local
+Langlands correspondence predicate \leanlink{UpperTheory.Zero.LLC.IsRecT} on
+regular algebraic conjugate-self-dual cuspidal automorphic representations
+(\leanlink{UpperTheory.GalStar.Row0b}).
+Then \leanlink{UpperTheory.EveryCharacter} holds: for every $N \ge 1$, every
+Dirichlet character $\chi \pmod{N}$, and every $s \in \C$ with
+$\re(s) > \tfrac{1}{2}$ (and $\chi \neq 1$ or $s \neq 1$), one has
+$L(s, \chi) \neq 0$.
+\end{proposition}
+
+\begin{proof}
+Given the strong local--global hypothesis $h$ for
+\leanlink{UpperTheory.Zero.LLC.IsRecT}, the proof combines three modular
+theorems:
+\begin{enumerate}
+  \item existence of the local Langlands parameter correspondence
+  \leanlink{UpperTheory.Zero.LLC.recTExists} (built in
+  \leanmod{Development.AutomorphicArithmetic.Foundations.LocalLanglands.LocalCentralUnits.RecTExists}
+  from cuspidal exhaustiveness and uniqueness of Langlands extensions);
+  \item the weakened Vandiver / Selmer-window obstruction bound
+  \leanlink{UpperTheory.One.vwin_of_row}, which feeds $h$ together with
+  definite unitary base change
+  \leanlink{UpperTheory.BaseChangeIdentities.baseChangeN} into
+  \leanlink{UpperTheory.One.Join.automorphic_window_of_inputs} to establish
+  \leanlink{UpperTheory.Top.VWin} (proved in
+  Section~\ref{sec:galois-cohomology-assembly}); and
+  \item the global explicit-formula and theta-lift closure
+  \leanlink{UpperTheory.LiteratureTheorems.every_character_of_literature_of_vWin},
+  which combines the automorphic literature inputs, Moriwaki bigness, and
+  \leanlink{UpperTheory.Top.VWin} to deduce \leanlink{UpperTheory.EveryCharacter}
+  (Sections~\ref{sec:ch02-explicit-formula-theta-lifts}--\ref{sec:abelian-varieties-weil}). \qedhere
+\end{enumerate}
+\end{proof}
+
+\begin{theorem}[Unconditional right-half-plane nonvanishing]
+\label{thm:ch01-every-character}
+\leanlink{UpperTheory.FinalTheorems.everyCharacter}
+The universal right-half-plane nonvanishing statement
+\leanlink{UpperTheory.EveryCharacter} holds unconditionally.
+\end{theorem}
+
+\begin{proof}
+By Proposition~\ref{prop:ch01-every-of-row}
+(\leanlink{UpperTheory.FinalTheorems.everyCharacter_of_row}), it suffices to
+supply the strong Galois local--global compatibility theorem
+\leanlink{UpperTheory.Gal.Int.galoisLocalGlobalStrong_recParameter}.
+In \leanmod{Development.AutomorphicArithmetic.Foundations.GaloisRepresentations.IntegralStructures.RowSrc},
+this theorem is obtained by invoking
+\leanlink{UpperTheory.Gal.Int.galoisRepresentations_of_thetaLift} on the
+theta-lift kernel package \leanlink{UpperTheory.TP.K.tLiftK}, which internally
+pairs the weight-one geometric realization
+\leanlink{UpperTheory.Gal.Int.Geo.geoOne_holds} with the theta-parseval lift
+to construct the required integral Galois representations
+(Section~\ref{sec:galois-cohomology-assembly}).
+\end{proof}
+
+\subsubsection{Analytic reflection to the critical line}
+
+Once \leanlink{UpperTheory.EveryCharacter} is established (re-exported as
+\leanlink{allChi} in \leanmod{Supplements.Kernels.MainTheorems}), the passage
+from $\re(s) > \tfrac{1}{2}$ to the full critical strip $0 < \re(s) < 1$ is
+elementary and completely self-contained.
+The formalization implements this reflection cleanly in
+\leanmod{Development.AutomorphicArithmetic.CharacterBoxes.ClaimStrip} (covering
+all characters, primitive or imprimitive, as well as $\zeta(s)$) and in
+\leanmod{Formalism.GammaFactorNonvanishing.CritLine} (giving the direct path
+for primitive characters and $\zeta(s)$, detailed further in
+Subsection~\ref{subsec:ch02-critical-line}).
+
+\begin{lemma}[Euler-factor nonvanishing and reduction to primitive characters]
+\label{lem:ch01-prim-zero}
+\leanlink{Claim.prim_zero}
+Let $N \ge 1$ and $\chi \pmod{N}$ be a Dirichlet character of conductor
+$f_{\chi} \ge 1$ with associated primitive character $\chi^{\circ} \pmod{f_{\chi}}$.
+If $s \in \C$ satisfies $0 < \re(s) < 1$ and $L(s, \chi) = 0$, then
+$L(s, \chi^{\circ}) = 0$.
+\end{lemma}
+
+\begin{proof}
+Since $\re(s) < 1$, we have $s \neq 1$, so the level-change identity relates
+$L(s, \chi)$ to $L(s, \chi^{\circ})$ via a finite product of local Euler
+factors over primes $p \mid N$ not dividing $f_{\chi}$:
+\[
+  L(s, \chi) = L(s, \chi^{\circ}) \prod_{p \mid N} \bigl(1 - \chi^{\circ}(p) p^{-s}\bigr).
+\]
+For every prime $p$ and every $s \in \C$ with $\re(s) > 0$, we have
+$|\chi^{\circ}(p)| \le 1$ and $|p^{-s}| = p^{-\re(s)} < 1$, hence
+$|\chi^{\circ}(p) p^{-s}| < 1$ and therefore $1 - \chi^{\circ}(p) p^{-s} \neq 0$
+(\leanlink{Claim.factor_ne_zero}).
+Since none of the finite Euler factors can vanish, $L(s, \chi) = 0$ forces
+$L(s, \chi^{\circ}) = 0$.
+\end{proof}
+
+\begin{lemma}[Functional-equation reflection for primitive characters]
+\label{lem:ch01-prim-reflect}
+\leanlink{Claim.prim_reflect}
+Let $M \ge 1$ and let $\psi \pmod{M}$ be a primitive Dirichlet character.
+If $s \in \C$ satisfies $0 < \re(s) < 1$ and $L(s, \psi) = 0$, then
+$L(1 - s, \psi^{-1}) = 0$.
+\end{lemma}
+
+\begin{proof}
+Because $0 < \re(s) < 1$, both $s$ and $1 - s$ are nonzero and have strictly
+positive real parts.
+By parity of $\psi$, the archimedean gamma factor $\gamma_{\psi}(s)$ equals
+either $\Gamma_{\R}(s)$ or $\Gamma_{\R}(s + 1)$, neither of which vanishes in
+the right half-plane $\re(s) > 0$ (\leanlink{Claim.gamma_ne_zero}).
+From $L(s, \psi) = \Lambda(s, \psi)/\gamma_{\psi}(s) = 0$ we obtain
+$\Lambda(s, \psi) = 0$.
+Since $\psi^{-1}$ is again primitive of conductor $M$, the functional equation
+of completed Dirichlet $L$-functions gives $\Lambda(1 - s, \psi^{-1}) = 0$, and
+dividing by $\gamma_{\psi^{-1}}(1 - s)$ yields $L(1 - s, \psi^{-1}) = 0$.
+\end{proof}
+
+\begin{proposition}[From right-half-plane nonvanishing to the critical line]
+\label{prop:ch01-claim-strip}
+\leanlink{Claim.strip}
+Assume \leanlink{Claim.HalfPlane} (that is, $L(s, \chi) \neq 0$ whenever
+$\re(s) > \tfrac{1}{2}$ and either $\chi \neq 1$ or $s \neq 1$).
+Then \leanlink{Claim.Strip} holds: for every $N \ge 1$, every Dirichlet
+character $\chi \pmod{N}$, and every $s \in \C$ with $0 < \re(s) < 1$ and
+$L(s, \chi) = 0$, one has $\re(s) = \tfrac{1}{2}$.
+\end{proposition}
+
+\begin{proof}
+Let $0 < \re(s) < 1$ and $L(s, \chi) = 0$; in particular $s \neq 0$ and
+$s \neq 1$.
+By trichotomy on $\re(s)$ relative to $\tfrac{1}{2}$:
+\begin{itemize}
+  \item If $\re(s) > \tfrac{1}{2}$, then $L(s, \chi) = 0$ immediately
+  contradicts \leanlink{Claim.HalfPlane} (since $s \neq 1$).
+  \item If $\re(s) < \tfrac{1}{2}$, then Lemma~\ref{lem:ch01-prim-zero}
+  (\leanlink{Claim.prim_zero}) gives $L(s, \chi^{\circ}) = 0$, and
+  Lemma~\ref{lem:ch01-prim-reflect} (\leanlink{Claim.prim_reflect}) reflects
+  this to $L(1 - s, (\chi^{\circ})^{-1}) = 0$.
+  Since $\re(1 - s) = 1 - \re(s) > \tfrac{1}{2}$ and $1 - s \neq 1$ (because
+  $s \neq 0$), this contradicts \leanlink{Claim.HalfPlane}.
+\end{itemize}
+Hence $\re(s) = \tfrac{1}{2}$.
+\end{proof}
+
+\begin{proposition}[Specialization to the Riemann zeta function]
+\label{prop:ch01-claim-zeta}
+\leanlink{Claim.zeta}
+Assume \leanlink{Claim.HalfPlane}.
+Then \leanlink{Claim.Zeta} holds: every zero $s \in \C$ of $\zeta(s)$ with
+$s \neq -2(n+1)$ ($n \in \N$) and $s \neq 1$ satisfies $\re(s) = \tfrac{1}{2}$.
+\end{proposition}
+
+\begin{proof}
+Suppose $\zeta(s) = 0$, $s \neq 1$, and $s$ is not a negative even integer.
+Since $\zeta(0) = -\tfrac{1}{2} \neq 0$, we have $s \neq 0$.
+If $\re(s) \ge 1$, this contradicts the classical nonvanishing of $\zeta$ on
+$\re(s) \ge 1$.
+If $0 < \re(s) < 1$, then $L(s, \mathbf{1}_1) = \zeta(s) = 0$, so
+Proposition~\ref{prop:ch01-claim-strip} (\leanlink{Claim.strip}) gives
+$\re(s) = \tfrac{1}{2}$.
+Finally, if $\re(s) \le 0$, then $s$ is neither $0$ nor a negative even
+integer, so $\Gamma_{\R}(s) \neq 0$; hence the completed zeta function
+$\Lambda(s)$ vanishes, and the functional equation $\Lambda(1 - s) = \Lambda(s)$
+gives $\zeta(1 - s) = 0$ with $\re(1 - s) \ge 1$, again contradicting
+nonvanishing on the closed half-plane $\re \ge 1$.
+\end{proof}
+
+The top-level kernel module \leanmod{Supplements.Kernels.MainTheorems} packages
+Theorem~\ref{thm:ch01-every-character} as \leanlink{allChi}, combines it with
+Propositions~\ref{prop:ch01-claim-strip} and~\ref{prop:ch01-claim-zeta} into
+the triple \leanlink{claimAll}, and invokes \leanlink{Formalism.VW.critLine}
+and \leanlink{Formalism.VW.rh_of_every} to produce \leanlink{critAll} and
+\leanlink{rhOfAll}.
+Finally, \leanmod{Main} exports the five headline results
+\leanlink{riemannHypothesis}, \leanlink{riemannZeta_eq_zero_re},
+\leanlink{LFunction_ne_zero_of_half_lt_re}, \leanlink{LFunction_eq_zero_re},
+and \leanlink{LFunction_eq_zero_re_of_isPrimitive}.
+Thus the entire proof of GRH and RH is reduced with zero logical gaps to
+establishing the analytic-automorphic, geometric, and Galois-theoretic engines
+exposed in Sections~\ref{sec:ch02-explicit-formula-theta-lifts}
+through~\ref{sec:galois-cohomology-assembly}.

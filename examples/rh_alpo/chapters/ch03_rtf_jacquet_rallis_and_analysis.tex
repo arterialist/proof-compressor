@@ -1,0 +1,515 @@
+\section{Relative Trace Formulas, Jacquet--Rallis Matching, and Spectral Analysis}
+\label{sec:ch03-rtf-jacquet-rallis-analysis}
+
+To compare automorphic periods on definite unitary groups against periods on
+general linear groups---and to control the spectral norms of projected
+Poincar\'e series and theta-lift kernels---the proof relies on the
+Jacquet--Rallis relative trace formula (RTF) together with a suite of local
+harmonic-analytic, complex-geometric, and archimedean representation-theoretic
+estimates.
+In the Lean formalization, the highest-bottleneck theorems in this part of the
+dependency graph form a remarkably self-contained pillar: a complete,
+unconditional proof of the Jacquet--Rallis fundamental lemma for all ranks
+$r \ge 0$ via Wei Zhang's Fourier-transform method, its descent to the
+unitary-group unit lemma and inert principal-congruence matching, H\"ormander's
+weighted $L^2$ $\bar{\partial}$-estimates on complex atlases, sharp restriction
+and Hermitian curvature bounds, $\mathrm{GL}_3$ mean-square cumulant estimates,
+and the spectral geometry of Harish-Chandra $(\mathfrak{g}, K)$-modules.
+
+% -----------------------------------------------------------------------------
+\subsection{The Jacquet--Rallis Setting: Orbital Integrals and Invariant Theory}
+\label{subsec:ch03-jr-setup}
+
+Let $E/F$ be an unramified quadratic extension of non-archimedean local fields
+of characteristic zero with nontrivial involution $x \mapsto \bar{x}$ fixing
+$F$ (\leanlink{GlobalTheory.JR.Unram}).
+Let $\eta : F \to \{\pm 1\}$ denote the unramified quadratic character
+associated to $E/F$, given by $\eta(x) = 1$ if $|x|_F \in |F^{\times}|_F^2$ and
+$\eta(x) = -1$ otherwise (\leanlink{GlobalTheory.JR.eta}), and let
+$\psi : F \to \mathbb{C}^{\times}$ be a standard additive character of
+conductor $\mathcal{O}_F$ (\leanlink{GlobalTheory.JR.IsStdChar}).
+On any locally compact Hausdorff space $X$, the space of Schwartz--Bruhat test
+functions consists of locally constant, compactly supported functions
+$f : X \to \mathbb{C}$ (\leanlink{GlobalTheory.JR.IsTest}).
+
+The infinitesimal Jacquet--Rallis comparison pairs two representations of
+reductive groups of rank $r \in \mathbb{N}$:
+\begin{enumerate}
+  \item \emph{The general linear side} (\leanlink{GlobalTheory.JR.Gl}): the
+        ambient space is
+        \[
+          \mathrm{Gl}_r(k) = \operatorname{Mat}_{r \times r}(k) \times k^r \times (k^r)^{*} \times k,
+        \]
+        with $g \in \mathrm{GL}_r(k)$ acting by
+        $g \cdot (A, v, w, d) = (g A g^{-1},\, g v,\, w g^{-1},\, d)$
+        (\leanlink{GlobalTheory.JR.act}).
+        A tuple $Y = (A, v, w, d)$ is mapped to its categorical quotient
+        invariant (\leanlink{GlobalTheory.JR.inv})
+        \[
+          \operatorname{inv}(Y)
+          = \bigl(c_0(A), \dots, c_{r-1}(A);\, m_0(Y), \dots, m_{r-1}(Y);\, d\bigr)
+          \in \mathrm{Inv}_r(k),
+        \]
+        recording the coefficients of the characteristic polynomial of $A$,
+        the Krylov moments $m_i(Y) = w A^i v$ (\leanlink{GlobalTheory.JR.mom}),
+        and the scalar $d$.
+        Every invariant tuple $a \in \mathrm{Inv}_r(k)$ admits a canonical
+        companion-matrix section $\operatorname{sec}(a) \in \mathrm{Gl}_r(k)$
+        (\leanlink{GlobalTheory.JR.sec}) whose regularity is detected by the
+        Hankel discriminant $\Delta(a) = \det\bigl(m_{i+j}(\operatorname{sec}(a))\bigr)_{0 \le i, j < r}$
+        (\leanlink{GlobalTheory.JR.Delta}).
+        Bordering $(A, v, w, d)$ into an $(r+1) \times (r+1)$ matrix
+        $\widetilde{Y}$ (\leanlink{GlobalTheory.JR.full}) defines the transfer
+        factor
+        \[
+          \omega(Y) = \eta\!\bigl(\det\nolimits_{\mathrm{last}}(Y)\bigr),
+        \]
+        where $\det_{\mathrm{last}}(Y)$ (\leanlink{GlobalTheory.JR.lastDet}) is
+        the Krylov determinant of the row vectors $e_{r+1}^{\top} \widetilde{Y}^i$
+        for $0 \le i \le r$.
+  \item \emph{The unitary Lie-algebra side} (\leanlink{GlobalTheory.JR.Hn}):
+        the ambient space is
+        \[
+          \mathrm{Hn}_r(F, E) = \operatorname{Herm}_r(E) \times E^r \times F,
+        \]
+        carrying the action
+        $g \cdot (A, v, d) = (g A g^{*},\, g v,\, d)$
+        of the unitary group $\mathrm{U}_r(E)$ (\leanlink{GlobalTheory.JR.actU}).
+        Embedding $X = (A, v, d) \mapsto (A, v, v^{*}, d) \in \mathrm{Gl}_r(E)$
+        defines matching of orbits: $X$ has invariant $a \in \mathrm{Inv}_r(F)$
+        (\leanlink{GlobalTheory.JR.HasInv}) precisely when
+        $\operatorname{inv}(X^{\mathrm{Gl}}) = a$ in $\mathrm{Inv}_r(E)$.
+\end{enumerate}
+
+Endowing $\mathrm{GL}_r(F)$, $\mathrm{U}_r(E)$, $F$, and $E$ with normalized
+Haar measures $\mu_G, \mu_U, \mu_F, \mu_E$ assigning volume~$1$ to the
+integral maximal compact subgroups $\mathrm{GL}_r(\mathcal{O}_F)$
+(\leanlink{GlobalTheory.JR.glO}), $\mathrm{U}_r(\mathcal{O}_E)$
+(\leanlink{GlobalTheory.JR.uO}), and the closed unit balls
+(\leanlink{GlobalTheory.JR.Meas}), the twisted general linear orbital integral
+and the unitary orbital integral are defined by
+\[
+  O^{\mathrm{GL}}(f', Y)
+  = \int_{\mathrm{GL}_r(F)} f'(g \cdot Y)\,\omega(g \cdot Y)\, d\mu_G(g),
+  \qquad
+  O^{\mathrm{U}}(f, X)
+  = \int_{\mathrm{U}_r(E)} f(g \cdot X)\, d\mu_U(g)
+\]
+(\leanlink{GlobalTheory.JR.orbG}, \leanlink{GlobalTheory.JR.orbU}).
+A pair of test functions $(f', f)$ \emph{matches at $a \in \mathrm{Inv}_r(F)$}
+(\leanlink{GlobalTheory.JR.MatchAt}) if
+$O^{\mathrm{GL}}(f', \operatorname{sec}(a)) = O^{\mathrm{U}}(f, X)$ for every
+$X \in \mathrm{Hn}_r(F, E)$ with invariant $a$, and
+$O^{\mathrm{GL}}(f', \operatorname{sec}(a)) = 0$ whenever no such $X$ exists;
+global matching (\leanlink{GlobalTheory.JR.Match}) requires this identity at
+every regular semisimple invariant ($\Delta(a) \neq 0$).
+The Jacquet--Rallis fundamental lemma at rank $r$
+(\leanlink{GlobalTheory.JR.UnitMatch}) asserts that the characteristic
+functions of the integral lattices, $\mathbf{1}_{\mathrm{Gl}_r(\mathcal{O}_F)}$
+(\leanlink{GlobalTheory.JR.unitG}) and $\mathbf{1}_{\mathrm{Hn}_r(\mathcal{O}_F, \mathcal{O}_E)}$
+(\leanlink{GlobalTheory.JR.unitU}), match.
+
+% -----------------------------------------------------------------------------
+\subsection{Fourier Matching and Inductive Proof of the Jacquet--Rallis Fundamental Lemma}
+\label{subsec:ch03-jr-proof}
+
+Wei Zhang's strategy proves the Jacquet--Rallis fundamental lemma by showing
+first that orbital matching is preserved by Fourier transforms (up to the Weil
+constant, which equals~$1$ for the standard self-dual Hermitian space), and
+then inducting on the rank $r$ by applying a partial Fourier transform in the
+vector variables while exploiting the fact that the unit indicator functions
+are self-dual.
+In the Lean formalization, this entire architecture is executed without axioms
+in \leanmod{Development.AbelianVarietyTheory.Proofs.InertiaEigenvalues}.
+
+The analytic heart of Fourier matching is the rank-one \'etale transfer
+theorem: for any \'etale $F$-algebra $K$ with quadratic extension
+$L = K \otimes_F E$ (\leanlink{GlobalTheory.JR.Et}), the orbital integrals of
+the Weil-representation Fourier transform transfer across matched rank-one
+test functions.
+
+\begin{theorem}[Rank-one \'etale orbital Fourier transfer]
+\label{thm:ch03-rank-one-transfer}
+\leanlink{GlobalTheory.T.etaleOrbitalFourier_rankOne_transfer}
+The rank-one \'etale orbital Fourier transfer property
+\leanlink{GlobalTheory.JR.RankOne} holds for every unramified quadratic
+extension $E/F$ and every reduced finite \'etale $F$-algebra $K$ with
+involutive pushout $L = K \otimes_F E$.
+\end{theorem}
+
+\begin{proof}
+The theorem is established by \leanlink{GlobalTheory.JR.RankOneTransfer.rankOne}.
+Using the structural decomposition of \'etale Hermitian pairs
+(\leanlink{GlobalTheory.T.etaleHermitianPair_structure_facts}), the Fourier
+transform preserves Schwartz--Bruhat functions
+(\leanlink{GlobalTheory.T.fourierTransformKProd_locallyConstantCompactSupport}).
+To compare the orbital integrals of $\widehat{f}$ and $\widehat{f'}$, one
+embeds the rank-one orbital integrals into the Kirillov/Whittaker model of a
+Weil representation of $\mathrm{SL}_2(K)$: the truncated Whittaker functional
+agrees with the orbital integral
+(\leanlink{GlobalTheory.T.truncatedWhittaker_jHyp_eq_orbitalIntegral}),
+stabilizes under the Weil representation
+(\leanlink{GlobalTheory.T.truncatedWhittaker_weilRep_eventually}), and
+satisfies Weyl-element Fourier equivariance
+(\leanlink{GlobalTheory.T.jHyp_mem_induced_fourier_weyl},
+\leanlink{GlobalTheory.T.weilRep_evalZero_mem_induced}).
+Finally, Kirillov vanishing in the limit
+(\leanlink{GlobalTheory.T.kirillov_vanishing_of_limit}) forces the difference
+between the two transformed orbital integrals to vanish identically.
+\end{proof}
+
+Combining rank-one \'etale transfer with the existence of a Weil representation
+for any quadratic extension (\leanlink{GlobalTheory.JR.WeilField}) yields
+commutation of orbital matching with the full Fourier transforms
+\leanlink{GlobalTheory.JR.fourG} and \leanlink{GlobalTheory.JR.fourU} across
+every rank $r \in \mathbb{N}$.
+
+\begin{theorem}[All-ranks Fourier matching from a quadratic Weil representation]
+\label{thm:ch03-fourier-match}
+\leanlink{GlobalTheory.T.jacquetRallis_fourier_matching_of_weil_field}
+Assuming the existence of the quadratic Weil representation ($\mathrm{WeilField}$,
+\leanlink{GlobalTheory.JR.WeilField}), orbital matching commutes with Fourier
+transforms at every rank $r \in \mathbb{N}$: if $(f', f)$ matches on
+$\mathrm{Gl}_r(F) \times \mathrm{Hn}_r(F, E)$, then $(\widehat{f'}, \widehat{f})$
+also matches (\leanlink{GlobalTheory.JR.FourierMatch}).
+\end{theorem}
+
+\begin{proof}
+The statement reduces immediately to
+\leanlink{GlobalTheory.JR.fourierMatch_of_weilField}, which feeds four
+ingredients into the general Weil-representation transfer theorem
+\leanlink{GlobalTheory.T.jacquetRallisFourierMatch_of_weilRepresentation}:
+first, lifting the field-level Weil representation to finite \'etale algebras
+(\leanlink{GlobalTheory.T.weilRepresentationEtale_of_quadraticField}); second,
+Theorem~\ref{thm:ch03-rank-one-transfer}
+(\leanlink{GlobalTheory.T.etaleOrbitalFourier_rankOne_transfer}); and third,
+the evaluation of the Weil constant of the standard Hermitian space as $1$
+(\leanlink{GlobalTheory.T.weilConstantStandardHermitian_eq_one}).
+\end{proof}
+
+We now arrive at the centerpiece theorem of the local relative trace formula:
+the unconditional Jacquet--Rallis fundamental lemma in all ranks.
+
+\begin{theorem}[Jacquet--Rallis fundamental lemma across all ranks]
+\label{thm:ch03-jr-unit-match-all}
+\leanlink{GlobalTheory.T.jacquetRallisUnitMatch_all_ranks}
+For every rank $r \in \mathbb{N}$, every unramified quadratic extension $E/F$
+of characteristic-zero non-archimedean local fields, and every normalized
+measure datum \leanlink{GlobalTheory.JR.Meas}, the unit indicator functions
+$\mathbf{1}_{\mathrm{Gl}_r(\mathcal{O}_F)}$ and
+$\mathbf{1}_{\mathrm{Hn}_r(\mathcal{O}_F, \mathcal{O}_E)}$ have matching
+orbital integrals at all regular semisimple invariants
+(\leanlink{GlobalTheory.JR.UnitMatch}).
+\end{theorem}
+
+\begin{proof}
+By \leanlink{GlobalTheory.JR.unitMatch_all}, the theorem is deduced from the
+conditional reduction
+\leanlink{GlobalTheory.T.jacquetRallisUnitMatch_of_weilRep_quadratic} applied
+to the explicit construction of the Weil representation for quadratic local
+fields (\leanlink{GlobalTheory.T.weilRepresentation_quadraticField_exists},
+proved via \leanlink{GlobalTheory.JR.WeilQuad.weilField_main}).
+Inside \leanlink{GlobalTheory.JR.unitMatch_of_weilField}, one invokes
+Theorem~\ref{thm:ch03-fourier-match}
+(\leanlink{GlobalTheory.T.jacquetRallis_fourier_matching_of_weil_field}) and
+proceeds by induction on $r$:
+\begin{itemize}
+  \item \emph{Base case ($r = 0$)}: at rank zero, the matching identity
+        \leanlink{GlobalTheory.JR.SizeOne.unitMatch_zero} is a direct
+        evaluation of unit-ball volumes.
+  \item \emph{Inductive step ($r \to r + 1$)}: assuming unit matching at rank
+        $r$ and Fourier matching at rank $r + 1$, the inductive step
+        \leanlink{GlobalTheory.JR.UnitStep.unitMatch_succ} verifies matching on
+        the dense locus of invariants with separable characteristic polynomial
+        (\leanlink{GlobalTheory.T.jacquetRallis_match_of_dense_separable}).
+        When some eigenvalue or invariant has norm at least~$1$, orbital
+        descent reduces matching to rank $r$ via
+        \leanlink{GlobalTheory.JR.Step.unitMatchAt_of_one_le_norm}; on the
+        complementary small-norm locus, applying the partial Fourier transform
+        (\leanlink{GlobalTheory.T.partialFourier_preserves_test_fixes_unit}),
+        which fixes the unit test functions, transfers the vanishing of the
+        difference of orbital integrals from the large-norm locus to the
+        entire regular semisimple locus.
+\end{itemize}
+\end{proof}
+
+In the global proof, Theorem~\ref{thm:ch03-jr-unit-match-all} is immediately
+lifted from the Lie algebra to unitary groups via Cayley transforms and
+involutive algebras, yielding two fundamental applications that enter the
+base-change and trace-formula comparisons.
+
+\begin{corollary}[Unitary-group unit lemma and inert principal-congruence matching]
+\label{cor:ch03-unit-lemma-cong}
+\leanlink{GlobalTheory.UnitLemma.unitLemma_identity_unconditional}
+\begin{enumerate}
+  \item For every unramified quadratic local datum $K$ and every pair of
+        involutive algebras $B_1, B_2 \in \operatorname{InvAlg}(K)$ with
+        unitary elements $g_i \sigma(g_i) = 1$ whose characteristic polynomials
+        have separable product $P_1 P_2$, the unitary-group unit-lemma identity
+        holds unconditionally
+        (\leanlink{GlobalTheory.UnitLemma.unitLemma_identity_unconditional}).
+  \item Let $E$ be an unramified CM number field, $w$ a finite place of $E$
+        that is not split over its totally real subfield, $n = a + b$, and
+        $k \ge 1$.
+        Then the indicator function of the $k$-th principal congruence subgroup
+        of $\mathrm{U}_n(E_w)$ matches the rescaled product norm-congruence
+        test function on $\mathrm{GL}_a(E_w) \times \mathrm{GL}_b(E_w)$ with
+        explicit transfer scalar $(-\sqrt{q_w})^{-k a b}$
+        (\leanlink{GlobalTheory.CongMatch.match_principal_congruence_inert}).
+\end{enumerate}
+\end{corollary}
+
+\begin{proof}
+Both parts factor directly through
+Theorem~\ref{thm:ch03-jr-unit-match-all}
+(\leanlink{GlobalTheory.T.jacquetRallisUnitMatch_all_ranks}): the Lie-algebra
+matching is transferred to the unitary-group Lie algebra and then to unitary
+groups at every residue characteristic via
+\leanlink{GlobalTheory.T.unitLemma_lieAlgebra_unitaryGroup_of_jacquetRallis} and
+\leanlink{GlobalTheory.T.unitLemma_unitary_group_every_residue_of_lie}.
+\end{proof}
+
+% -----------------------------------------------------------------------------
+\subsection{Weighted $L^2$ $\bar{\partial}$-Estimates and Chart Restriction on Reductive Models}
+\label{subsec:ch03-dbar-charts}
+
+Alongside the non-archimedean orbital-integral matching, the proof constructs
+holomorphic sections of Hermitian line bundles with quantitative $L^2$ control
+at the archimedean places (essential for arithmetic Hilbert--Samuel, Moriwaki
+bigness, and archimedean period bounds) and glues line-bundle isomorphisms on
+integral models of reductive and abelian schemes.
+
+The complex-analytic core is H\"ormander's weighted $L^2$ $\bar{\partial}$-theorem
+on complex manifolds covered by a weighted atlas $A$
+(\leanmod{ReciprocityTheory.L2DbarEstimates.PlurisubharmonicCharts}).
+Given a plurisubharmonic potential $\Phi$ whose Levi form is nonnegative on
+every local chart, and a smooth section $F_0$ whose frame quotient $u_0$
+satisfies the pointwise Levi-form domination inequality
+\[
+  \bigl\lvert \bar{\partial} u_0(x) \cdot \eta \bigr\rvert^2
+  \;\le\;
+  h_{\mathrm{eff}}(x)\,\operatorname{Re}\bigl(\operatorname{Levi}(\Phi)(x; \eta)\bigr),
+\]
+solving $\bar{\partial} v = \bar{\partial} u_0$ in $L^2(e^{-\Phi})$ produces a
+holomorphic correction with controlled weighted $L^2$ norm.
+
+\begin{theorem}[Weighted $L^2$ $\bar{\partial}$-estimate on complex atlases]
+\label{thm:ch03-l2-dbar}
+\leanlink{ReciprocityTheory.L2DbarEstimates.Y.hy}
+Let $n \in \mathbb{N}$ and let $Y$ be a second-countable Hausdorff Borel space.
+Given the flat-space H\"ormander estimate and null-extension inputs
+$(h_H, h_E, h_N)$, the global weighted $L^2$ $\bar{\partial}$-estimate holds on
+every weighted complex atlas on $Y$: whenever the weighted integral
+$\int_Y h(y)\, e^{-\psi(y)}\, d\mu(y)$ is finite and the modified weight $\Phi$
+has nonnegative Levi form dominating $|\bar{\partial} u_0|^2$, there exists a
+holomorphic solution whose weighted $L^2$ norm is bounded by that integral.
+\end{theorem}
+
+\begin{proof}
+In the formalization, one passes to the open Stein complement $M$ where the
+local denominator section $w_0$ is nonvanishing and transports the problem to
+a flat complex chart via local Levi-form flattening
+(\leanlink{ReciprocityTheory.L2DbarEstimates.Y.levi_flat_loc}).
+The Levi-form identity, integral transport
+(\leanlink{ReciprocityTheory.L2DbarEstimates.Y.lintegral_flat}), and
+holomorphicity equivalence
+(\leanlink{ReciprocityTheory.L2DbarEstimates.Y.holo_flat_iff}) convert the
+atlas hypotheses into the flat-space H\"ormander estimate $h_H$; the resulting
+holomorphic solution on $M$ extends across the analytic hypersurface by the
+extension inputs $h_E, h_N$.
+\end{proof}
+
+On the arithmetic-geometric side of \leanmod{ReciprocityTheory.ReductiveGroups},
+line-bundle descent across discrete-valuation charts and toroidal
+compactifications ensures that integral structures on automorphic bundles are
+compatible across overlaps and group isomorphisms.
+Specifically, for line bundles $A, B$ on a scheme $Y$ with a generating
+section $u$ of $B \otimes A^{-1}$, the candidate chart-restricted sections
+\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand} agree on all
+triple overlaps (\leanlink{ReciprocityTheory.ChartRestriction.G.DVR.isoCand_compat})
+and glue to a global section \leanlink{ReciprocityTheory.ChartRestriction.G.DVR.secOfIso}.
+Similarly, in the toroidal compactification layer, the group-theoretic
+toroidal property is invariant under monoidal scheme isomorphisms
+(\leanlink{ReciprocityTheory.ChartRestriction.G.Geo.Tor.isGt_of_iso}).
+
+% -----------------------------------------------------------------------------
+\subsection{Sharp Restriction, Hermitian Curvature, and $\mathrm{GL}_3$ Mean-Square Estimates}
+\label{subsec:ch03-sharp-curvature-gl3}
+
+Once orbital matching and global section existence are in place, controlling
+the spectral side of the relative trace formula and the norms of projected
+Poincar\'e series requires three quantitative analytic packages: sharp
+restriction bounds on cuspidal spans, Hermitian curvature and Fourier-decay
+evaluations, and $\mathrm{GL}_3$ mean-square / cumulant estimates.
+
+\paragraph{Sharp restriction and cusp-span norm bounds.}
+In \leanmod{Formalism.SharpRestriction}, the spectral parameters of the
+automorphic family are encoded by the word-indexed structure
+\leanlink{Formalism.MainNotions.S.Draft.SData}, which spaces the Harish-Chandra
+parameters uniformly by a positive cloud gap $4\Delta$
+(\texttt{cloud\_gap}) and encodes each word $w$ as a binary pattern of
+half-integer shifts by $\Delta$ (\texttt{u\_letter}).
+Each word $u$ carries a finite-dimensional cuspidal space $C_u$ embedded into a
+common Hilbert space $H$ by a continuous projection $P_u : C_u \to H$.
+To compare inner products against local Bessel integrals,
+\leanmod{Formalism.SharpRestriction.CuspSpanNormBounds.RelevantZeroGramTerms}
+formalizes the formal degree $d(\sigma) > 0$ of an irreducible square-integrable
+unitary representation $\sigma$ of an indefinite unitary group $U(J_\varepsilon)$
+(\leanlink{Formalism.MainNotions.S.IsFdeg}, \leanlink{Formalism.MainNotions.S.fdegOf})
+via the Schur orthogonality identity
+\[
+  \int_{U(J_\varepsilon)} \langle w, \sigma(g) v \rangle\,
+  \overline{\langle w', \sigma(g) v' \rangle}\, d\mu(g)
+  \;=\;
+  \frac{\langle v', v \rangle\, \langle w, w' \rangle}{d(\sigma)}.
+\]
+At the finite places, the integral moduli charts
+\leanlink{Formalism.MainNotions.ModuliIntegralCharts.ExtA} and the totient
+Galois-class host derivation \leanlink{Formalism.HC.D7.hostDer} (combining
+inertia and discriminant control on the host CM field) interface with the
+$p$-adic logarithmic theta series in
+\leanmod{Formalism.SharpRestriction.GlobalSchurBounds.GL3Theta}.
+
+\paragraph{Hermitian curvature and explicit first-kernel Fourier decay.}
+In \leanmod{Formalism.HermitianCurvature}, archimedean Fourier decay is
+formulated using an abstract differential algebra
+\leanlink{Formalism.FourierDecayAlt.MA.DAlg} equipped with commuting Euler
+derivations satisfying the Leibniz rule on coordinates $x_v$ and inverting the
+curvature determinant $g_T = z \bar{z} - T$.
+On the open smooth domain $Q_{\mathrm{set}}(r, T)$
+(\leanlink{Formalism.FourierDecayAlt.MA.Qset_open}), both the coordinate
+functions (\leanlink{Formalism.FourierDecayAlt.MA.coordE_smooth}) and their
+Wirtinger derivatives (\leanlink{Formalism.FourierDecayAlt.MA.wirt_smooth}) are
+smooth, allowing iterated integration by parts against the oscillatory phase.
+At non-archimedean places, the explicit first-kernel calculation evaluates the
+inner exponential sum attached to a local datum $(K, R, \psi)$ and integral
+matrices $Z_1 \in \operatorname{Mat}_m(K)$, $Z_2 \in \operatorname{Mat}_{m'}(K)$.
+
+\begin{proposition}[Explicit first-kernel inner exponential sum]
+\label{prop:ch03-first-kernel-sum}
+\leanlink{Formalism.FourierDecayAlt.P.A5x8.inner_sum}
+Let $R \subset K$ be a local subring and $\psi : K \to \mathbb{C}^{\times}$ an
+additive character satisfying the local datum axioms.
+For $N = m + 1$, $N' = m' + 1$, integral matrices $Z_1, Z_2$ with unit
+determinants, and a unit $c \in K^{\times}$, the first-kernel inner exponential
+sum evaluates explicitly via the block-matrix factorization and injective
+indexing map $\iota$.
+\end{proposition}
+
+\begin{proof}
+The proof reduces the exponential sum over the bordered matrix domain to a
+supported sum along the injective map
+\leanlink{Formalism.FourierDecayAlt.P.A5x8.iota_injective}, using the support
+localization \leanlink{Formalism.FourierDecayAlt.P.A5x8.tTerm_supp} and the
+exact term evaluation \leanlink{Formalism.FourierDecayAlt.P.A5x8.tTerm_iota}.
+\end{proof}
+
+\paragraph{$\mathrm{GL}_3$ mean-square and Hermitian-lattice cumulant bounds.}
+In \leanmod{Formalism.GL3MeanSquares}, the off-diagonal mean-square bounds for
+$\mathrm{GL}_3$ theta lifts depend on two combinatorial-arithmetic ingredients:
+first, an exact inversion-count identity for hook-formula indices
+(\leanlink{Formalism.HermitianLattices.CumulantEstimateDefs.CumulantEstimates.inner})
+controlling the Hilbert--Schmidt half-bound in the cumulant expansion; second,
+the uniqueness and Frobenius-orbit stability of conjugate ideal factorizations
+$D = B \cdot \bar{B}$ in the ring of integers of the host CM field
+(\leanlink{Formalism.HermitianLattices.FiltrationBoundaryCriterion.PfN.principalStable}),
+paired with involutive symmetry of uniformizer divisibility for unimodular
+Hermitian genus representatives
+(\leanlink{Formalism.HermitianLattices.Ext.L3.U0.Dv.star}).
+
+% -----------------------------------------------------------------------------
+\subsection{Spectral Geometry and Harish-Chandra Modules for Unitary Groups}
+\label{subsec:ch03-spectral-harish-chandra}
+
+The final analytic pillar, formalized in
+\leanmod{CompanionTheory.HarishChandraModules} and
+\leanmod{CompanionTheory.SpectralGeometry}, supplies the archimedean
+representation theory of indefinite unitary groups $U(p, q)$ needed to isolate
+discrete-series packets, transfer differential-operator identities between
+smooth and $K$-finite vectors, and control low $K$-type multiplicities.
+
+\begin{theorem}[Iwasawa decomposition and admissible $(\mathfrak{g}, K)$-module transfer]
+\label{thm:ch03-hc-transfer}
+\leanlink{CompanionTheory.D.gk.admitted.transfer_holds}
+For indefinite unitary groups $U(J_\varepsilon)$ of every signature
+$\varepsilon : \{1, \dots, n\} \to \{\pm 1\}$:
+\begin{enumerate}
+  \item \emph{Iwasawa decomposition}
+        (\leanlink{CompanionTheory.D.gk.admitted.iwasawa_decomposition_unitary_group}):
+        every unitary group $U(J_\varepsilon)$ admits a global Iwasawa
+        decomposition constructed via signed Cholesky factorization.
+  \item \emph{Admissible smooth-to-$K$-finite transfer}
+        (\leanlink{CompanionTheory.D.gk.admitted.transfer_holds}):
+        standard polynomial differential-operator relations on $K$-finite
+        vectors transfer cleanly to admissible smooth vectors via uniform
+        approximation and norm bounds.
+  \item \emph{Minimal-eigenspace integrality}
+        (\leanlink{CompanionTheory.D.gk.admitted.goodPI_of}):
+        from small-parameter integrality, common eigenvectors exist and
+        generate the full minimal $K$-type eigenspace.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+In the Lean formalization, the transfer theorem
+\leanlink{CompanionTheory.D.gk.admitted.transfer_holds} combines the
+approximation lemma
+\leanlink{CompanionTheory.D.gk.admitted.PrismTransfer.exists_approx}, the
+operator-norm bound
+\leanlink{CompanionTheory.D.gk.admitted.PrismTransfer.exists_bound}, and
+compatibility with standard polynomials
+\leanlink{CompanionTheory.D.gk.admitted.map_stdPoly}.
+\end{proof}
+
+To bound the multiplicity of minimal $K$-types in discrete-series
+representations, \leanmod{CompanionTheory.HarishChandraModules.LowKTypeMultiplicity}
+realizes the generalized Verma module algebraically as a polynomial module and
+analyzes its Koszul creation-operator complex.
+
+\begin{theorem}[Generalized Verma module realization and Koszul creation-operator acyclicity]
+\label{thm:ch03-verma-koszul}
+\leanlink{CompanionTheory.D.LK.generalized_verma_module_polynomial}
+For all ranks $n, m \in \mathbb{N}$:
+\begin{enumerate}
+  \item The generalized Verma module of a discrete-series Harish-Chandra module
+        admits an explicit polynomial-ring realization in which the Lie-algebra
+        action acts by first-order polynomial differential operators
+        (\leanlink{CompanionTheory.D.LK.generalized_verma_module_polynomial}).
+  \item The associated graded module is free for every $(n, m)$
+        (\leanlink{CompanionTheory.D.LK.free_all}, proved by
+        \leanlink{CompanionTheory.D.LK.free_module_induction}).
+  \item The Koszul creation-operator differential satisfies $d^2 = 0$, has
+        bounded support
+        (\leanlink{CompanionTheory.D.LK.differential_bounded_support}), is
+        acyclic (\leanlink{CompanionTheory.D.LK.acycAbs_of}), and generates the
+        creation-operator module unconditionally
+        (\leanlink{CompanionTheory.D.LK.hGenCO}, proved via
+        \leanlink{CompanionTheory.D.LK.genCO_of}).
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+The polynomial realization
+\leanlink{CompanionTheory.D.LK.generalized_verma_module_polynomial} is verified
+by checking the abstract $\mathfrak{gl}$-commutation relations
+(\leanlink{GlobalTheory.CompanionTheory.DSVerma.glRel_abstract}) together with
+the differential commutativity identities
+\leanlink{GlobalTheory.CompanionTheory.DSVerma.dd_comm} and
+\leanlink{GlobalTheory.CompanionTheory.DSVerma.dd_yy}.
+\end{proof}
+
+Finally, \leanmod{CompanionTheory.SpectralGeometry} bridges these archimedean
+$(\mathfrak{g}, K)$-module properties back to the spectral geometry of
+automorphic bundles and stable lattices: the low-$K$-type span property holds
+unconditionally (\leanlink{GlobalTheory.CompanionTheory.KLowSpan.lowSpan_holds})
+and produces the canonical highest-weight map
+(\leanlink{GlobalTheory.CompanionTheory.DSICHWMap.hwMap_of_lowSpan}), while
+flat Hilbert~90 yields rigidified descent of line bundles on arithmetic models
+(\leanlink{GlobalTheory.CompanionTheory.RigDesc.rigDescent}).
+Together with the all-ranks Jacquet--Rallis fundamental lemma
+(Theorem~\ref{thm:ch03-jr-unit-match-all}), the weighted $L^2$
+$\bar{\partial}$-estimate (Theorem~\ref{thm:ch03-l2-dbar}), and the
+analytic restriction and curvature bounds of
+Subsection~\ref{subsec:ch03-sharp-curvature-gl3}, this completes the
+automorphic-analytic machinery supporting the global proof of the Generalized
+Riemann Hypothesis.

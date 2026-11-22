@@ -1,0 +1,555 @@
+\section{Galois Local--Global Compatibility, Cohomological Obstructions, and Closing the Proof of GRH}
+\label{sec:galois-cohomology-assembly}
+
+All analytic, automorphic, and algebraic-geometric machinery constructed in the
+earlier sections converges in the upper arithmetic layer of the formalization.
+This layer spans \leanmod{Development.EtaleCohomology} ($773$ reachable
+modules), \leanmod{GroundTheory.PAdicHodge} ($89$ modules),
+\leanmod{ReciprocityTheory.DualLattices} ($54$ modules),
+\leanmod{GroundTheory.ProfiniteCohomology} ($127$ modules),
+\leanmod{Formalism.WachLatticeTwists} ($3$ modules),
+\leanmod{Formalism.LocalToGlobal} ($405$ modules),
+\leanmod{Development.AutomorphicArithmetic} ($4{,}122$ modules),
+\leanmod{Formalism.GammaFactorNonvanishing} ($2$ modules), and the top-level
+assembly in \leanmod{Supplements.Kernels.MainTheorems} and \leanmod{Main}.
+
+Four linked arithmetic steps close the proof of the Generalized Riemann
+Hypothesis:
+\begin{enumerate}
+  \item proving étale local acyclicity over strictly Henselian bases together
+  with perfectoid tilting, Fontaine's period ring $A_{\mathrm{inf}}$, and dual
+  Hopf orders;
+  \item constructing finite étale level models on unitary PEL Shimura varieties
+  and proving strong Galois local--global compatibility for regular algebraic
+  conjugate-self-dual cuspidal automorphic representations of $\GL_a(\A_E)$;
+  \item bounding global Tate--Shafarevich obstructions in
+  $H^1(\mathcal{O}_E[1/\ell], \Q_\ell/\Z_\ell(-e))$ across cyclotomic-tower
+  windows (the weakened Vandiver bound), using local Galois Euler
+  characteristics, Wach dual-fibre lattices, and Bost's slope inequality; and
+  \item assembling these ingredients into right-half-plane nonvanishing for
+  every Dirichlet $L$-function and reflecting across the functional equation to
+  obtain GRH and the Riemann Hypothesis.
+\end{enumerate}
+
+\subsection{Étale local acyclicity, $p$-adic tilting, and Fontaine's ring $A_{\mathrm{inf}}$}
+
+To compare $\ell$-adic étale cohomology of unitary Shimura varieties with
+crystalline and potentially semistable $p$-adic Hodge structures, the proof
+builds both an étale descent engine and a complete theory of Fontaine's period
+rings $A_{\mathrm{inf}}$, $A_{\mathrm{cris}}$, and $B_{\mathrm{dR}}^+$.
+
+On the étale side, \leanmod{Development.EtaleCohomology} establishes
+surjective étale chart patching
+\leanlink{LateralTheory.E.LSurjChartPf.graphPatch}, finite idempotent lifting
+\leanlink{LateralTheory.E.LIdemLiftPf.lFinOfFact}, and continuity of étale
+cohomology under cofiltered limits of quasi-compact quasi-separated schemes
+with affine transition maps \leanlink{LateralTheory.E.StageBPf.StageB_of}.
+The key geometric input for local acyclicity of smooth morphisms is the
+triviality of cyclic torsors over the generic fiber of a strict Henselisation
+at the origin.
+
+\begin{theorem}[Triviality of torsors over strict Henselisation at the origin]
+\leanlink{GlobalTheory.KeyOriginCut.keyOrigin}
+\label{thm:key-origin}
+Let $T$ be an absolutely integrally closed local domain with maximal ideal
+$\mathfrak{m}_T$, let $P = \mathfrak{m}_T T[X] + (X) \subset T[X]$ be the
+origin prime ideal, and let $O$ be a strict Henselisation of $T[X]_P$. For
+every positive integer $q$ invertible in $T$, every finite étale
+$\Z/q\Z$-torsor over the generic fiber of $O$ over $T$ admits a section
+\leanlink{GlobalTheory.LocAcyc.KeyOrigin}.
+\end{theorem}
+
+\begin{proof}
+Given a $\Z/q\Z$-torsor $D$ over the generic fiber of $O$ over $T$, one first
+replaces the strict Henselisation prime datum using
+\leanlink{GlobalTheory.T.strict_henselisation_prime_eq} and descends the torsor
+to a Noetherian normal model at the origin via
+\leanlink{GlobalTheory.T.exists_noetherian_model_torsor_origin}. Applying
+\leanlink{GlobalTheory.T.torsor_point_over_strictHenselisation_noetherianNormal}
+produces a section over the Noetherian normal model, which pulls back to a
+section of $D$.
+\end{proof}
+
+On the $p$-adic Hodge side, the formalization develops the pretilt
+$\mathcal{O}^\flat = \lim_{\leftarrow\, x \mapsto x^p} \mathcal{O}$ and Fontaine's
+surjection $\theta : W(\mathcal{O}^\flat) \to \mathcal{O}$ inside both
+\leanmod{ReciprocityTheory.DualLattices} and
+\leanmod{GroundTheory.PAdicHodge}. The highest-bottleneck theorem of
+\leanmod{ReciprocityTheory.DualLattices} packages the complete structure of
+$A_{\mathrm{inf}} = W(\mathcal{O}^\flat)$ over a $p$-adically complete
+valuation ring $\mathcal{O}$ of mixed characteristic.
+
+\begin{theorem}[Tilt structure and principal generation of $\ker\theta$]
+\leanlink{ReciprocityTheory.PGsh.a0}
+\label{thm:tilt-structure}
+Let $p$ be a prime. For any valued field $C$ and $p$-adically complete ring of
+integers $\mathcal{O} \subset C$ in which $p$ is a nonzero non-unit, the
+following hold (\leanlink{ReciprocityTheory.PGsh.TiltStructureStatement}):
+\begin{enumerate}
+  \item there exists $p^\flat \in \mathcal{O}^\flat$ with untilt $(p^\flat)^\sharp = p$,
+  and a compatible system $\varepsilon \in \mathcal{O}^\flat$ of $p$-power
+  roots of unity with $(\varphi^{-1}(\varepsilon))^\sharp$ a primitive $p$-th
+  root of unity;
+  \item the kernel of Fontaine's homomorphism $\theta : W(\mathcal{O}^\flat) \to \mathcal{O}$
+  is principal and generated by the non-zero-divisor $\xi_0 = p - [p^\flat]$,
+  while $\ker(\bar\theta : W(\mathcal{O}^\flat) \to \mathcal{O}/p\mathcal{O}) = (p, [p^\flat])$;
+  \item the cyclotomic element $[\varepsilon] - 1$ factors as
+  $\bigl(\sum_{i=0}^{p-1} [\varphi^{-1}(\varepsilon)]^i\bigr)([\varphi^{-1}(\varepsilon)] - 1)$
+  with valuation relation $v((\varepsilon - 1)^\sharp)^{p-1} = v(p)$; and
+  \item $p^\flat$ is a non-zero-divisor on $\mathcal{O}^\flat$ and $W(\mathcal{O}^\flat)$
+  is $p$-torsion-free and flat over $\Z_p$.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+Because $C$ is a field of characteristic zero and $\mathcal{O} \hookrightarrow C$
+is injective, multiplication by $p$ is injective on $\mathcal{O}$. One
+extracts $p^\flat$ and $\varepsilon$ via
+\leanlink{ReciprocityTheory.PGsh.exists_pflat} and
+\leanlink{ReciprocityTheory.PGsh.exists_eps}. The principal-kernel theorem
+\leanlink{ReciprocityTheory.PGsh.kerTheta} proves $\ker\theta = (p - [p^\flat])$
+by $p$-adic successive approximation, and
+\leanlink{ReciprocityTheory.PGsh.xiNu} establishes the cyclotomic factorization
+and valuation identity. Regularity of $p^\flat$ on the pretilt follows from
+\leanlink{ReciprocityTheory.PGsh.regular} (via iterated $p$-th roots in
+\leanlink{ReciprocityTheory.PGsh.pflat_mul_eq_zero}), and flatness over $\Z_p$
+comes from \leanlink{ReciprocityTheory.PGsh.flatW'}.
+\end{proof}
+
+Over a perfectoid field $K$ with tilt $K^\flat$ and valuation ring
+$\mathcal{O}^\flat$, the parallel development in
+\leanmod{GroundTheory.PAdicHodge} proves that any $\xi \in \ker\theta$ with
+unit first Witt coordinate generates $\ker\theta$
+\leanlink{GroundTheory.PAdicHodge.IsPerfectoidField.ker_fontaineTheta_eq_span},
+establishes the exact norm $\|\varepsilon - 1\|^{p-1} = \|p\|^p$
+\leanlink{GroundTheory.PAdicHodge.AInf.norm_sub_one_pow}, and shows that
+Fontaine's logarithm $t = \log([\varepsilon])$ generates the maximal ideal of
+$B_{\mathrm{dR}}^+$
+\leanlink{GroundTheory.PAdicHodge.maximalIdeal_eq_span_fontaineT}. Downstream,
+Theorem~\ref{thm:tilt-structure} proves that the canonical map
+$A_{\mathrm{cris}} \to B_{\mathrm{dR}}^+$ is injective
+\leanlink{GlobalTheory.MemLoc.crisP_injective} and that the kernel of $\theta$
+coincides with the principal ideal generated by $\xi$
+\leanlink{GlobalTheory.MemLoc.ker_theta_eq_span_xi}. Alongside the tilting
+engine, \leanmod{ReciprocityTheory.DualLattices} establishes Cartier duality
+for Hopf orders of finite abelian group schemes over valuation rings
+\leanlink{ReciprocityTheory.PGsh.L2.h1} and the exactness of subgroup quotients
+of Hopf orders \leanlink{ReciprocityTheory.PGsh.L2.h2}, relating the
+discriminant valuations of a Hopf order and its Fourier dual lattice via the
+character-table determinant identity.
+
+\subsection{Finite étale models and Galois local--global compatibility}
+
+To attach $\ell$-adic Galois representations to automorphic forms on definite
+and indefinite unitary groups, one realizes Hecke eigensystems in the étale
+cohomology of unitary PEL Shimura varieties of Harris--Taylor type. Over a base
+ring $R$ with PEL datum $D$ and prime-to-$p$ level $N$, an ideal
+$\mathfrak{a} \subset \mathcal{O}_F$ is called \emph{étale}
+\leanlink{UpperTheory.Gal.FiniteEtaleModels.IsEtIdeal} if it is nonzero and
+every maximal ideal dividing $\mathfrak{a}$ is an étale place of the base.
+The representability of finite étale level structures of level $\mathfrak{a}^r$
+requires showing first that level structures exist at every geometric point.
+
+\begin{theorem}[Existence of étale level structures at all geometric points]
+\leanlink{UpperTheory.Gal.FiniteEtaleModels.ptAll_holds}
+\label{thm:ptall}
+Assume ideal induction (\texttt{IdealInd}) for nonzero ideals of a Dedekind
+domain and Chinese Remainder multiplication of coprime level structures
+(\texttt{CrtMul}, \leanlink{UpperTheory.Gal.FiniteEtaleModels.CrtMul}). Then
+for every PEL datum $D$, every coprime level $N$, every étale ideal
+$\mathfrak{a} \subset \mathcal{O}_F$, every $r \ge 0$, every PEL object
+$o$ over a scheme $S$, and every geometric point $x : \Spec k \to S$ with $k$
+algebraically closed, there exists an étale level structure of level
+$\mathfrak{a}^r$ on $o$ over $x$
+(\leanlink{UpperTheory.Gal.FiniteEtaleModels.PtAll}).
+\end{theorem}
+
+\begin{proof}
+Since an étale level structure of level $\mathfrak{a}^r$ is equivalent to a
+level-$1$ structure for the ideal $\mathfrak{a}^r$ by \leanlink{lev_pow}, one
+applies ideal induction on $\mathfrak{c} = \mathfrak{a}^r$. For the unit ideal
+$\mathfrak{c} = (1)$, the trivial map supplies the level structure via
+\leanlink{lev_top}. For a prime power $\mathfrak{w}^e$ with $\mathfrak{w}$
+étale, \leanlink{GlobalTheory.T.exists_etaleLevelStructure_at_geometricPoint}
+constructs the level structure directly from the geometric torsion count of
+Theorem~\ref{thm:card-torsion}. For coprime ideals $\mathfrak{b}$ and
+$\mathfrak{c}$, the Chinese Remainder hypothesis \texttt{CrtMul} multiplies the
+two level structures pointwise to produce a level structure for
+$\mathfrak{b}\mathfrak{c}$.
+\end{proof}
+
+From Theorem~\ref{thm:ptall}, the moduli tower of finite étale covers is
+constructed and linked to geometric flag bases and Hecke correspondences
+\leanlink{UpperTheory.Gal.Int.Geo.CovMain.mIn}. A second geometric bridge is
+weight-one realization \leanlink{UpperTheory.Gal.Int.Geo.geoOne_holds}, which
+deduces the geometric realization package
+\leanlink{UpperTheory.Gal.Int.Geo.GeoOne} from the holomorphic Lefschetz
+fixed-point formula for finite étale correspondences
+\leanlink{GlobalTheory.T.lefschetz_fixedPoint_finite_etale_correspondence}.
+
+These geometric and $p$-adic Hodge inputs assemble into the master Galois
+local--global compatibility theorem used across the upper proof. Let $E$ be a
+CM field with maximal totally real subfield $E^+$, let $\ell$ be a prime with
+a fixed isomorphism $\iota : \overline{\Q}_\ell \simeq \C$, and let
+$(\pi, \chi)$ be a polarized pair
+\leanlink{GlobalTheory.ContraPair.PolarizedPair} consisting of a regular
+algebraic cuspidal automorphic representation $\pi$ of $\GL_a(\A_E)$ and a
+Hecke character $\chi$ of $E^+$. The predicate
+\leanlink{UpperTheory.GalStar.Row0b} asserts the existence of a continuous
+semisimple Galois representation
+\[
+  r : \Gal(\overline{E}/E) \longrightarrow \GL_a(\overline{\Q}_\ell),
+\]
+an integer weight $w_0$, and Hodge--Tate multisets $\mathrm{HT}_\tau$ indexed
+by $\tau : E \hookrightarrow \overline{\Q}_\ell$ satisfying the properties in
+\leanlink{UpperTheory.GalStar.PropsB}:
+\begin{enumerate}
+  \item \emph{Local--global compatibility away from $\ell$.} At every finite
+  place $w \nmid \ell$ of $E$, the Weil--Deligne representation attached to
+  $r|_{G_{E_w}}$ matches the local Langlands parameter
+  \leanlink{UpperTheory.Zero.LLC.IsRecT} of $\pi_w$ (normalized algebraically)
+  in the strong sense \leanlink{UpperTheory.GalStar.AwayB}: exact equality for
+  toral representations with zero monodromy, and equality of characteristic
+  polynomials on inertia and degree-$0$ Weil elements for tame squarefree
+  parameters at large residual primes $g > 16 a^2$.
+  \item \emph{Hodge--Tate weights and conjugate-self-duality.} For every
+  embedding $\tau : E \hookrightarrow \overline{\Q}_\ell$, the multiset
+  $\mathrm{HT}_\tau$ is determined by the archimedean infinitesimal character
+  of $\pi$ at $\iota \circ \tau$ shifted by $(a-1)/2$, and satisfies
+  $\mathrm{HT}_{\tau \circ c} = w_0 - \mathrm{HT}_\tau$ under complex
+  conjugation $c$.
+  \item \emph{Crystalline and potentially semistable compatibility at places
+  above $\ell$.} At every place $w \mid \ell$, if $\pi_w$ is spherical then
+  $r|_{G_{E_w}}$ is crystalline and de Rham with Hodge--Tate jumps
+  $\mathrm{HT}_\tau$; more generally, for tame squarefree or toral local
+  components with vanishing monodromy, $r|_{G_{E_w}}$ is de Rham and
+  potentially semistable with matching Weil--Deligne parameter
+  \leanlink{UpperTheory.GalStar.AboveB}.
+\end{enumerate}
+
+\begin{theorem}[Strong Galois local--global compatibility]
+\leanlink{UpperTheory.Gal.Int.galoisLocalGlobalStrong_recParameter}
+\label{thm:galois-local-global}
+The strong Galois local--global compatibility statement
+\leanlink{UpperTheory.GalStar.Row0b} holds with respect to the canonical local
+Langlands reciprocity notion \leanlink{UpperTheory.Gal.Int.recT}
+(\leanlink{UpperTheory.Zero.LLC.IsRecT}) for all CM fields $E$, all ranks
+$a \ge 1$, all primes $\ell$, and all regular algebraic polarized cuspidal
+automorphic representations $(\pi, \chi)$ of $\GL_a(\A_E)$.
+\end{theorem}
+
+\begin{proof}
+The theorem combines the theta-lift kernel realization
+\leanlink{UpperTheory.TP.K.tLiftK} with the conditional construction
+\leanlink{UpperTheory.Gal.Int.galoisRepresentations_of_thetaLift}. Inside the
+latter, weight-one geometric realization
+\leanlink{UpperTheory.Gal.Int.Geo.geoOne_holds} supplies the seed congruences
+at odd level, and
+\leanlink{UpperTheory.Gal.Int.galoisLocalGlobalStrong_of_geometry_lift} runs
+congruence-limit passage, crystalline descent, and spherical-to-Iwahori local
+compatibility to produce the strong package
+\leanlink{UpperTheory.GalStar.Row0b}.
+\end{proof}
+
+\subsection{Local Galois cohomology, Bost's slope inequality, and the weakened Vandiver window}
+
+Why is Theorem~\ref{thm:galois-local-global} not by itself enough to rule out
+zeros of Dirichlet $L$-functions off the critical line? In the iterated
+theta-lift argument (chaining roughly $\sqrt{X}$ lifts between totally definite
+unitary groups to simulate Stepanov multiplicity), one compares the integral
+structure of lifted automorphic forms against the covolume of a lattice of
+periods. Two arithmetic obstructions must be controlled: the covolume and
+index of the integral lattice (handled by Bost's slope inequality, Wach
+dual-fibre lattices, and local $L^2$ projective bounds) and the global
+ramification classes in $H^1(\mathcal{O}_E[1/\ell], \Q_\ell/\Z_\ell(-e))$
+that cannot be killed by twisting alone (handled by a weakened Vandiver
+theorem across cyclotomic-tower windows).
+
+\paragraph{Local Galois Euler characteristic and cup products.}
+At the base of the global duality machine lies Tate's local Euler
+characteristic formula, proved in \leanmod{GroundTheory.ProfiniteCohomology}
+alongside continuous cochain cup products \leanlink{GroundTheory.ProfCoh.cup}.
+
+\begin{theorem}[Tate local Euler characteristic formula]
+\leanlink{GroundTheory.ProfCoh.eulerChar_galois}
+\label{thm:local-euler-char}
+Let $K$ be a non-archimedean local field with ring of integers $\mathcal{O}_K$
+and separable closure $K^{\mathrm{sep}}$. For every finite discrete
+$\Gal(K^{\mathrm{sep}}/K)$-module $M$ whose cardinality $|M|$ is nonzero in
+$K$,
+\[
+  \frac{\bigl|H^0(\Gal(K^{\mathrm{sep}}/K), M)\bigr| \cdot
+        \bigl|H^2(\Gal(K^{\mathrm{sep}}/K), M)\bigr|}
+       {\bigl|H^1(\Gal(K^{\mathrm{sep}}/K), M)\bigr|}
+  = \bigl|\mathcal{O}_K / |M|\mathcal{O}_K\bigr|^{-1}.
+\]
+\end{theorem}
+
+\begin{proof}
+The identity is proved by strong induction on $|M|$ in
+\leanlink{GroundTheory.ProfCoh.eulerChar_galois_of_card_eq}. For trivial $M$
+both sides equal $1$. For a proper nonzero submodule $N \subset M$,
+multiplicativity of the Euler characteristic along the short exact sequence
+$0 \to N \to M \to M/N \to 0$ and multiplicativity of
+$|\mathcal{O}_K / m \mathcal{O}_K|$ reduce the statement to smaller
+cardinalities. This leaves simple modules $M$, which are handled by
+\leanlink{GroundTheory.ProfCoh.eulerChar_of_forall_eq_bot_or_eq_top}.
+\end{proof}
+
+\paragraph{Wach dual-fibre lattices, projective $L^2$ bounds, and Bost's slope inequality.}
+To track integral lattices across Galois extensions and unitary cusp spaces,
+three formalisms work in tandem:
+\begin{itemize}
+  \item \emph{Dual-fibre lattices.} In \leanmod{Formalism.WachLatticeTwists},
+  given a discrete valuation ring $\mathcal{O}$ with fraction field $K$,
+  Galois-stable lattices $Y \subset V_Y$ and $T \subset V_T$, and a
+  $G$-equivariant extension map $\varphi : Y \to V_T / T$, the fibre lattice
+  \leanlink{Formalism.RepresentationBoundsCohomology.LOC.fibre}
+  $\{(y, t) \in Y \times V_T : \varphi(y) = t \bmod T\}$ and its dual under
+  perfect twisted pairings
+  \leanlink{Formalism.RepresentationBoundsCohomology.LOC.dualLat} preserve
+  lattice rank and Galois stability across pushout lattices
+  \leanlink{Formalism.RepresentationBoundsCohomology.LOC.PushData.L} and
+  cohomology comparison maps
+  \leanlink{Formalism.RepresentationBoundsCohomology.LOC.LatData.j'}.
+  \item \emph{Projective lattices and definite cusp forms.} In
+  \leanmod{Formalism.LocalToGlobal}, projective lattice embeddings for definite
+  and indefinite unitary cusp forms bound $L^2$ norms by supremum norms
+  \leanlink{Formalism.L2.Pj.L2Norm_le_sup_norm} across archimedean embeddings
+  \leanlink{Formalism.L2.Pj.goodEmb_goodOf} and tree-structured indefinite
+  forms \leanlink{Formalism.L2.Indef.Tree.OnObj}.
+  \item \emph{Bost's slope formalism.} In \leanmod{Formalism.LatticeSlopes},
+  a discrete lattice $L \subset E$ inside a finite-dimensional real inner
+  product space has covolume $\operatorname{covol}(L) = \sqrt{\det(\mathrm{Gram}(L))}$
+  \leanlink{Formalism.F.covol}, rank $\operatorname{rk}(L)$
+  \leanlink{Formalism.F.rk}, Arakelov degree
+  $\widehat{\deg}(L) = -\log\operatorname{covol}(L)$ \leanlink{Formalism.F.deg},
+  slope $\mu(L) = \widehat{\deg}(L)/\operatorname{rk}(L)$
+  \leanlink{Formalism.F.slope}, and saturated sublattice properties
+  \leanlink{Formalism.F.saturation_properties}. In the global argument,
+  Bost's slope inequality $\mu(L) \le \mu_{\max}(M) + \log C$ for injective
+  $\Z$-linear maps $\varphi : L \to M$ of operator norm at most $C$ pairs with
+  the Moriwaki volume lower bounds of Theorem~\ref{thm:moriwaki-big} to
+  control lattice indices of iterated theta lifts.
+\end{itemize}
+
+\paragraph{The weakened Vandiver window.}
+For a number field $E$, a prime $\ell$, the set $S_\ell$ of places of $E$ above
+$\ell$, and an integer twist $e$, let $G_{E, S_\ell}$ denote the Galois group
+of the maximal extension of $E$ unramified outside $S_\ell$, packaged with its
+local data in \leanlink{Formalism.GaloisCohomology.LData}, and let
+$\Q_\ell/\Z_\ell(-e)$ be the $(-e)$-th cyclotomic twist
+\leanlink{Formalism.GaloisCohomology.qzTw}. The formalization defines the
+Tate--Shafarevich subgroup
+\[
+  \operatorname{Sha}^1\bigl(G_{E, S_\ell}, \Q_\ell/\Z_\ell(-e)\bigr)
+  := \ker\!\left(
+    H^1\bigl(G_{E, S_\ell}, \Q_\ell/\Z_\ell(-e)\bigr)
+    \longrightarrow \prod_{v \in S_\ell} H^1\bigl(G_{E_v}, \Q_\ell/\Z_\ell(-e)\bigr)
+  \right)
+\]
+\leanlink{Formalism.GaloisCohomology.Sha} and measures its size by its
+$\Z_\ell$-module length $\operatorname{shaLen}(E, \ell, e)$
+\leanlink{Formalism.GaloisCohomology.shaLen}. Paired with local Tate duality
+\leanlink{Formalism.GaloisCohomology.LocalTateDualityK}, local Euler
+characteristics \leanlink{Formalism.GaloisCohomology.LocalEulerCharK}, and
+Bloch--Kato Selmer conditions \leanlink{Formalism.GaloisCohomology.bkCond}
+\leanlink{Formalism.GaloisCohomology.SelAll}, this length controls the
+$K$-theoretic obstruction classes in $H^2(G_{E, S_\ell}, \Z_\ell(e+1))$ via
+Poitou--Tate duality.
+
+The weakened Vandiver predicate \leanlink{UpperTheory.Top.VVle} asserts that
+for a number field $E$, cutoff $t \in \N$, and bound $B \in \R$, every
+$\operatorname{shaLen}(E, \ell, e)$ is finite for $1 \le e < t$, and for every
+finite set $S$ of primes $\ell$,
+\[
+  \sum_{\ell \in S} \log(\ell) \sum_{1 \le e < t}
+    \operatorname{shaLen}(E, \ell, e) \le B.
+\]
+Given a primitive Dirichlet character $\psi$, an exponent $e \in \N$, and an
+auxiliary prime pair $(q, d)$ in \leanlink{UpperTheory.Top.WinPair}
+($q \equiv 3 \pmod 8$, $d \equiv 7 \pmod{16}$, $q \mid d + 1$, every odd prime
+$p \le Y^{\varepsilon/5}$ dividing $d + 1$, with
+$\log q \asymp Y^{\varepsilon/5}$ and
+$\log d \asymp Y^{\varepsilon/5}(\log Y)^2$), the predicate
+\leanlink{UpperTheory.Top.IsChiField} selects the cyclotomic-tower subfield $E$
+fixed inside $\Q(\zeta_N)$ by the automorphisms $\zeta_N \mapsto \zeta_N^a$
+with $a \equiv \pm 1 \pmod{2^{e+2}}$, $\psi(a) = 1$, and
+$(\frac{a}{q}) = (\frac{a}{d}) = 1$. The global weakened Vandiver window
+\leanlink{UpperTheory.Top.VWin} (instantiating \leanlink{UpperTheory.Top.VWinAt}
+and \leanlink{UpperTheory.Top.VAt} at exponent $401$) asserts that for every
+primitive character $\psi$, every $0 < \varepsilon < 1/52$, and every dyadic
+scale schedule $2^{e(x)} \asymp x^{2 + 8\varepsilon}$
+\leanlink{UpperTheory.Top.PageN}, there exist $J \ge 1$ and $X_0$ such that
+for all $X \ge X_0$ and every $(q, d)$ in \leanlink{UpperTheory.Top.WinPair}
+at scale $X^{1/J}$, there is a subscale $Y \in [X^{1/J}, X^{1/2}]$ on which
+every $x \in [Y, Y^2]$ and every tower field $E$ satisfying
+\leanlink{UpperTheory.Top.IsChiField} obeys
+\[
+  \sum_{\ell \in S} \log(\ell) \sum_{1 \le e < \lfloor x^{401} \rfloor}
+    \operatorname{shaLen}(E, \ell, e)
+  \le \exp\!\left(\tfrac{1}{2} x^\varepsilon\right).
+\]
+This cohomological bound is not assumed as a conjecture; it is proved from
+Galois local--global compatibility and cyclic base change.
+
+\begin{theorem}[Automorphic proof of the weakened Vandiver window]
+\leanlink{UpperTheory.One.vwin_of_row}
+\label{thm:vwin-of-row}
+Assuming strong Galois local--global compatibility
+\leanlink{UpperTheory.GalStar.Row0b} for the canonical local Langlands
+reciprocity notion \leanlink{UpperTheory.Zero.LLC.IsRecT}, the weakened
+Vandiver window \leanlink{UpperTheory.Top.VWin} holds for every primitive
+Dirichlet character $\psi$.
+\end{theorem}
+
+\begin{proof}
+The proof combines the definite-unitary cyclic base-change theorem
+\leanlink{UpperTheory.BaseChangeIdentities.baseChangeN} with the input
+hypothesis \leanlink{UpperTheory.GalStar.Row0b} inside the dense threshold
+assembly \leanlink{UpperTheory.One.Join.automorphic_window_of_inputs},
+producing \leanlink{UpperTheory.Top.VWin} uniformly over all primitive
+characters.
+\end{proof}
+
+\subsection{Closing the proof: from \texttt{everyCharacter} to GRH and RH}
+
+We can now read off the exact final deduction in Lean, without a single gap or
+unproved axiom. The central analytic predicate
+\leanlink{UpperTheory.EveryCharacter} states that for every modulus $N \ge 1$,
+every Dirichlet character $\chi$ modulo $N$, and every $s \in \C$ with
+$\re(s) > 1/2$ and either $\chi \neq 1$ or $s \neq 1$, one has
+$L(s, \chi) \neq 0$.
+
+\begin{theorem}[Right-half-plane nonvanishing for all Dirichlet $L$-functions]
+\leanlink{UpperTheory.FinalTheorems.everyCharacter}
+\label{thm:every-character}
+For every positive integer $N$, every Dirichlet character $\chi \pmod N$, and
+every $s \in \C$ with $\re(s) > 1/2$ such that $\chi \neq 1$ or $s \neq 1$,
+\[
+  L(s, \chi) \neq 0.
+\]
+\end{theorem}
+
+\begin{proof}
+The conditional assembly
+\leanlink{UpperTheory.FinalTheorems.everyCharacter_of_row} derives
+\leanlink{UpperTheory.EveryCharacter} from strong Galois local--global
+compatibility by feeding three inputs into
+\leanlink{UpperTheory.LiteratureTheorems.every_character_of_literature_of_vWin}:
+the local Langlands existence package \leanlink{UpperTheory.Zero.LLC.recTExists},
+the weakened Vandiver window \leanlink{UpperTheory.One.vwin_of_row}, and the
+Arakelov volume lower bounds from Moriwaki bigness
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwakiBig_outright} and
+\leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.hsUse_outright}.
+Instantiating \leanlink{UpperTheory.FinalTheorems.everyCharacter_of_row} with
+Theorem~\ref{thm:galois-local-global}
+(\leanlink{UpperTheory.Gal.Int.galoisLocalGlobalStrong_recParameter}) closes
+\leanlink{UpperTheory.EveryCharacter} unconditionally.
+\end{proof}
+
+Inside \leanlink{UpperTheory.LiteratureTheorems.every_character_of_literature_of_vWin},
+the weakened Vandiver window controls the cohomological denominators along the
+Iwasawa--Behrend tower, the iterated theta-lift positivity and Bost slope
+bounds exclude any zero of $L(s, \chi)$ in $\re(s) > 1/2$ for every primitive
+character $\chi$, and factoring out Euler factors extends nonvanishing to all
+imprimitive characters as well.
+
+Once $L(s, \chi) \neq 0$ on $\re(s) > 1/2$ is established, the functional
+equation of completed Dirichlet $L$-functions reflects this zero-free region
+across the critical line $\re(s) = 1/2$.
+
+\begin{theorem}[Generalized Riemann Hypothesis for primitive characters]
+\leanlink{Formalism.VW.critLine}
+\label{thm:grh-primitive}
+Assuming \leanlink{UpperTheory.EveryCharacter}, let $N \ge 1$, let
+$\chi \pmod N$ be a primitive Dirichlet character, and let $s \in \C$ satisfy
+$0 < \re(s) < 1$ and $L(s, \chi) = 0$. Then $\re(s) = 1/2$.
+\end{theorem}
+
+\begin{proof}
+Suppose for contradiction that $\re(s) \neq 1/2$. If $\re(s) > 1/2$, then since
+$s \neq 1$, \leanlink{UpperTheory.EveryCharacter} immediately contradicts
+$L(s, \chi) = 0$. If instead $0 < \re(s) < 1/2$, then $s \neq 0$, and the
+archimedean gamma factor $\gamma_\chi(s)$ is nonzero for $\re(s) > 0$ by
+\leanlink{Formalism.VW.gammaFactor_ne_zero}. Writing
+$L(s, \chi) = \Lambda(s, \chi)/\gamma_\chi(s)$ forces $\Lambda(s, \chi) = 0$.
+Since $\chi^{-1}$ is also primitive, the functional equation relates
+$\Lambda(1 - s, \chi^{-1})$ to a nonzero multiple of $\Lambda(s, \chi)$, giving
+$\Lambda(1 - s, \chi^{-1}) = 0$ and hence $L(1 - s, \chi^{-1}) = 0$. Because
+$\re(1 - s) > 1/2$ and $1 - s \neq 1$, this again contradicts
+\leanlink{UpperTheory.EveryCharacter}.
+\end{proof}
+
+For an arbitrary (possibly imprimitive) Dirichlet character $\chi \pmod N$ with
+primitive character $\chi_{\mathrm{prim}}$ of conductor $f \mid N$, the
+$L$-functions differ only by finitely many Euler factors:
+\[
+  L(s, \chi) = L(s, \chi_{\mathrm{prim}}) \prod_{p \mid N} \bigl(1 - \chi_{\mathrm{prim}}(p)\, p^{-s}\bigr).
+\]
+For $\re(s) > 0$, every factor satisfies $|1 - \chi_{\mathrm{prim}}(p) p^{-s}| \ge 1 - p^{-\re(s)} > 0$.
+
+\begin{corollary}[Generalized Riemann Hypothesis for all Dirichlet characters]
+\leanlink{Claim.strip}
+\label{cor:grh-all}
+Assuming right-half-plane nonvanishing (\leanlink{Claim.HalfPlane}), for every
+positive integer $N$, every Dirichlet character $\chi \pmod N$, and every
+$s \in \C$ with $0 < \re(s) < 1$ and $L(s, \chi) = 0$, one has $\re(s) = 1/2$.
+\end{corollary}
+
+\begin{proof}
+If $\re(s) > 1/2$, then $s \neq 1$ and \leanlink{Claim.HalfPlane} contradicts
+$L(s, \chi) = 0$. If $0 < \re(s) < 1/2$, then \leanlink{Claim.prim_zero} strips
+the nonvanishing Euler factors for $\re(s) > 0$ to obtain
+$L(s, \chi_{\mathrm{prim}}) = 0$, and \leanlink{Claim.prim_reflect} reflects
+this zero via the functional equation to a zero of
+$L(1 - s, \chi_{\mathrm{prim}}^{-1})$ with $\re(1 - s) > 1/2$, again
+contradicting \leanlink{Claim.HalfPlane}.
+\end{proof}
+
+Specializing Theorem~\ref{thm:every-character} to the trivial character modulo
+$1$, where $L(s, 1) = \zeta(s)$, yields the classical Riemann Hypothesis in
+Mathlib's exact statement.
+
+\begin{theorem}[Deduction of the Riemann Hypothesis]
+\leanlink{Formalism.VW.rh_of_every}
+\label{thm:rh-of-every}
+Right-half-plane nonvanishing \leanlink{UpperTheory.EveryCharacter} implies
+Mathlib's \texttt{RiemannHypothesis}: every zero $s \in \C$ of $\zeta(s)$ with
+$s \neq 1$ and $s \notin \{-2, -4, -6, \dots\}$ satisfies $\re(s) = 1/2$.
+\end{theorem}
+
+\begin{proof}
+Specializing \leanlink{UpperTheory.EveryCharacter} to the trivial Dirichlet
+character modulo $1$ gives $\zeta(s) \neq 0$ for all $s \in \C$ with
+$\re(s) > 1/2$ and $s \neq 1$. Applying \leanlink{Formalism.VW.rh_of_right}
+rules out any nontrivial zero $s$ with $\re(s) < 1/2$: the functional equation
+of $\zeta(s)$ expresses $\zeta(s)$ as a product of
+$2 (2\pi)^{-(1-s)} \Gamma(1 - s) \cos(\pi(1-s)/2)$ and $\zeta(1 - s)$, where
+every prefactor is nonzero away from $s = 0$ (where $\zeta(0) = -1/2 \neq 0$)
+and the trivial zeros $s = -2(n+1)$, so $\zeta(s) = 0$ would force
+$\zeta(1 - s) = 0$ with $\re(1 - s) > 1/2$.
+\end{proof}
+
+Finally, \leanmod{Supplements.Kernels.MainTheorems} exports
+\leanlink{allChi} as a direct alias of
+\leanlink{UpperTheory.FinalTheorems.everyCharacter} and packages the three
+unconditional conclusions:
+\begin{itemize}
+  \item \leanlink{rhOfAll} (re-exported in \leanmod{Main} as
+  \leanlink{riemannHypothesis} and \leanlink{riemannZeta_eq_zero_re}): the
+  Riemann Hypothesis for $\zeta(s)$, proved by applying
+  \leanlink{Formalism.VW.rh_of_every} to \leanlink{allChi};
+  \item \leanlink{critAll} (re-exported as
+  \leanlink{LFunction_eq_zero_re_of_isPrimitive}): GRH for every primitive
+  Dirichlet character $\chi \pmod N$, proved by applying
+  \leanlink{Formalism.VW.critLine} to \leanlink{allChi}; and
+  \item \leanlink{claimAll} (re-exported as
+  \leanlink{LFunction_ne_zero_of_half_lt_re} and
+  \leanlink{LFunction_eq_zero_re}): the combined triple of right-half-plane
+  nonvanishing, GRH for all Dirichlet characters (\leanlink{Claim.strip}), and
+  RH for $\zeta(s)$ (\leanlink{Claim.zeta}).
+\end{itemize}
+Every declaration on this final spine is verified against Lean's standard
+axioms alone, completing the formal proof of the Generalized Riemann Hypothesis
+and the Riemann Hypothesis.
