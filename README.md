@@ -88,13 +88,13 @@ End-to-end zero-extraction run over the complete 14-part `alpo.ge` Lean 4 formal
 |---|---:|---:|---:|---:|---:|
 | **Raw `alpo.ge` Archive (`part01..14`)** | 175,187 | 0.00% | 15,531,759 | 1,030.54 MB (`1.031 GB`) | 239.28 MB |
 | **Strict `import-closure` Pruning** | 175,184 | -0.002% | 15,531,434 | ~1,030.5 MB | — |
-| **`instance-aware` + Barrel Collapse + Dedup + Comment Strip** | 39,769 | -77.30% | 3,315,984 | 211.81 MB (`-79.45%`) | 49.69 MB (`-79.23%`) |
-| **`--merge-modules` + Phase-B Consolidation (`rh_merged.tar.gz`)** | **3,058** | **-98.25% (`57.3x`)** | **3,275,471** (`-78.91%` / `4.74x`) | **201.13 MB** (`-80.48%` / `5.12x`) | **46.51 MB** (`-80.56%` / `5.15x`) |
-| **`decl-exact` + Intra-Module Strip** | 35,669 | -79.64% | 2,895,538 (`-81.36%`) | — | — |
+| **Converged `instance-aware` + Barrel Collapse + Dedup + Comment Strip (`rh_compressed.tar.gz`)** | 146,349 | -16.46% | 12,610,083 (`-18.81%`) | 837.40 MB (`-18.74%`) | 195.29 MB (`-18.38%`) |
+| **`--merge-modules` + Phase-B Consolidation (`rh_merged.tar.gz`)** | **3,085** | **-98.24% (`56.8x`)** | **12,273,477** (`-20.98%`) | **782.22 MB** (`-24.10%`) | **177.24 MB** (`-25.93%`) |
+| **`decl-exact` Reachable Core (Analytical / DB)** | 35,669 | -79.64% | 2,895,538 (`-81.36%` stripped) | — | — |
 
-Key measured highlights (`outputs/rh_merged.tar.gz`, emitted in `153.28s` with zero intermediate disk unpacking, `0` import cycles, `0` dangling imports, `0` unbalanced `section __pc_u_*` wrappers, `0` `sorry`/`admit`):
-- **Module fusion**: `175,187 -> 39,769 -> 3,058` modules (`-98.25%` / `57.3x` vs raw; `-92.31%` / `13.0x` vs pruned), eliminating **120,079** redundant `import` lines (`178,688 -> 58,609`) and collapsing **106** pure forwarding barrels.
-- **Dead-lemma stripping & exact-duplicate consolidation**: Stripped **89,421** dead intra-module theorems/lemmas (`-945,727` LOC) and consolidated **1,860** source-verified exact-duplicate proofs (`-13,678` LOC: `299` pre-merge + `1,561` Phase-B post-merge).
+Key measured highlights (`outputs/rh_merged.tar.gz` with `--target-module-loc 5500`, emitted in `839.10s` with zero intermediate disk unpacking, `0` import cycles, `0` dangling imports, `0` zero-import files, `0` `sorry`/`admit`):
+- **Module fusion**: `175,187 -> 146,349 -> 3,085` modules (`-98.24%` / `56.8x` vs raw), eliminating **604,659** redundant `import` lines (`-336,606` net merge LOC) and collapsing **149** pure forwarding barrels while retaining `def`/`structure`, `_root_.`, `instance`/`class`, and `Mathlib` transitive import closures required for Lean `v4.33.1` compilation.
+- **Dead-lemma stripping & exact-duplicate consolidation**: Stripped **90,264** dead intra-module theorems/lemmas (`-1,013,470` LOC) and consolidated **9,755** source-verified exact-duplicate proofs (`-77,911` LOC: `1,372` pre-merge + `8,383` Phase-B post-merge).
 - **Declarations & deduplication potential**: `1,061,425` raw -> `183,501` reachable declarations (`-82.71%`; `7,541,179 -> 955,634` edges) and `2,252,399 -> 1,597,336` est. post-dedup body LOC (`-29.08%` further; `~9.72x` cumulative from raw LOC).
 
 ### Full-Corpus Soundness & Why Module-Import Closure Was 175,184 Modules

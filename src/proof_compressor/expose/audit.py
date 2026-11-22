@@ -47,11 +47,12 @@ _STANDARD_TEX_MACROS = frozenset(
         "emph", "text", "mbox", "hbox", "vbox", "tiny", "scriptsize", "footnotesize",
         "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge",
         "textsuperscript", "textsubscript", "textbackslash", "textasciitilde",
-        "textasciicircum", "LaTeX", "TeX",
+        "textasciicircum", "LaTeX", "TeX", "S", "P", "resizebox", "scalebox",
+        "includegraphics",
         # Tables (booktabs / longtable / array)
-        "toprule", "midrule", "bottomrule", "hline", "cline", "multicolumn",
-        "multirow", "cmidrule", "endhead", "endfirsthead", "endfoot", "endlastfoot",
-        "setcounter", "addcontentsline", "setlength",
+        "toprule", "midrule", "bottomrule", "addlinespace", "hline", "cline",
+        "multicolumn", "multirow", "cmidrule", "endhead", "endfirsthead",
+        "endfoot", "endlastfoot", "setcounter", "addcontentsline", "setlength",
         # TikZ diagram primitives
         "draw", "node", "path", "coordinate", "fill", "filldraw", "clip",
         "foreach", "tikzset", "tikzstyle", "pgfonlayer", "usetikzlibrary",

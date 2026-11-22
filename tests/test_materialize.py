@@ -1029,3 +1029,78 @@ theorem UpperTheory.FinalTheorems.everyCharacter : UpperTheory.EveryCharacter :=
         assert set(gate.axiom_check["axioms"].get(thm, [])).issubset(
             {"propext", "Classical.choice", "Quot.sound"}
         )
+
+
+def test_materialize_strips_multiline_attr_and_scoped_in_prefix_cleanly(tmp_path: Path) -> None:
+    """Regression test for #117 / #122:
+    When a dead theorem preceded by multi-line `@[...]` attributes and `open ... in` /
+    `omit ... in` immediately follows a kept `def`, stripping the dead theorem must also
+    strip its entire prefix (leaving zero orphan `open ... in` or `]` lines) and pass `lake build`.
+    """
+    lake_bin = _get_lake_bin()
+    proj = tmp_path / "prefix_orig"
+    (proj / "src").mkdir(parents=True)
+    (proj / "lean-toolchain").write_text(_get_toolchain(), encoding="utf-8")
+    (proj / "lakefile.toml").write_text(
+        'name = "prefixdemo"\nsrcDir = "src"\ndefaultTargets = ["Main"]\n'
+        '[[lean_lib]]\nname = "Main"\nroots = ["Main"]\n',
+        encoding="utf-8",
+    )
+
+    (proj / "src" / "Main.lean").write_text(
+        """\
+namespace Demo
+
+def liveVal (n : Nat) : Nat := n + 1
+
+section
+variable (unusedCtx : Nat)
+open Nat in
+omit unusedCtx in
+@[
+  deprecated liveVal (since := "2026-01-01")
+]
+theorem dead_with_multiline_prefix (x : Nat) : x + 0 = x := by
+  exact Nat.add_zero x
+end
+
+theorem live_root (n : Nat) : liveVal n = n + 1 := rfl
+
+end Demo
+""",
+        encoding="utf-8",
+    )
+
+    db_path = tmp_path / "prefix.db"
+    ingest_source(proj, db_path)
+    run_analysis(db_path, roots=["Demo.live_root"])
+
+    out_mat = tmp_path / "prefix_pruned"
+    materialize_project(
+        db_path,
+        source=proj,
+        output_dir=out_mat,
+        roots=["Demo.live_root"],
+        mode="instance-aware",
+        strip_dead_decls=True,
+    )
+
+    pruned_txt = (out_mat / "src" / "Main.lean").read_text(encoding="utf-8")
+    assert "dead_with_multiline_prefix" not in pruned_txt
+    assert "open Nat in" not in pruned_txt
+    assert "omit unusedCtx in" not in pruned_txt
+    assert "deprecated" not in pruned_txt
+
+    orig_loc = count_files_effective_loc([proj / "src" / "Main.lean"])
+    pruned_loc = count_files_effective_loc([out_mat / "src" / "Main.lean"])
+
+    gate = verify_refactor_gate(
+        out_mat,
+        target_modules=["Main"],
+        exported_decls=["Demo.live_root"],
+        before_loc=orig_loc,
+        after_loc=pruned_loc,
+        run_lake=True,
+        lake_bin=lake_bin,
+    )
+    assert gate.passed is True, f"Prefix regression build failed: {gate.errors}"
