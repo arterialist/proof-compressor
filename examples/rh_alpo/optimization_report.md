@@ -1,6 +1,6 @@
 # Deep Quantitative Optimization Report: `alpo.ge` Riemann Hypothesis Lean 4 Proof & `proof-compressor`
 
-This report presents an exact, database-backed and **end-to-end measured** audit of the full **175,187-file (`15,531,759` non-blank LOC, `1,061,425` declarations, `7,541,179` edges, `239.28 MB` `.tar.gz` / `1.031 GB` uncompressed)** `alpo.ge` Lean 4 Riemann Hypothesis corpus (`outputs/rh_full.db`), including the real multi-pass compressed archives emitted at `outputs/rh_compressed.tar.gz` (`146,349` Lean-compilable modules after Fix 1+2 transitive closure) and `outputs/rh_merged.tar.gz` (**`3,085` merged modules**, `-98.24%` / `56.8×`), the gap between module-level `import` closure and declaration-level dependency reachability, Phase A + Phase B module fusion & exact-duplicate consolidation (`merge_modules.py` + `consolidate.py`), pure barrel collapsing, and the complete roadmap for further formal proof and engine compression.
+This report presents an exact, database-backed and **end-to-end measured** audit of the full **175,187-file (`15,531,759` non-blank LOC, `1,061,425` declarations, `7,541,179` edges, `239.28 MB` `.tar.gz` / `1.031 GB` uncompressed)** `alpo.ge` Lean 4 Riemann Hypothesis corpus (`outputs/rh_full.db`), including the real multi-pass compressed archives emitted at `outputs/rh_compressed.tar.gz` (`149,106` Lean-compilable modules after Fix 1+2 transitive closure plus `anon_*` Greek-name & dot-projection rescue) and `outputs/rh_merged.tar.gz` (**`3,188` merged modules**, `-98.18%` / `55.0×`), the gap between module-level `import` closure and declaration-level dependency reachability, Phase A + Phase B module fusion & exact-duplicate consolidation (`merge_modules.py` + `consolidate.py`), pure barrel collapsing, and the complete roadmap for further formal proof and engine compression.
 
 ---
 
@@ -20,7 +20,7 @@ uv run proof-compressor materialize outputs/rh_full.db \
   --target-module-loc 5500
 ```
 
-completed in **839.10 seconds** (and `229.44s` without `--merge-modules` for `outputs/rh_compressed.tar.gz`) with **zero intermediate disk unpacking** (`0` zero-import files, `0` dangling project imports, `0` import cycles, `0` orphaned `@[...]`/`... in` declaration prefixes, `0` `sorry`/`admit` occurrences, `3` root config files preserved: `lean-toolchain`, `lakefile.toml`, `lake-manifest.json`), yielding the following **real measured compression waterfall**:
+completed in **917.34 seconds** (and `347.67s` without `--merge-modules` for `outputs/rh_compressed.tar.gz`) with **zero intermediate disk unpacking** (`0` zero-import files, `0` dangling project imports, `0` import cycles, `0` orphaned `@[...]`/`... in` declaration prefixes, `0` `sorry`/`admit` occurrences, `3` root config files preserved: `lean-toolchain`, `lakefile.toml`, `lake-manifest.json`), yielding the following **real measured compression waterfall**:
 
 | Compression Stage / Pass | Modules Kept | Module Reduction | Non-Blank LOC | Uncompressed Size | `.tar.gz` Archive | Cumulative Reduction / Guarantee |
 | :--- | ---: | ---: | ---: | ---: | ---: | :--- |
@@ -28,15 +28,15 @@ completed in **839.10 seconds** (and `229.44s` without `--merge-modules` for `ou
 | **1. Strict `import-closure` Pruning** | 175,184 | -0.002% | 15,531,434 | ~1,030.5 MB | — | 1.00× (3 unimported modules dropped) |
 | **2a. Initial `instance-aware` (DB `edges` only)** | 39,875 | -77.24% | 4,262,961 | — | — | `35,669` decl-reachable + `4,088` instance/class + `20` syntax + barrel bridges (misses non-theorem `def` BFS & `_root_.` edges) |
 | **2b. Fix 1: Transitive `def`/`structure` Closure** | 44,575 | -74.56% | 4,917,174 | — | — | Closes `out_adj` from all kept non-theorem `def`/`structure`/`abbrev` decls (`339,006` decls) |
-| **2c. Fix 2 + `--collapse-barrels` (Converged Closure)** | 146,349 | -16.46% | 13,547,620 | — | — | Iterative `_root_.` resolution + `def`/instance fixpoint (`28,838` dead modules dropped; `149` pure barrels collapsed / `-750` LOC; `20` syntax & `4` non-pure bridges kept) |
-| **3. Intra-Module Strip + Surgical Import & `open` Rewrite** | 146,349 | -16.46% | ~12,705,741 | — | — | **-90,264 dead intra-module theorems/lemmas** (`-1,013,470` LOC); `17,506` dead imports dropped, `85,387` imports rewritten (incl. transitive `Mathlib` inheritance & `_root_.` bridges -> **`0` zero-import**, **`0` dangling**); global & per-module dead `open` cleanup |
-| **4. Pass 1: `--consolidate-duplicates` (Pre-Merge)** | 146,349 | -16.46% | ~12,694,978 | — | — | **1,372 source-verified exact-duplicate proofs delegated** (`-10,763` LOC; `hoistable` potential: `13,101` decls / `-98,732` LOC) |
-| **5. Pass 3: `--strip-comments` (`outputs/rh_compressed.tar.gz`)** | 146,349 | -16.46% | 12,610,083 (`14,131,758` total) | 837.40 MB (`-18.74%`) | 195.29 MB (`-18.38%`) | **`-84,895` comment/blank lines**; **`0` zero-import**, **`0` dangling**, **`0` `sorry`/`admit`** |
-| **6. Phase A+B: `--merge-modules --target-module-loc 5500` (`outputs/rh_merged.tar.gz`)** | **3,085** | **-98.24% (`56.8×`)** | **12,273,477** (`13,865,349` total) | **782.22 MB** (`-24.10%`, **`1.32×`**) | **177.24 MB** (`-25.93%`, **`1.35×`**) | **-143,264 modules merged** (`-604,659` import lines, `-336,606` net merge LOC); **+8,383 Phase-B consolidations (`-67,148` LOC -> `9,755` total / `-77,911` LOC)**; **`0` cycles**, **`0` dangling**, **`0` zero-import** |
+| **2c. Fix 2 + Rescue + `--collapse-barrels`** | 149,106 | -14.89% | 13,753,526 | — | — | Iterative `_root_.` + `anon_*` + intra-module/dot-projection fixpoint (`26,081` dead modules dropped; `149` pure barrels collapsed / `-750` LOC; `20` syntax & `4` non-pure bridges kept) |
+| **3. Intra-Module Strip + Surgical Import & `open` Rewrite** | 149,106 | -14.89% | ~13,190,078 | — | — | **-55,835 dead intra-module theorems/lemmas** (`-689,395` LOC); `15,737` dead imports dropped, `73,506` imports rewritten (incl. transitive `Mathlib` inheritance & `_root_.` bridges -> **`0` zero-import**, **`0` dangling**); global & per-module dead `open` cleanup |
+| **4. Pass 1: `--consolidate-duplicates` (Pre-Merge)** | 149,106 | -14.89% | ~13,178,635 | — | — | **1,458 source-verified exact-duplicate proofs delegated** (`-11,443` LOC; `hoistable` potential: `13,836` decls / `-104,633` LOC) |
+| **5. Pass 3: `--strip-comments` (`outputs/rh_compressed.tar.gz`)** | 149,106 | -14.89% | 13,126,611 (`14,708,618` total) | 869.29 MB (`-15.65%`) | 202.48 MB (`-15.38%`) | **`-52,024` comment/blank lines**; **`0` zero-import**, **`0` dangling**, **`0` `sorry`/`admit`** |
+| **6. Phase A+B: `--merge-modules --target-module-loc 5500` (`outputs/rh_merged.tar.gz`)** | **3,188** | **-98.18% (`55.0×`)** | **12,792,153** (`14,445,876` total) | **814.09 MB** (`-21.00%`, **`1.27×`**) | **184.46 MB** (`-22.91%`, **`1.30×`**) | **-145,918 modules merged** (`-605,773` import lines, `-334,458` net merge LOC); **+8,756 Phase-B consolidations (`-70,206` LOC -> `10,214` total / `-81,649` LOC)**; **`0` cycles**, **`0` dangling**, **`0` zero-import** |
 | **7. Projected: `.olean` Kernel-Exact + Dedup + Mathlib Absorption** | ~2,500 | ~-98.6% | **~2.9–6.0M** | — | — | Kernel `Expr.getUsedConstants` pruning (eliminating unused `instance`/`_root_.` branches) + near-dup + `39,972` Mathlib absorption candidates |
 | **8. Projected: Stage 4 Narrow-Interface Kernel Refactoring** | ~1,800 | ~-99.0% | **~950,000 body LOC** | — | — | Consolidating top 20 high-leverage chapters behind `Inputs ⊢ Outputs` |
 
-> **Accounting note**: Real Lean `v4.33.1` compilation auditing caught four compilation-critical closures that static DB-only heuristics previously missed: (1) kept `def`/`structure`/`abbrev` declarations inside kept modules must close over `out_adj` (`39,769 -> 44,575` modules), (2) source-mode ingestion omitted `_root_.<Name>` edges whose iterative fixpoint + `def`/instance closure converges at `146,349` kept modules (`12.61M` non-blank LOC in `outputs/rh_compressed.tar.gz`), (3) dropped non-barrel imports must transitively inherit `Mathlib` when no surviving import provides it (`178 -> 0` zero-import files), and (4) orphaned project `open` namespaces (global and per-module) must be pruned cleanly. Under `--merge-modules --target-module-loc 5500` (`outputs/rh_merged.tar.gz`), those `146,349` compilable modules pack into **`3,085` cycle-free modules (`-98.24%` / `56.8×`)**, eliminating **`604,659` redundant `import` lines** (`-336,606` net merge LOC) and unlocking **`8,383` Phase-B exact-duplicate consolidations (`-67,148` LOC; `9,755` total / `-77,911` LOC)** (`38/38` `uv run pytest` tests passing).
+> **Accounting note**: Real Lean `v4.33.1` compilation auditing caught five compilation-critical closures that static DB-only heuristics previously missed: (1) kept `def`/`structure`/`abbrev` declarations inside kept modules must close over `out_adj` (`39,769 -> 44,575` modules), (2) source-mode ingestion omitted `_root_.<Name>` edges plus Greek-prefix `anon_*` (`τk_*`) and dot-projection (`PhiData.*`) lemmas whose iterative fixpoint converges at `149,106` kept modules (`13.13M` non-blank LOC in `outputs/rh_compressed.tar.gz`), (3) dropped non-barrel imports must transitively inherit `Mathlib` when no surviving import provides it (`178 -> 0` zero-import files), and (4) orphaned project `open` namespaces (global and per-module) must be pruned cleanly. Under `--merge-modules --target-module-loc 5500` (`outputs/rh_merged.tar.gz`), those `149,106` compilable modules pack into **`3,188` cycle-free modules (`-98.18%` / `55.0×`)**, eliminating **`605,773` redundant `import` lines** (`-334,458` net merge LOC) and unlocking **`8,756` Phase-B exact-duplicate consolidations (`-70,206` LOC; `10,214` total / `-81,649` LOC)** (`49/49` `uv run pytest` tests passing).
 
 ---
 
@@ -58,7 +58,7 @@ A crucial structural finding on `outputs/rh_full.db` explains why naive module-i
 | **3. Bookkeeping / `@[simp]` Helper Lemma Modules** | **24,899** | 17.85% | **2,123,551** | Pure theorem/lemma files containing order/coercion/arithmetic glue. Only needed if invoked implicitly via unannotated `simp` sets. |
 | **4. Typeclass & `instance` Modules** | **1,946** | 1.39% | **426,022** | Define `instance` or `class` declarations that Lean 4's typeclass synthesizer can pick up implicitly without an identifier edge. **Kept in `instance-aware` mode** (+2,142 prerequisite support modules). |
 | **5. Zero-Declaration Barrel / Tactic / Export Modules** | **174** | 0.12% | **993** | `149` pure import-only forwarding barrels **collapsed & spliced** by `--collapse-barrels`; `20` tactic/macro/export support modules (including `BuildAid.D1..D4` defining `kexactB`/`kcopy`) + `4` non-pure export bridges **preserved**. |
-| **Total Imported-but-Not-Decl-Reached** | **139,515** | **100.00%** | **11,996,775** | **`28,838` modules eliminated in converged `instance-aware --collapse-barrels` mode.** |
+| **Total Imported-but-Not-Decl-Reached** | **139,515** | **100.00%** | **11,996,775** | **`26,081` modules eliminated in converged `instance-aware --collapse-barrels` mode.** |
 
 ### Top 10 Packages Contributing Dead-Imported Modules (`imp_closure - decl_reachable`)
 
@@ -85,45 +85,45 @@ Over **92% of `Formalism.LocalToGlobal`, `Formalism.SharpRestriction`, `Formalis
 
 | Metric | `import-closure` | `instance-aware` (`rh_compressed.tar.gz`) | `instance-aware --merge-modules` (`rh_merged.tar.gz`) | `decl-exact` |
 | :--- | ---: | ---: | ---: | ---: |
-| **Kept Modules** | 175,184 | 146,349 | **3,085** | 35,669 |
-| **Dropped / Eliminated Modules** | 3 | 28,838 (-16.46%) | **172,102 (-98.24%, 56.8×)** | 139,518 (-79.64%) |
+| **Kept Modules** | 175,184 | 149,106 | **3,188** | 35,669 |
+| **Dropped / Eliminated Modules** | 3 | 26,081 (-14.89%) | **171,999 (-98.18%, 55.0×)** | 139,518 (-79.64%) |
 | **Instance/Class Support Mods** | All (1,946+) | +4,088+ (`35,028+` decls, Fix 1+2 closed) | Fused into bundles (all retained) | 0 |
 | **Syntax/Tactic Support Mods** | All | +20 (`BuildAid.D1..D4`, etc.) | **+20** (preserved standalone) | 0 |
 | **Pure Barrels Collapsed** | 0 | 149 collapsed (`4` non-pure kept) | **149 collapsed** (`4` non-pure kept) | All dropped |
-| **Stripped Intra-Module Lemmas** | 658,917 | 90,264 (`-1,013,470` LOC) | **90,264 (`-1,013,470` LOC)** | 64,572 (`-639,121` LOC) |
-| **Consolidated Exact Dups** | 0 | 1,372 pre-merge (`-10,763` LOC) | **9,755 (`-77,911` LOC)** | — |
-| **Eliminated Import Lines (Merge)** | 0 | 0 | **-604,659** | — |
-| **Stripped Comment/Blank Lines** | 0 | 84,895 lines | **84,895 lines** | — |
-| **Final Non-Blank LOC** | 5,731,420 (-63.10%) | 12,610,083 (-18.81%) | **12,273,477 (-20.98%)** | 2,895,538 (-81.36%) |
-| **Compressed `.tar.gz` Size** | — | 195.29 MB (-18.38%) | **177.24 MB (-25.93%, 1.35×)** | — |
+| **Stripped Intra-Module Lemmas** | 658,917 | 55,835 (`-689,395` LOC) | **55,835 (`-689,395` LOC)** | 64,572 (`-639,121` LOC) |
+| **Consolidated Exact Dups** | 0 | 1,458 pre-merge (`-11,443` LOC) | **10,214 (`-81,649` LOC)** | — |
+| **Eliminated Import Lines (Merge)** | 0 | 0 | **-605,773** | — |
+| **Stripped Comment/Blank Lines** | 0 | 52,024 lines | **52,024 lines** | — |
+| **Final Non-Blank LOC** | 5,731,420 (-63.10%) | 13,126,611 (-15.49%) | **12,792,153 (-17.64%)** | 2,895,538 (-81.36%) |
+| **Compressed `.tar.gz` Size** | — | 202.48 MB (-15.38%) | **184.46 MB (-22.91%, 1.30×)** | — |
 
 ### B. Safety Guarantees Preserving Lean 4 Compilation
 
-1. **Implicit Typeclass, Non-Theorem `def`, & `_root_.` Closure**:
-   - Retains every transitively imported module defining an `instance` or `class` (`1,946` initial + support), closes `out_adj` transitively over all non-theorem declarations (`def`, `structure`, `abbrev`, `inductive`, `class`, `instance`) inside kept modules (Fix 1: `39,769 -> 44,575` modules), and iteratively resolves `_root_.<Name>` calls missing from source-mode DB edges to a fixpoint (Fix 2 -> `146,349` modules).
+1. **Implicit Typeclass, Non-Theorem `def`, `_root_.`, `anon_*`, & Dot-Projection Closure**:
+   - Retains every transitively imported module defining an `instance` or `class` (`1,946` initial + support), closes `out_adj` transitively over all non-theorem declarations (`def`, `structure`, `abbrev`, `inductive`, `class`, `instance`) inside kept modules (Fix 1: `39,769 -> 44,575` modules), iteratively resolves `_root_.<Name>` calls missing from source-mode DB edges, preserves ASCII-fallback `anon_*` Greek-named lemmas (`τk_X`/`τk_C`/`τk_compat`), and rescues intra-module short-name and kept-type dot-projection lemmas (`PhiData.isUnit_eps`/`first_partial_unit_eq_exp`) to a fixpoint -> `149,106` modules.
    - Automatically detects and retains non-pure zero-declaration tactic/macro/export modules (`mod_loc > import_count`, **20 modules** including `BuildAid.D1..D4` defining `kexactB`/`kcopy`), keeping every `lakefile.toml` library target populated.
 2. **Surgical Pure-Barrel Collapsing (`--collapse-barrels`), External Import Inheritance, & `open` Cleanup**:
    - Verifies both in SQLite (`decl_count == 0` and `loc == total_import_count`) and against real `.lean` source text (`is_pure_import_barrel_source`) that collapsed barrels contain **zero** `export`/`open`/`attribute`/`notation`/`macro` statements (`149` pure barrels collapsed).
    - Splices live project imports **and** transitive external/Mathlib imports through both collapsed barrels and pruned non-barrel modules (`178 -> 0` zero-import modules), inserts any unbridged declaration/`_root_.` targets via `needed_mod_bridges` (`0` dangling project imports), and strips orphaned global and per-module dropped project namespaces from `open ...` lines.
 3. **Pass 1 & Phase B: Source-Verified Exact-Duplicate Proof Consolidation (`consolidate.py` + `merge_modules.py`)**:
-   - Scans kept `theorem`/`lemma` declarations across exact `canonical_type_hash` groups, filtering by exact resolved `type` dependency edges (`edges WHERE kind = 'type'`), exact binder structure (`()`, `{}`, `[]`, `⦃⦄`, including Greek/Unicode binder identifiers), and absence of `let`/`letI`/`Type*` truncation (`hoistable` potential: `9,416` groups / `13,101` redundant decls / `98,732` LOC).
-   - **Pre-merge in-scope consolidation (zero new imports)**: **`1,372` source-verified 1-line `_root_.` delegations (`-10,763` LOC)**.
+   - Scans kept `theorem`/`lemma` declarations across exact `canonical_type_hash` groups, filtering by exact resolved `type` dependency edges (`edges WHERE kind = 'type'`), exact binder structure (`()`, `{}`, `[]`, `⦃⦄`, including Greek/Unicode binder identifiers), and absence of `let`/`letI`/`Type*` truncation (`hoistable` potential: `9,944` groups / `13,836` redundant decls / `104,633` LOC).
+   - **Pre-merge in-scope consolidation (zero new imports)**: **`1,458` source-verified 1-line `_root_.` delegations (`-11,443` LOC)**.
    - **Phase A+B `--merge-modules --target-module-loc 5500` (`src/proof_compressor/analyze/merge_modules.py`)**:
-     - **Phase A1+A2+A3** fuses linear single-consumer chains and packs duplicate-aware convex `(lean_lib_root, layer)` antichains (`146,349 -> 3,085` modules, **`-98.24%` / `56.8×`** vs raw) while preserving all `lakefile.toml` glob boundaries (`GroundTheory.*`, `Development.*`, etc.), keeping standalone macro/syntax/export/root files unmerged (`262` standalone), enforcing disjoint public & `private` declaration names, wrapping each unit in balanced `section __pc_u_i ... end __pc_u_i`, and eliminating **`604,659` import lines** (`-336,606` net LOC) with **`0` cycles**, **`0` dangling imports**, and **`0` zero-import files**.
-     - **Phase B (post-merge consolidation)** directly unlocks **`8,383` additional exact-duplicate delegations (`-67,148` proof LOC)**, reaching **`9,755` total consolidated proofs (`-77,911` LOC)**!
+     - **Phase A1+A2+A3** fuses linear single-consumer chains and packs duplicate-aware convex `(lean_lib_root, layer)` antichains (`149,106 -> 3,188` modules, **`-98.18%` / `55.0×`** vs raw) while preserving all `lakefile.toml` glob boundaries (`GroundTheory.*`, `Development.*`, etc.), keeping standalone macro/syntax/export/root files unmerged, enforcing disjoint public & `private` declaration names, wrapping each unit in balanced `section __pc_u_i ... end __pc_u_i`, and eliminating **`605,773` import lines** (`-334,458` net LOC) with **`0` cycles**, **`0` dangling imports**, and **`0` zero-import files**.
+     - **Phase B (post-merge consolidation)** directly unlocks **`8,756` additional exact-duplicate delegations (`-70,206` proof LOC)**, reaching **`10,214` total consolidated proofs (`-81,649` LOC)**!
 4. **Pass 3: Lean-4-Safe Comment & Blank-Line Stripping (`--strip-comments`)**:
-   - Full lexical scanner preserving double-quoted and interpolated strings (`"..."`, `s!"..."`), char literals (`'"'`, `'\n'`), guillemet identifiers (`«...»`), nested `/- ... -/` boundaries, `/-- ... -/` docstrings immediately preceding `add_decl_doc`, and exact column indentation for layout-sensitive tactics — stripping **`84,895` comment and redundant blank lines** cleanly.
+   - Full lexical scanner preserving double-quoted and interpolated strings (`"..."`, `s!"..."`), char literals (`'"'`, `'\n'`), guillemet identifiers (`«...»`), nested `/- ... -/` boundaries, `/-- ... -/` docstrings immediately preceding `add_decl_doc`, and exact column indentation for layout-sensitive tactics — stripping **`52,024` comment and redundant blank lines** cleanly.
 5. **Zero-Extraction Streaming Archive Output (`--output-archive`)**:
-   - Streams directly from concatenated `data/lean.tar.gz.part01..14` into `outputs/rh_compressed.tar.gz` (`195.29 MB`, `146,349` files) and `outputs/rh_merged.tar.gz` (**`177.24 MB`**, **`3,085` files** + `3` root configs) with **zero intermediate files unpacked on internal disk**.
+   - Streams directly from concatenated `data/lean.tar.gz.part01..14` into `outputs/rh_compressed.tar.gz` (`202.48 MB`, `149,106` files) and `outputs/rh_merged.tar.gz` (**`184.46 MB`**, **`3,188` files** + `3` root configs) with **zero intermediate files unpacked on internal disk**.
 
 ---
 
 ## 4. Deep Proof Optimization Levers (Beyond Exact-Type Consolidation)
 
-Even after compressing `15,531,759` LOC (`239.28 MB` `.tar.gz`, `175,187` files) down to `12,273,477` LOC (`177.24 MB` `.tar.gz`, `3,085` merged modules), major mathematical and structural redundancies remain inside the kept corpus (`183,501` explicitly reachable declarations / `2,252,399` reachable body LOC):
+Even after compressing `15,531,759` LOC (`239.28 MB` `.tar.gz`, `175,187` files) down to `12,792,153` LOC (`184.46 MB` `.tar.gz`, `3,188` merged modules), major mathematical and structural redundancies remain inside the kept corpus (`183,501` explicitly reachable declarations / `2,252,399` reachable body LOC):
 
 ### Lever 1: Cloned Subtree & Near-Duplicate Consolidation (`-363,988` Body LOC)
-- **`consolidate.py` + `merge_modules.py`** already eliminate **`9,755` exact-duplicate proofs (`-77,911` LOC)** across the kept closure. The much larger **`~350k` LOC** deduplication reservoir lies in **cloned subtrees with distinct local `def`/`structure` copies** (e.g. `CompanionTheory.RgGu.NR.*` vs. `Development.WeilBound.*PositivityTheory.RgGu.NR.*` which duplicate 160-line proofs over isomorphic local structures) and **near-duplicate signatures (`similarity >= 0.85`)**:
+- **`consolidate.py` + `merge_modules.py`** already eliminate **`10,214` exact-duplicate proofs (`-81,649` LOC)** across the kept closure. The much larger **`~350k` LOC** deduplication reservoir lies in **cloned subtrees with distinct local `def`/`structure` copies** (e.g. `CompanionTheory.RgGu.NR.*` vs. `Development.WeilBound.*PositivityTheory.RgGu.NR.*` which duplicate 160-line proofs over isomorphic local structures) and **near-duplicate signatures (`similarity >= 0.85`)**:
   - `13,694` exact canonical-type duplicate groups (`25,726` redundant decls, `197,394` reducible body LOC across reachable decls)
   - `10,910` near-duplicate signature groups (`15,344` redundant decls, `166,594` reducible body LOC)
   - `2,557` cross-package duplicate groups (`79,105` reducible body LOC)
@@ -162,7 +162,7 @@ Because the Cooper-Harvey-Kennedy dominator tree has max depth `46` and strong b
 - Executing the top 20 kernel-checked work orders in `examples/rh_alpo/refactor_plan.md` (verified by `proof_compressor.refactor.gate.verify_refactor_gate`) projects an additional **`~647,000` body LOC** reduction.
 
 ### Lever 5: `.olean` Kernel-Level Exact Pruning vs. Source-Level Heuristics
-Once `outputs/rh_compressed.tar.gz` or `outputs/rh_merged.tar.gz` is compiled with Lean `v4.33.1` + Mathlib on external storage, running `lean_extractor` (`lake env .lake/build/bin/extract_dag`) and `proof-compressor ingest-olean` replaces source-level identifier heuristics with `Expr.getUsedConstants` over kernel proof terms — eliminating all `instance-aware` and uninstantiated `_root_.` buffer modules that were imported in scope but never actually instantiated in kernel proof terms (`146,349 -> ~36,000` modules / `~2.90M` LOC).
+Once `outputs/rh_compressed.tar.gz` or `outputs/rh_merged.tar.gz` is compiled with Lean `v4.33.1` + Mathlib on external storage, running `lean_extractor` (`lake env .lake/build/bin/extract_dag`) and `proof-compressor ingest-olean` replaces source-level identifier heuristics with `Expr.getUsedConstants` over kernel proof terms — eliminating all `instance-aware` and uninstantiated `_root_.` buffer modules that were imported in scope but never actually instantiated in kernel proof terms (`149,106 -> ~36,000` modules / `~2.90M` LOC).
 
 ---
 
@@ -170,8 +170,8 @@ Once `outputs/rh_compressed.tar.gz` or `outputs/rh_merged.tar.gz` is compiled wi
 
 Measured full-scale timings on the 175,187-file `alpo.ge` corpus:
 - End-to-end ingestion + analysis + exposition: `467s` (`1.5 GB` SQLite DB, `3.72 GiB` peak RSS)
-- Full multi-pass streaming compression with Fix 1+2 transitive closure, per-module `open` cleanup, `--collapse-barrels`, `--consolidate-duplicates`, and `--strip-comments` -> `outputs/rh_compressed.tar.gz`: **`229.44s`** (`0` intermediate files unpacked to disk)
-- Full Phase A+B module merge (`--merge-modules --target-module-loc 5500` -> `outputs/rh_merged.tar.gz`): **`839.10s`** (`0` intermediate files unpacked to disk)
+- Full multi-pass streaming compression with Fix 1+2 transitive closure, `anon_*`/dot-projection rescue, per-module `open` cleanup, `--collapse-barrels`, `--consolidate-duplicates`, and `--strip-comments` -> `outputs/rh_compressed.tar.gz`: **`347.67s`** (`0` intermediate files unpacked to disk)
+- Full Phase A+B module merge (`--merge-modules --target-module-loc 5500` -> `outputs/rh_merged.tar.gz`): **`917.34s`** (`0` intermediate files unpacked to disk)
 
 Four high-leverage engine optimizations for future multi-million-declaration runs:
 1. **Parallel Multi-Part Gzip/Tar Pass 1 Ingestion (`158.6s -> ~35s`)**: Partition extracted file buffers across a `ProcessPoolExecutor` of 6–8 worker parsers feeding a single SQLite writer queue.

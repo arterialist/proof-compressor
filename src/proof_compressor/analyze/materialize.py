@@ -656,6 +656,12 @@ def _compute_trans_ext_imports(
     return trans_ext
 
 
+def _is_anon_fallback_name(name: str) -> bool:
+    """Return True for parser fallback ``anon_*`` names whose real identifier missed ASCII regexes."""
+    short = name.rsplit(".", 1)[-1] if name else ""
+    return short.startswith("anon_")
+
+
 def _expand_instance_aware_closure(
     plan: PrunePlan,
     ctx: _PruneGraphContext,
@@ -674,7 +680,10 @@ def _expand_instance_aware_closure(
             plan.collapsed_barrel_modules.discard(dm)
             plan.kept_modules.add(dm)
             for d2 in ctx.mod_to_decls.get(dm, ()):
-                if d2 not in plan.kept_decl_ids and ctx.decl_kind[d2] not in _SAFE_STRIP_KINDS:
+                if d2 not in plan.kept_decl_ids and (
+                    ctx.decl_kind[d2] not in _SAFE_STRIP_KINDS
+                    or _is_anon_fallback_name(ctx.decl_name.get(d2, ""))
+                ):
                     plan.kept_decl_ids.add(d2)
                     q_decls.append(d2)
 
@@ -693,9 +702,9 @@ def _expand_instance_aware_closure(
                         plan.collapsed_barrel_modules.discard(vm)
                         plan.kept_modules.add(vm)
                         for d2 in ctx.mod_to_decls.get(vm, ()):
-                            if (
-                                d2 not in plan.kept_decl_ids
-                                and ctx.decl_kind[d2] not in _SAFE_STRIP_KINDS
+                            if d2 not in plan.kept_decl_ids and (
+                                ctx.decl_kind[d2] not in _SAFE_STRIP_KINDS
+                                or _is_anon_fallback_name(ctx.decl_name.get(d2, ""))
                             ):
                                 plan.kept_decl_ids.add(d2)
                                 q_decls.append(d2)
@@ -758,7 +767,11 @@ def _expand_instance_aware_closure(
     strippable_by_mod: dict[int, list[int]] = defaultdict(list)
     for m in plan.kept_modules:
         for d in ctx.mod_to_decls.get(m, ()):
-            if d not in plan.kept_decl_ids and ctx.decl_kind[d] in _SAFE_STRIP_KINDS:
+            if (
+                d not in plan.kept_decl_ids
+                and ctx.decl_kind[d] in _SAFE_STRIP_KINDS
+                and not _is_anon_fallback_name(ctx.decl_name.get(d, ""))
+            ):
                 strippable_by_mod[m].append(d)
     plan.strippable_decl_ids_by_mod = dict(strippable_by_mod)
 
@@ -1136,7 +1149,9 @@ def _compute_prune_plan_with_ctx(
         for d in mod_to_decls.get(m, ()):
             if d in kept_decl_ids:
                 continue
-            if decl_kind[d] in _SAFE_STRIP_KINDS:
+            if decl_kind[d] in _SAFE_STRIP_KINDS and not _is_anon_fallback_name(
+                decl_name.get(d, "")
+            ):
                 strippable_by_mod[m].append(d)
             else:
                 kept_decl_ids.add(d)
@@ -2076,6 +2091,14 @@ def _compute_per_module_dropped_open_ns(
     return result
 
 
+_IDENT_TOKEN_RE = re.compile(
+    r"[A-Za-z_\u00c0-\u024f\u0370-\u03ff][A-Za-z0-9_'\u0080-\uffff]*"
+)
+_DOT_SUFFIX_RE = re.compile(
+    r"\.([A-Za-z_\u00c0-\u024f\u0370-\u03ff][A-Za-z0-9_'\u0080-\uffff]*)"
+)
+
+
 def _run_root_dot_fixpoint(
     plan: PrunePlan,
     ctx: _PruneGraphContext,
@@ -2083,7 +2106,8 @@ def _run_root_dot_fixpoint(
     *,
     strip_dead_decls: bool = True,
 ) -> bool:
-    """Iteratively resolve ``_root_.<Decl>`` references in surviving lines of ``kept_modules``.
+    """Iteratively resolve ``_root_.<Decl>``, intra-module, and dot-projection references
+    in surviving lines of ``kept_modules``.
 
     Expands ``kept_decl_ids`` and ``kept_modules`` to a fixpoint and records cross-module edges
     in ``ctx.extra_mod_edges``. Returns True if any new declarations or modules were added.
@@ -2093,62 +2117,13 @@ def _run_root_dot_fixpoint(
         if nm:
             name_to_dids[nm].append(did)
 
-    scanned_kept_cnt: dict[int, int] = {}
+    scanned_root_cnt: dict[int, int] = {}
+    scanned_rescue_cnt: dict[int, int] = {}
+    dot_tokens_seen: set[str] = set()
     changed_any = False
 
-    while True:
-        new_seeds: list[int] = []
-        seen_seed_set: set[int] = set()
-
-        for mid in sorted(plan.kept_modules):
-            raw_bytes = raw_by_mid.get(mid)
-            if not raw_bytes or b"_root_." not in raw_bytes:
-                continue
-            cur_kept_cnt = sum(
-                1 for d in ctx.mod_to_decls.get(mid, ()) if d in plan.kept_decl_ids
-            )
-            if scanned_kept_cnt.get(mid) == cur_kept_cnt:
-                continue
-            scanned_kept_cnt[mid] = cur_kept_cnt
-
-            src_text = raw_bytes.decode("utf-8", errors="replace")
-            lines = src_text.splitlines()
-            spans = ctx.spans_by_mod.get(mid, [])
-            if strip_dead_decls and spans:
-                mask, _ = _compute_strip_line_mask(lines, spans, plan.kept_decl_ids)
-                surviving_text = "\n".join(ln for i, ln in enumerate(lines) if not mask[i])
-            else:
-                surviving_text = src_text
-
-            clean_text, _ = strip_lean_comments(surviving_text, keep_docstrings=False)
-            for m_ref in _ROOT_DOT_REF_RE.finditer(clean_text):
-                target_name = m_ref.group(1)
-                dids = name_to_dids.get(target_name)
-                if not dids and "." in target_name:
-                    parent = target_name.rsplit(".", 1)[0]
-                    pdids = name_to_dids.get(parent)
-                    if pdids:
-                        dids = [
-                            d
-                            for d in pdids
-                            if ctx.decl_kind.get(d) in {"structure", "inductive", "class"}
-                        ]
-                if not dids:
-                    continue
-                for dst_id in dids:
-                    dm = ctx.decl_mod.get(dst_id)
-                    if dm is not None and dm != mid and dm in ctx.project_mids:
-                        ctx.extra_mod_edges[mid].add(dm)
-                    if dst_id not in plan.kept_decl_ids and dst_id not in seen_seed_set:
-                        seen_seed_set.add(dst_id)
-                        new_seeds.append(dst_id)
-
-        if not new_seeds:
-            break
-
-        changed_any = True
-        _expand_instance_aware_closure(plan, ctx, new_seeds)
-
+    def _expand_and_verify_barrels(seeds: Sequence[int]) -> None:
+        _expand_instance_aware_closure(plan, ctx, seeds)
         if plan.collapse_barrels and plan.collapsed_barrel_modules:
             restored: set[int] = set()
             for bmid in list(plan.collapsed_barrel_modules):
@@ -2162,6 +2137,130 @@ def _run_root_dot_fixpoint(
                 plan.collapsed_barrel_modules -= restored
                 plan.kept_modules |= restored
                 plan.dropped_modules -= restored
+
+    while True:
+        # Phase 1: fast _root_.<Decl> closure (only inspects modules containing `_root_.`)
+        while True:
+            new_seeds: list[int] = []
+            seen_seed_set: set[int] = set()
+
+            for mid in sorted(plan.kept_modules):
+                raw_bytes = raw_by_mid.get(mid)
+                if not raw_bytes or b"_root_." not in raw_bytes:
+                    continue
+                cur_kept_cnt = sum(
+                    1 for d in ctx.mod_to_decls.get(mid, ()) if d in plan.kept_decl_ids
+                )
+                if scanned_root_cnt.get(mid) == cur_kept_cnt:
+                    continue
+                scanned_root_cnt[mid] = cur_kept_cnt
+
+                src_text = raw_bytes.decode("utf-8", errors="replace")
+                lines = src_text.splitlines()
+                spans = ctx.spans_by_mod.get(mid, [])
+                if strip_dead_decls and spans:
+                    mask, _ = _compute_strip_line_mask(lines, spans, plan.kept_decl_ids)
+                    surviving_text = "\n".join(ln for i, ln in enumerate(lines) if not mask[i])
+                else:
+                    surviving_text = src_text
+
+                clean_text, _ = strip_lean_comments(surviving_text, keep_docstrings=False)
+                for m_ref in _ROOT_DOT_REF_RE.finditer(clean_text):
+                    target_name = m_ref.group(1)
+                    dids = name_to_dids.get(target_name)
+                    if not dids and "." in target_name:
+                        parent = target_name.rsplit(".", 1)[0]
+                        pdids = name_to_dids.get(parent)
+                        if pdids:
+                            dids = [
+                                d
+                                for d in pdids
+                                if ctx.decl_kind.get(d) in {"structure", "inductive", "class"}
+                            ]
+                    if not dids:
+                        continue
+                    for dst_id in dids:
+                        dm = ctx.decl_mod.get(dst_id)
+                        if dm is not None and dm != mid and dm in ctx.project_mids:
+                            ctx.extra_mod_edges[mid].add(dm)
+                        if dst_id not in plan.kept_decl_ids and dst_id not in seen_seed_set:
+                            seen_seed_set.add(dst_id)
+                            new_seeds.append(dst_id)
+
+            if not new_seeds:
+                break
+
+            changed_any = True
+            _expand_and_verify_barrels(new_seeds)
+
+        # Phase 2: intra-module short-name rescue & kept-type dot-projection lemma rescue
+        kept_type_ns: set[str] = {
+            ctx.decl_name[d]
+            for d in plan.kept_decl_ids
+            if ctx.decl_kind.get(d) in {"structure", "class", "inductive", "def", "abbrev"}
+            and ctx.decl_name.get(d)
+        }
+        dot_candidates: dict[str, list[int]] = defaultdict(list)
+        for dlist in plan.strippable_decl_ids_by_mod.values():
+            for d in dlist:
+                nm = ctx.decl_name.get(d, "")
+                if "." not in nm:
+                    continue
+                parent, short = nm.rsplit(".", 1)
+                if len(short) >= 3 and parent in kept_type_ns:
+                    dot_candidates[short].append(d)
+
+        rescue_seeds: list[int] = []
+        seen_rescue: set[int] = set()
+
+        for mid in sorted(plan.kept_modules):
+            raw_bytes = raw_by_mid.get(mid)
+            if not raw_bytes:
+                continue
+            cur_kept_cnt = sum(
+                1 for d in ctx.mod_to_decls.get(mid, ()) if d in plan.kept_decl_ids
+            )
+            if scanned_rescue_cnt.get(mid) == cur_kept_cnt:
+                continue
+            scanned_rescue_cnt[mid] = cur_kept_cnt
+
+            st_list = plan.strippable_decl_ids_by_mod.get(mid, ())
+            if not st_list and not dot_candidates:
+                continue
+
+            src_text = raw_bytes.decode("utf-8", errors="replace")
+            lines = src_text.splitlines()
+            spans = ctx.spans_by_mod.get(mid, [])
+            if strip_dead_decls and spans:
+                mask, _ = _compute_strip_line_mask(lines, spans, plan.kept_decl_ids)
+                surviving_text = "\n".join(ln for i, ln in enumerate(lines) if not mask[i])
+            else:
+                surviving_text = src_text
+
+            clean_text, _ = strip_lean_comments(surviving_text, keep_docstrings=False)
+            if st_list:
+                toks = set(_IDENT_TOKEN_RE.findall(clean_text))
+                for d in st_list:
+                    sh = ctx.decl_name.get(d, "").rsplit(".", 1)[-1]
+                    if sh and sh in toks and d not in seen_rescue:
+                        seen_rescue.add(d)
+                        rescue_seeds.append(d)
+            if dot_candidates:
+                dot_tokens_seen.update(_DOT_SUFFIX_RE.findall(clean_text))
+
+        if dot_candidates and dot_tokens_seen:
+            for sh, dlist in dot_candidates.items():
+                if sh in dot_tokens_seen:
+                    for d in dlist:
+                        if d not in seen_rescue:
+                            seen_rescue.add(d)
+                            rescue_seeds.append(d)
+
+        if not rescue_seeds:
+            break
+
+        changed_any = True
+        _expand_and_verify_barrels(rescue_seeds)
 
     return changed_any
 
