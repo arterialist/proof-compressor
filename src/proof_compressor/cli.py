@@ -497,12 +497,9 @@ def _cmd_audit(args: argparse.Namespace) -> int:
     from proof_compressor.expose.audit import audit_latex, format_audit_markdown
 
     db_path = _resolve_db_arg(args)
-    latex_path = Path(args.latex)
-    latex_src = latex_path.read_text(encoding="utf-8")
-
     report = audit_latex(
         db_path,
-        latex_src,
+        Path(args.latex),
         output_json=Path(args.out_json) if args.out_json else None,
         output_md=Path(args.out_md) if args.out_md else None,
         bottleneck_threshold=args.bottleneck_threshold,
@@ -601,6 +598,8 @@ def _cmd_materialize(args: argparse.Namespace) -> int:
         allow_cross_bundle_consolidation=not args.no_cross_bundle_consolidation,
         dry_run=args.dry_run or (args.source is None or not has_output),
         max_files=args.max_files,
+        external_namespaces=args.external_namespaces,
+        external_names=args.external_names,
     )
     elapsed = round(time.perf_counter() - t0, 2)
     payload = rep.to_dict()
@@ -1022,6 +1021,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--merge-modules",
         action="store_true",
         help="Fuse linear chains and pack cycle-free topological module bundles up to --target-module-loc.",
+    )
+    p_mt.add_argument(
+        "--external-namespaces",
+        default=None,
+        help="File listing the namespaces of imported libraries (one per line), used to pin "
+        "`open X` to `_root_.X` when a project namespace could shadow it.",
+    )
+    p_mt.add_argument(
+        "--external-names",
+        default=None,
+        help="File listing every constant of the imported libraries (one per line). Gives the "
+        "library namespaces and lets --merge-modules detect and repair name capture.",
     )
     p_mt.add_argument(
         "--target-module-loc",

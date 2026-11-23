@@ -639,6 +639,9 @@ def lean_type_to_latex(
     s = _strip_balanced_blocks(s, "⦃", "⦄")
     s = _strip_glue_parenthesized_binders(s)
 
+    # `_root_.Foo.bar` is the same constant as `Foo.bar`; the prefix would typeset as a subscript.
+    s = re.sub(r"(?<![A-Za-z0-9_.])_root_\.", "", s)
+
     # Strip Lean coercion arrow `↑` and escape TeX-hostile characters from Lean syntax
     s = s.replace("↑", "")
     s = s.replace(" \\ ", " SETMINUS_TOK ")
@@ -656,6 +659,8 @@ def lean_type_to_latex(
     truncated = False
     if len(s) > max_len:
         s = s[:max_len].rsplit(" ", 1)[0]
+        # A cut right after `^`/`_` leaves a script operator with no argument, which TeX rejects.
+        s = re.sub(r"[\s^_]+$", "", s)
         truncated = True
 
     # Replace registered Lean constants (longest first so qualified names win)

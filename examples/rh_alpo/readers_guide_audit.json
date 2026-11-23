@@ -3,8 +3,8 @@
   "passed": true,
   "fidelity_score": 1.0,
   "summary": {
-    "total_leanlinks": 55,
-    "unique_leanlinks": 39,
+    "total_leanlinks": 54,
+    "unique_leanlinks": 38,
     "audited_theorems": 0,
     "audited_proofs": 0,
     "unknown_leanlinks": 0,

@@ -1,8 +1,8 @@
 # Proof Exposition Audit Report (PASS)
 
-- **Source:** `<inline>`
+- **Source:** `examples/rh_alpo/paper.tex`
 - **Fidelity Score:** `1.0000`
-- **Verified `\leanlink` anchors:** 752 unique (1108 total)
+- **Verified `\leanlink` anchors:** 849 unique (1198 total)
 - **Audited theorems / proofs:** 149 / 149
 
 ## Issue Summary

@@ -1,10 +1,10 @@
 {
-  "source": "<inline>",
+  "source": "examples/rh_alpo/paper.tex",
   "passed": true,
   "fidelity_score": 1.0,
   "summary": {
-    "total_leanlinks": 1108,
-    "unique_leanlinks": 752,
+    "total_leanlinks": 1198,
+    "unique_leanlinks": 849,
     "audited_theorems": 149,
     "audited_proofs": 149,
     "unknown_leanlinks": 0,

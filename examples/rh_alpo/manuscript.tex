@@ -58,7 +58,7 @@
 
 \begin{document}
 \begin{abstract}
-We present a self-contained, human-readable mathematical exposition of a complete Lean~4 proof of the Generalized Riemann Hypothesis for all Dirichlet $L$-functions and the Riemann Hypothesis for $\zeta(s)$. The raw source corpus contains $175{,}187$ modules ($15{,}531{,}759$ non-blank lines of code, $1{,}061{,}425$ declarations, $1{,}030.54$~MB uncompressed, and $239.28$~MB compressed). Exact declaration-level dependency analysis from the five headline theorems of \leanmod{Main} isolates a reachable proof cone of $35{,}669$ modules ($183{,}501$ declarations, $3{,}534{,}659$ module lines, and $2{,}252{,}399$ declaration body lines). Under full Lean-compilable instance-aware closure, multi-pass compression---combining dead-module pruning, barrel collapse ($149$ barrels), intra-module dead-lemma stripping ($55{,}835$ lemmas), topological module merging, exact-duplicate proof delegation ($10{,}214$ consolidated proofs), and comment stripping---reduces the repository to $149{,}106$ pruned modules ($13{,}126{,}611$ non-blank lines) and $3{,}188$ merged modules ($-98.18\%$, $12{,}792{,}153$ non-blank lines, $184.46$~MB compressed) with zero dangling imports, zero cycles, and zero unproven placeholders. Synthesizing directly from the verified Lean sources, this manuscript develops the full mathematical argument across five interlocking sections: the top-level reduction spine, explicit formulas and iterated definite unitary theta lifts with Arakelov slope and Moriwaki bigness bounds, the unconditional all-ranks Jacquet--Rallis fundamental lemma and spectral analysis, abelian varieties with the Theorem of the Cube and Weil height bounds, and Galois local--global compatibility with Wach--Bost--Vandiver obstruction control. Every theorem, lemma, and proof step is anchored to its kernel-checked Lean constant and verified by automated dependency-graph auditing.
+We present a self-contained, human-readable mathematical exposition of a complete Lean~4 proof of the Generalized Riemann Hypothesis for all Dirichlet $L$-functions and the Riemann Hypothesis for $\zeta(s)$. The raw source corpus contains $175{,}187$ modules ($15{,}531{,}759$ non-blank lines of code, $1{,}061{,}425$ declarations, $1{,}030.54$~MB uncompressed, and $239.28$~MB compressed). Exact declaration-level dependency analysis from the five headline theorems of \leanmod{Main} isolates a reachable proof cone of $145{,}276$ modules ($799{,}064$ declarations, $13{,}427{,}197$ module lines, and $10{,}432{,}497$ declaration body lines). Under instance-aware closure, multi-pass compression---combining dead-module pruning, barrel collapse ($150$ barrels), intra-module dead-lemma stripping ($57{,}079$ lemmas), topological module merging, exact-duplicate proof delegation ($9{,}963$ consolidated proofs), and comment stripping---reduces the repository to $149{,}208$ pruned modules ($13{,}128{,}024$ non-blank lines) and $4{,}685$ merged modules ($-97.33\%$, $12{,}812{,}699$ non-blank lines, $184.92$~MB compressed) with zero dangling imports, zero cycles, and zero unproven placeholders. Synthesizing directly from the verified Lean sources, this manuscript develops the full mathematical argument across five interlocking sections: the top-level reduction spine, explicit formulas and iterated definite unitary theta lifts with Arakelov slope and Moriwaki bigness bounds, the unconditional all-ranks Jacquet--Rallis fundamental lemma and spectral analysis, abelian varieties with the Theorem of the Cube and Weil height bounds, and Galois local--global compatibility with Wach--Bost--Vandiver obstruction control. Every theorem, lemma, and proof step is anchored to its kernel-checked Lean constant and verified by automated dependency-graph auditing.
 \end{abstract}
 \maketitle
 \tableofcontents
@@ -74,8 +74,8 @@ Hypothesis (RH) for the Riemann zeta function $\zeta(s)$.
 The underlying formal development in Lean~4 comprises $175{,}187$ source
 modules totaling $15{,}531{,}759$ lines of code; exact declaration-level
 dependency analysis rooted at the five headline theorems of \leanmod{Main}
-identifies a reachable proof cone of $35{,}669$ modules, $183{,}501$
-declarations, and $2{,}252{,}399$ declaration body lines.
+identifies a reachable proof cone of $145{,}276$ modules, $799{,}064$
+declarations, and $10{,}432{,}497$ declaration body lines.
 Every mathematical claim presented in this manuscript is anchored to its
 corresponding kernel-checked Lean constant via inline pointers of the form
 \leanlink{riemannHypothesis}, allowing the reader to pass effortlessly
@@ -270,32 +270,35 @@ both in logical sequence and as a self-contained mathematical unit:
 \end{enumerate}
 
 Table~\ref{tab:ch01-architecture} summarizes the distribution of the
-$35{,}669$ reachable modules and $2{,}252{,}399$ reachable declaration body
+$145{,}276$ reachable modules and $10{,}432{,}497$ reachable declaration body
 lines across the major namespaces of the formal proof, indicating where each
 pillar is treated in this manuscript.
 
 \begin{table}[ht]
 \centering
-\caption{Quantitative architecture of the reachable formal proof cone rooted at \leanmod{Main} ($35{,}669$ reachable modules, $183{,}501$ declarations, $2{,}252{,}399$ declaration body LOC).}
+\caption{Quantitative architecture of the reachable formal proof cone rooted at \leanmod{Main} ($145{,}276$ reachable modules, $799{,}064$ declarations, $10{,}432{,}497$ declaration body LOC).}
 \label{tab:ch01-architecture}
 {\small
 \begin{tabular}{@{}lrrrl@{}}
 \toprule
 Primary Lean package & Reachable mods & Reachable decls & Body LOC & Exposition \\
 \midrule
-\leanmod{Development.AbelianVarietyTheory} & 17,719 & 70,255 & 919,429 & Section~\ref{sec:abelian-varieties-weil} \\
-\leanmod{Development.AutomorphicSpectrum} & 4,196 & 20,375 & 253,854 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
-\leanmod{Development.AutomorphicArithmetic} & 4,122 & 22,650 & 310,923 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch02-explicit-formula-theta-lifts}, \ref{sec:galois-cohomology-assembly} \\
-\leanmod{GroundTheory.HeightsAndTheta} & 2,553 & 10,893 & 161,050 & Section~\ref{sec:ch02-explicit-formula-theta-lifts} \\
-\leanmod{Development.WeilBound} & 2,277 & 16,938 & 173,102 & Section~\ref{sec:abelian-varieties-weil} \\
-\leanmod{Development.EtaleCohomology} & 773 & 4,740 & 40,705 & Section~\ref{sec:galois-cohomology-assembly} \\
-\leanmod{ReciprocityTheory.ReductiveGroups} & 531 & 4,147 & 42,247 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
-\leanmod{Development.ResolutionOfSingularities} & 466 & 5,961 & 96,926 & Section~\ref{sec:abelian-varieties-weil} \\
-\leanmod{Formalism.LocalToGlobal} & 405 & 3,059 & 16,920 & Section~\ref{sec:galois-cohomology-assembly} \\
-\leanmod{GroundTheory.AutomorphicForms} & 310 & 4,518 & 50,054 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
-All remaining reachable packages & 2,317 & 19,965 & 187,112 & Sections~\ref{sec:ch02-explicit-formula-theta-lifts}--\ref{sec:galois-cohomology-assembly} \\
+\leanmod{Development.AbelianVarietyTheory} & 79,657 & 337,791 & 4,620,502 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{Development.AutomorphicArithmetic} & 16,657 & 78,518 & 1,262,457 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch02-explicit-formula-theta-lifts}, \ref{sec:galois-cohomology-assembly} \\
+\leanmod{Development.AutomorphicSpectrum} & 13,632 & 57,399 & 775,251 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Development.WeilBound} & 6,717 & 50,329 & 612,548 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{Formalism.LocalToGlobal} & 4,824 & 53,640 & 560,221 & Section~\ref{sec:galois-cohomology-assembly} \\
+\leanmod{GroundTheory.HeightsAndTheta} & 3,916 & 18,280 & 252,201 & Section~\ref{sec:ch02-explicit-formula-theta-lifts} \\
+\leanmod{Formalism.PeriodIntegrals} & 3,360 & 24,424 & 272,263 & Section~\ref{sec:ch02-explicit-formula-theta-lifts} \\
+\leanmod{Formalism.SharpRestriction} & 2,725 & 36,897 & 427,095 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{ReciprocityTheory.ReductiveGroups} & 2,444 & 21,610 & 272,374 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Formalism.HermitianCurvature} & 1,778 & 29,020 & 310,170 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Development.EtaleCohomology} & 1,304 & 9,127 & 73,462 & Section~\ref{sec:galois-cohomology-assembly} \\
+\leanmod{Development.ResolutionOfSingularities} & 497 & 7,590 & 116,064 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{GroundTheory.AutomorphicForms} & 476 & 7,970 & 91,329 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+All remaining reachable packages & 7,289 & 66,469 & 786,560 & Sections~\ref{sec:ch02-explicit-formula-theta-lifts}--\ref{sec:galois-cohomology-assembly} \\
 \midrule
-\textbf{Total reachable proof cone} & \textbf{35,669} & \textbf{183,501} & \textbf{2,252,399} & Sections~1--5 \\
+\textbf{Total reachable proof cone} & \textbf{145,276} & \textbf{799,064} & \textbf{10,432,497} & Sections~1--5 \\
 \bottomrule
 \end{tabular}
 }
@@ -1771,11 +1774,11 @@ intersection numbers on toroidal compactifications of Shimura varieties requires
 functorial resolution of singularities in characteristic zero, Moriwaki's
 arithmetic Hilbert--Samuel bigness theorem, and multiplicative height bounds of
 Weil and Mahler type. Together these components account for a large share of the
-reachable proof graph: $17{,}719$ modules in
-\leanmod{Development.AbelianVarietyTheory}, $2{,}277$ in
-\leanmod{Development.WeilBound}, $466$ in
-\leanmod{Development.ResolutionOfSingularities}, $107$ in
-\leanmod{GroundTheory.ArithmeticGeometry}, and $4$ in
+reachable proof graph: $79{,}657$ modules in
+\leanmod{Development.AbelianVarietyTheory}, $6{,}717$ in
+\leanmod{Development.WeilBound}, $497$ in
+\leanmod{Development.ResolutionOfSingularities}, $162$ in
+\leanmod{GroundTheory.ArithmeticGeometry}, and $115$ in
 \leanmod{ReciprocityTheory.SemistableReduction}.
 
 We organize the algebraic-geometric architecture in four stages: spreading out
@@ -2272,13 +2275,13 @@ Moriwaki bigness & \leanlink{PositivityTheory.Pf1.HilbertSamuelMoriwaki.moriwaki
 
 All analytic, automorphic, and algebraic-geometric machinery constructed in the
 earlier sections converges in the upper arithmetic layer of the formalization.
-This layer spans \leanmod{Development.EtaleCohomology} ($773$ reachable
-modules), \leanmod{GroundTheory.PAdicHodge} ($89$ modules),
-\leanmod{ReciprocityTheory.DualLattices} ($54$ modules),
-\leanmod{GroundTheory.ProfiniteCohomology} ($127$ modules),
-\leanmod{Formalism.WachLatticeTwists} ($3$ modules),
-\leanmod{Formalism.LocalToGlobal} ($405$ modules),
-\leanmod{Development.AutomorphicArithmetic} ($4{,}122$ modules),
+This layer spans \leanmod{Development.EtaleCohomology} ($1{,}304$ reachable
+modules), \leanmod{GroundTheory.PAdicHodge} ($113$ modules),
+\leanmod{ReciprocityTheory.DualLattices} ($175$ modules),
+\leanmod{GroundTheory.ProfiniteCohomology} ($440$ modules),
+\leanmod{Formalism.WachLatticeTwists} ($118$ modules),
+\leanmod{Formalism.LocalToGlobal} ($4{,}824$ modules),
+\leanmod{Development.AutomorphicArithmetic} ($16{,}657$ modules),
 \leanmod{Formalism.GammaFactorNonvanishing} ($2$ modules), and the top-level
 assembly in \leanmod{Supplements.Kernels.MainTheorems} and \leanmod{Main}.
 

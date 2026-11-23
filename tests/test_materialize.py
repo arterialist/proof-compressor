@@ -996,6 +996,23 @@ theorem UpperTheory.FinalTheorems.everyCharacter : UpperTheory.EveryCharacter :=
         encoding="utf-8",
     )
 
+    # The spine files may import further project modules (bridge imports for dependency
+    # edges). They play no part in this stub project, so give each one an empty module.
+    import re
+
+    lakefile = proj / "lakefile.toml"
+    for txt in extracted.values():
+        for imp in re.findall(r"^import\s+(\S+)", txt, re.M):
+            top = imp.split(".", 1)[0]
+            dest = proj / "src" / (imp.replace(".", "/") + ".lean")
+            if top in ("Mathlib", "Lean", "Std", "Init") or dest.exists():
+                continue
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text("", encoding="utf-8")
+            if f'name = "{top}"' not in lakefile.read_text(encoding="utf-8"):
+                with lakefile.open("a", encoding="utf-8") as fh:
+                    fh.write(f'\n[[lean_lib]]\nname = "{top}"\nglobs = ["{top}.+"]\n')
+
     gate = verify_refactor_gate(
         proj,
         target_modules=[

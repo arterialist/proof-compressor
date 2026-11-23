@@ -8,8 +8,8 @@ Hypothesis (RH) for the Riemann zeta function $\zeta(s)$.
 The underlying formal development in Lean~4 comprises $175{,}187$ source
 modules totaling $15{,}531{,}759$ lines of code; exact declaration-level
 dependency analysis rooted at the five headline theorems of \leanmod{Main}
-identifies a reachable proof cone of $35{,}669$ modules, $183{,}501$
-declarations, and $2{,}252{,}399$ declaration body lines.
+identifies a reachable proof cone of $145{,}276$ modules, $799{,}064$
+declarations, and $10{,}432{,}497$ declaration body lines.
 Every mathematical claim presented in this manuscript is anchored to its
 corresponding kernel-checked Lean constant via inline pointers of the form
 \leanlink{riemannHypothesis}, allowing the reader to pass effortlessly
@@ -204,32 +204,35 @@ both in logical sequence and as a self-contained mathematical unit:
 \end{enumerate}
 
 Table~\ref{tab:ch01-architecture} summarizes the distribution of the
-$35{,}669$ reachable modules and $2{,}252{,}399$ reachable declaration body
+$145{,}276$ reachable modules and $10{,}432{,}497$ reachable declaration body
 lines across the major namespaces of the formal proof, indicating where each
 pillar is treated in this manuscript.
 
 \begin{table}[ht]
 \centering
-\caption{Quantitative architecture of the reachable formal proof cone rooted at \leanmod{Main} ($35{,}669$ reachable modules, $183{,}501$ declarations, $2{,}252{,}399$ declaration body LOC).}
+\caption{Quantitative architecture of the reachable formal proof cone rooted at \leanmod{Main} ($145{,}276$ reachable modules, $799{,}064$ declarations, $10{,}432{,}497$ declaration body LOC).}
 \label{tab:ch01-architecture}
 {\small
 \begin{tabular}{@{}lrrrl@{}}
 \toprule
 Primary Lean package & Reachable mods & Reachable decls & Body LOC & Exposition \\
 \midrule
-\leanmod{Development.AbelianVarietyTheory} & 17,719 & 70,255 & 919,429 & Section~\ref{sec:abelian-varieties-weil} \\
-\leanmod{Development.AutomorphicSpectrum} & 4,196 & 20,375 & 253,854 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
-\leanmod{Development.AutomorphicArithmetic} & 4,122 & 22,650 & 310,923 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch02-explicit-formula-theta-lifts}, \ref{sec:galois-cohomology-assembly} \\
-\leanmod{GroundTheory.HeightsAndTheta} & 2,553 & 10,893 & 161,050 & Section~\ref{sec:ch02-explicit-formula-theta-lifts} \\
-\leanmod{Development.WeilBound} & 2,277 & 16,938 & 173,102 & Section~\ref{sec:abelian-varieties-weil} \\
-\leanmod{Development.EtaleCohomology} & 773 & 4,740 & 40,705 & Section~\ref{sec:galois-cohomology-assembly} \\
-\leanmod{ReciprocityTheory.ReductiveGroups} & 531 & 4,147 & 42,247 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
-\leanmod{Development.ResolutionOfSingularities} & 466 & 5,961 & 96,926 & Section~\ref{sec:abelian-varieties-weil} \\
-\leanmod{Formalism.LocalToGlobal} & 405 & 3,059 & 16,920 & Section~\ref{sec:galois-cohomology-assembly} \\
-\leanmod{GroundTheory.AutomorphicForms} & 310 & 4,518 & 50,054 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
-All remaining reachable packages & 2,317 & 19,965 & 187,112 & Sections~\ref{sec:ch02-explicit-formula-theta-lifts}--\ref{sec:galois-cohomology-assembly} \\
+\leanmod{Development.AbelianVarietyTheory} & 79,657 & 337,791 & 4,620,502 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{Development.AutomorphicArithmetic} & 16,657 & 78,518 & 1,262,457 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch02-explicit-formula-theta-lifts}, \ref{sec:galois-cohomology-assembly} \\
+\leanmod{Development.AutomorphicSpectrum} & 13,632 & 57,399 & 775,251 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Development.WeilBound} & 6,717 & 50,329 & 612,548 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{Formalism.LocalToGlobal} & 4,824 & 53,640 & 560,221 & Section~\ref{sec:galois-cohomology-assembly} \\
+\leanmod{GroundTheory.HeightsAndTheta} & 3,916 & 18,280 & 252,201 & Section~\ref{sec:ch02-explicit-formula-theta-lifts} \\
+\leanmod{Formalism.PeriodIntegrals} & 3,360 & 24,424 & 272,263 & Section~\ref{sec:ch02-explicit-formula-theta-lifts} \\
+\leanmod{Formalism.SharpRestriction} & 2,725 & 36,897 & 427,095 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{ReciprocityTheory.ReductiveGroups} & 2,444 & 21,610 & 272,374 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Formalism.HermitianCurvature} & 1,778 & 29,020 & 310,170 & Section~\ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+\leanmod{Development.EtaleCohomology} & 1,304 & 9,127 & 73,462 & Section~\ref{sec:galois-cohomology-assembly} \\
+\leanmod{Development.ResolutionOfSingularities} & 497 & 7,590 & 116,064 & Section~\ref{sec:abelian-varieties-weil} \\
+\leanmod{GroundTheory.AutomorphicForms} & 476 & 7,970 & 91,329 & Sections~\ref{sec:ch01-overview-and-spine}, \ref{sec:ch03-rtf-jacquet-rallis-analysis} \\
+All remaining reachable packages & 7,289 & 66,469 & 786,560 & Sections~\ref{sec:ch02-explicit-formula-theta-lifts}--\ref{sec:galois-cohomology-assembly} \\
 \midrule
-\textbf{Total reachable proof cone} & \textbf{35,669} & \textbf{183,501} & \textbf{2,252,399} & Sections~1--5 \\
+\textbf{Total reachable proof cone} & \textbf{145,276} & \textbf{799,064} & \textbf{10,432,497} & Sections~1--5 \\
 \bottomrule
 \end{tabular}
 }

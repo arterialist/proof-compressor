@@ -2,7 +2,7 @@
 
 - **Source:** `examples/rh_alpo/readers_guide.tex`
 - **Fidelity Score:** `1.0000`
-- **Verified `\leanlink` anchors:** 39 unique (55 total)
+- **Verified `\leanlink` anchors:** 38 unique (54 total)
 - **Audited theorems / proofs:** 0 / 0
 
 ## Issue Summary

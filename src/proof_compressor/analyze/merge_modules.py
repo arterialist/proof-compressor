@@ -28,8 +28,8 @@ from __future__ import annotations
 
 import re
 import sqlite3
-from collections import defaultdict, deque
-from dataclasses import asdict, dataclass
+from collections import Counter, defaultdict, deque
+from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Sequence
 
 from proof_compressor.analyze.consolidate import (
@@ -40,6 +40,9 @@ from proof_compressor.analyze.consolidate import (
     parse_signature_structure,
 )
 from proof_compressor.ingest.lean_parser import (
+    _LEAN_ID_LETTER,
+    _LEAN_ID_REST,
+    extract_binder_like_names,
     parse_lean_source,
     strip_comments_and_extract_docstrings,
 )
@@ -93,6 +96,21 @@ class MergeUnit:
     # `A.Real` when visible). Units with intersecting sets must not share a file.
     declared_namespaces: frozenset[str] = frozenset()
     open_shadow_keys: frozenset[str] = frozenset()
+    # Per declaration `(name, kind, opened namespaces, references)`, in source order; dropped
+    # once capture hazards are computed. Lean resolves `r` inside `namespace P` to `P.r`
+    # before the root or an opened namespace, so a `P.r` that merging makes newly visible
+    # captures the reference.
+    decl_refs: list[tuple[str, str, tuple[str, ...], list[str]]] = field(default_factory=list)
+    decl_count: int = 0
+    # declaration ordinal -> (name, {token: (explicit replacement or None, capturing decls)})
+    capture_fixes: dict[int, tuple[str, dict[str, tuple[str | None, frozenset[str]]]]] = field(
+        default_factory=dict
+    )
+    # Declarations of this unit to mark `protected` (so their short name stops capturing
+    # overloaded names elsewhere), and the references that must then name them in full:
+    # declaration ordinal -> (name, {token: replacement}).
+    protect_decls: set[str] = field(default_factory=set)
+    forced_fixes: dict[int, tuple[str, dict[str, str]]] = field(default_factory=dict)
 
 
 @dataclass
@@ -127,6 +145,19 @@ class MergeReport:
     phase_b_imported_bundle_consolidations: int = 0
     phase_b_cross_bundle_consolidations: int = 0
     phase_b_total_consolidations: int = 0
+    # Name-capture and import-environment guards (see `merge_project_modules`)
+    partial_env_modules: int = 0
+    capture_hazard_modules: int = 0
+    capture_hazard_names: int = 0
+    capture_unresolved_dropped: int = 0
+    capture_ambiguous_sites: int = 0
+    capture_protected_decls: int = 0
+    capture_protected_ref_sites: int = 0
+    cross_bundle_capture_hazards: int = 0
+    capture_fixed_sites: int = 0
+    capture_unfixable_sites: int = 0
+    capture_unfixable_reasons: dict[str, int] = field(default_factory=dict)
+    cross_bundle_capture_examples: list[str] = field(default_factory=list)
     phase_b_saved_loc: int = 0
 
     def to_dict(self) -> dict[str, Any]:
@@ -333,6 +364,7 @@ def _analyze_unit(
     private_names: set[str] = set()
     declared_ns: set[str] = set()
     shadow_keys: set[str] = set()
+    decl_refs: list[tuple[str, str, tuple[str, ...], list[str]]] = []
     for d in parsed.declarations:
         decl_names.add(d.name)
         if d.is_private:
@@ -344,6 +376,7 @@ def _analyze_unit(
         for opened in d.open_namespaces:
             for i in range(1, len(ns) + 1):
                 shadow_keys.add(".".join(ns[:i]) + "." + opened)
+        decl_refs.append((d.name, d.kind, d.open_namespaces, d.type_refs + d.proof_refs))
 
     has_standalone_cmd = False
     has_nonlocal = False
@@ -381,6 +414,8 @@ def _analyze_unit(
         dup_group_key=dup_group_key,
         declared_namespaces=frozenset(declared_ns),
         open_shadow_keys=frozenset(shadow_keys),
+        decl_refs=decl_refs,
+        decl_count=len(decl_refs),
     )
 
 
@@ -767,6 +802,371 @@ def _run_phase_b_consolidation(
 # ---------------------------------------------------------------------------
 
 
+def _external_env_keys(
+    units: dict[str, MergeUnit], kept_set: set[str]
+) -> tuple[dict[str, frozenset[str]], int]:
+    """Key each unit by the external libraries its transitive imports load.
+
+    A module that imports `Mathlib.RingTheory.X` alone elaborates in a smaller environment
+    than one that imports all of `Mathlib`; extra instances and lemmas in scope can change
+    how its proofs elaborate. Units share a file only when their keys are equal. Under a
+    full `import Mathlib`, individual `Mathlib.*` imports add nothing and are dropped.
+    """
+    ext: dict[str, frozenset[str]] = {}
+    for start in units:
+        if start in ext:
+            continue
+        stack: list[tuple[str, int]] = [(start, 0)]
+        on_stack = {start}
+        while stack:
+            node, i = stack[-1]
+            deps = [d for d in units[node].imports if d in kept_set and d != node]
+            while i < len(deps) and (deps[i] in ext or deps[i] in on_stack):
+                i += 1
+            if i < len(deps):
+                stack[-1] = (node, i + 1)
+                stack.append((deps[i], 0))
+                on_stack.add(deps[i])
+                continue
+            stack.pop()
+            on_stack.discard(node)
+            acc = {x for x in units[node].imports if x not in kept_set}
+            for d in deps:
+                acc |= ext.get(d, frozenset())
+            ext[node] = frozenset(acc)
+    keys: dict[str, frozenset[str]] = {}
+    partial = 0
+    interned: dict[frozenset[str], frozenset[str]] = {}
+    for m, s in ext.items():
+        if "Mathlib" in s:
+            s = frozenset(x for x in s if not x.startswith("Mathlib."))
+        else:
+            partial += 1
+        keys[m] = interned.setdefault(s, s)
+    return keys, partial
+
+
+_AMBIGUOUS = "\x00ambiguous"
+# `  field (args) : T` / `  | ctor : T` lines of a structure, class or inductive: the names
+# they introduce are in scope for the rest of the declaration.
+_FIELD_OR_CTOR_NAME_RE = re.compile(
+    f"^\\s+(?:\\|\\s*)?([{_LEAN_ID_LETTER}][{_LEAN_ID_REST}]*)\\s*(?:[(\\[{{⦃][^\\n]*)?(?::(?!=)|$)",
+    re.M,
+)
+_VARIABLE_LINE_RE = re.compile(r"^(?:variables?|include|omit)\b")
+_PROTECTABLE_KINDS = frozenset({"def", "theorem", "lemma", "abbrev", "structure", "class", "inductive"})
+_PROTECT_HEADER_RE = re.compile(
+    r"^((?:@\[[^\]]*\]\s*)*)((?:(?:noncomputable|unsafe|partial|nonrec)\s+)*"
+    r"(?:def|theorem|lemma|abbrev|structure|class\s+inductive|class\s+abbrev|class|inductive)\b)"
+)
+
+
+def _capture_hazards(
+    units: dict[str, MergeUnit],
+    kept_set: set[str],
+    external_names: frozenset[str] | None,
+) -> tuple[dict[str, set[str]], Counter[str]]:
+    """Per unit: project declarations that would capture one of its references if visible.
+
+    For a reference `a.b` inside `theorem P.Q.t`, Lean tries `P.Q.a.b`, `P.a.b`, then the
+    root and opened namespaces, then the same for `a` with `.b` as a field. A project
+    declaration that is NOT in the unit's own import closure but sits earlier in that
+    order than the name's original meaning is a capture hazard.
+
+    With ``external_names`` (every constant of the imported libraries) the original
+    meaning is known, so hazards on proof-local names are dropped and each real one gets
+    an explicit replacement (`_root_.<original>`) stored in ``unit.capture_fixes``.
+    Without it, unresolved names are kept as hazards and cannot be rewritten.
+
+    A name that two opened namespaces both define is an overload Lean settles by type, so
+    it has no single replacement. There the capturing declaration is marked `protected`
+    instead (a protected `P.r` is never found as bare `r`), and every reference that did
+    mean it by its short name is rewritten to the full name (``unit.forced_fixes``).
+    """
+    from proof_compressor.ingest.stream_archive import TransitiveImportIndex
+
+    owner: dict[str, str] = {}
+    suffixes: set[str] = set()
+    decl_kind: dict[str, str] = {}
+    for m, u in units.items():
+        for n in u.decl_names:
+            owner.setdefault(n, m)
+            segs = n.split(".")
+            for i in range(1, len(segs)):
+                suffixes.add(".".join(segs[i:]))
+        for dname, kind, _opens, _refs in u.decl_refs:
+            decl_kind.setdefault(dname, kind)
+    idx = {m: i + 1 for i, m in enumerate(units)}
+    direct = {
+        idx[m]: [idx[d] for d in u.imports if d in kept_set and d != m] for m, u in units.items()
+    }
+    tii = TransitiveImportIndex(len(units), direct)
+    topo_bit = tii.topo_bit
+    ext = external_names
+    stats: Counter[str] = Counter()
+
+    def _resolver(m: str):
+        bits: int | None = None
+        vis_memo: dict[str, bool] = {m: True}
+
+        def _vis(o: str) -> bool:
+            nonlocal bits
+            r = vis_memo.get(o)
+            if r is None:
+                if bits is None:
+                    bits = tii._get_int_bitset(idx[m])
+                r = vis_memo[o] = bool((bits >> topo_bit[idx[o]]) & 1)
+            return r
+
+        def _exists(name: str) -> bool:
+            o = owner.get(name)
+            if o is not None:
+                return _vis(o)
+            return ext is not None and name in ext
+
+        def _resolve(
+            tok: str, segs: list[str], ladder: list[str], opens: tuple[str, ...]
+        ) -> tuple[list[str], str | None, int, list[str]]:
+            """``(capturing decls, original meaning, segments it covers, overload set)``."""
+            hits: list[str] = []
+            for j in range(len(segs), 0, -1):
+                idj = tok if j == len(segs) else ".".join(segs[:j])
+                for lvl in ladder:
+                    name = f"{lvl}.{idj}"
+                    o = owner.get(name)
+                    if o is not None:
+                        if _vis(o):
+                            return hits, name, j, []
+                        hits.append(name)
+                    elif ext is not None and name in ext:
+                        return hits, name, j, []
+                if _exists(idj):
+                    return hits, idj, j, []
+                if opens:
+                    cands: list[str] = []
+                    for op in opens:
+                        for c in (*(f"{lvl}.{op}.{idj}" for lvl in ladder), f"{op}.{idj}"):
+                            if c not in cands and _exists(c):
+                                cands.append(c)
+                    if len(cands) == 1:
+                        return hits, cands[0], j, []
+                    if cands:
+                        return hits, _AMBIGUOUS, j, cands
+            return hits, None, 0, []
+
+        return _resolve
+
+    out: dict[str, set[str]] = {m: set() for m in units}
+    # (unit, ordinal, decl name, token, capturing decls) for overloaded names
+    overloaded: list[tuple[str, int, str, str, list[str]]] = []
+    for m, u in units.items():
+        resolve = _resolver(m)
+        haz = out[m]
+        for ordinal, (dname, _kind, opens, refs) in enumerate(u.decl_refs):
+            ds = dname.split(".")
+            if len(ds) < 2:
+                continue
+            ladder = [".".join(ds[:i]) for i in range(len(ds) - 1, 0, -1)]
+            for tok in refs:
+                if "." in tok:
+                    segs = tok.split(".")
+                    if not any(".".join(segs[:j]) in suffixes for j in range(len(segs), 0, -1)):
+                        continue
+                elif tok in suffixes:
+                    segs = [tok]
+                else:
+                    continue
+                hits, orig, j_orig, _cands = resolve(tok, segs, ladder, opens)
+                if not hits:
+                    continue
+                repl: str | None = None
+                if orig is None:
+                    if ext is not None:
+                        # No global meaning: a proof-local name, which shadows any constant.
+                        stats["unresolved_dropped"] += 1
+                        continue
+                elif orig == _AMBIGUOUS:
+                    stats["ambiguous"] += 1
+                    overloaded.append((m, ordinal, dname, tok, hits))
+                    continue
+                else:
+                    tail = "." + ".".join(segs[j_orig:]) if j_orig < len(segs) else ""
+                    repl = f"_root_.{orig}{tail}"
+                haz.update(hits)
+                u.capture_fixes.setdefault(ordinal, (dname, {}))[1][tok] = (repl, frozenset(hits))
+
+    # Overloaded names: protect the capturing declarations where that is possible.
+    protect: set[str] = set()
+    for _m, _ordinal, _dname, _tok, hits in overloaded:
+        for h in hits:
+            if (
+                decl_kind.get(h) in _PROTECTABLE_KINDS
+                and h not in units[owner[h]].private_names
+            ):
+                protect.add(h)
+    for m, ordinal, dname, tok, hits in overloaded:
+        rest = [h for h in hits if h not in protect]
+        if rest:
+            out[m].update(rest)
+            units[m].capture_fixes.setdefault(ordinal, (dname, {}))[1][tok] = (None, frozenset(rest))
+    if protect:
+        shorts = {h.rsplit(".", 1)[-1] for h in protect}
+        for h in protect:
+            units[owner[h]].protect_decls.add(h)
+        for m, u in units.items():
+            resolve = None
+            for ordinal, (dname, _kind, opens, refs) in enumerate(u.decl_refs):
+                for tok in refs:
+                    first = tok.split(".", 1)[0] if "." in tok else tok
+                    if first not in shorts:
+                        continue
+                    if resolve is None:
+                        resolve = _resolver(m)
+                    ds = dname.split(".")
+                    ladder = [".".join(ds[:i]) for i in range(len(ds) - 1, 0, -1)]
+                    segs = tok.split(".")
+                    _hits, orig, j_orig, cands = resolve(tok, segs, ladder, opens)
+                    if orig == _AMBIGUOUS:
+                        if j_orig == 1 and any(c in protect for c in cands):
+                            # Lean chose between a protected and an unprotected candidate
+                            # by type; which one is unknown here.
+                            stats["protected_overload_unknown"] += 1
+                        continue
+                    if orig in protect and j_orig == 1:
+                        tail = "." + ".".join(segs[1:]) if len(segs) > 1 else ""
+                        u.forced_fixes.setdefault(ordinal, (dname, {}))[1][tok] = f"_root_.{orig}{tail}"
+                        stats["protected_refs"] += 1
+    stats["protected_decls"] = len(protect)
+    for u in units.values():
+        u.decl_refs = []
+    return out, stats
+
+
+def _capture_token_pattern(tok: str) -> re.Pattern[str]:
+    """Match ``tok`` as a whole identifier: not part of a longer dotted name and not a
+    field access."""
+    return re.compile(
+        f"(?<![{_LEAN_ID_REST}.«])"
+        + re.escape(tok)
+        + f"(?![{_LEAN_ID_REST}])(?!\\.[{_LEAN_ID_LETTER}«])"
+    )
+
+
+def _qualify_token(text: str, tok: str, repl: str) -> tuple[str, int]:
+    """Replace whole-identifier uses of ``tok``, leaving `tok := v` alone where it names a
+    structure field or a named argument (`(tok := v)`, `{ tok := v }`, `tok := v` lines)."""
+    count = 0
+
+    def _sub(m: re.Match[str]) -> str:
+        nonlocal count
+        s = m.string
+        k = m.end()
+        while k < len(s) and s[k] in " \t":
+            k += 1
+        if s.startswith(":=", k):
+            p = m.start() - 1
+            while p >= 0 and s[p] in " \t":
+                p -= 1
+            if p < 0 or s[p] in "({,\n" or s[max(0, p - 3) : p + 1] == "with":
+                return m.group(0)
+        count += 1
+        return repl
+
+    return _capture_token_pattern(tok).sub(_sub, text), count
+
+
+def _apply_capture_fixes(
+    lines: list[str],
+    unit: MergeUnit,
+    need: dict[int, dict[str, str]],
+) -> tuple[int, Counter[str]]:
+    """Qualify captured references in place.
+
+    Returns ``(sites fixed, sites left alone by reason)``. A site is left alone when the
+    declaration also binds the name locally (rewriting could hit the local) or when the
+    name does not occur as a whole identifier in the declaration or a `variable` line.
+    """
+    parsed = parse_lean_source("\n".join(lines), unit.mod_name).declarations
+    by_ordinal = len(parsed) == unit.decl_count
+    by_name = {d.name: d for d in parsed}
+    in_decl = bytearray(len(lines))
+    for d in parsed:
+        for i in range(max(0, d.start_line - 1), min(len(lines), d.end_line)):
+            in_decl[i] = 1
+    # `variable` commands (with their continuation lines) sit outside every declaration.
+    var_lines: list[int] = []
+    i = 0
+    while i < len(lines):
+        if not in_decl[i] and _VARIABLE_LINE_RE.match(lines[i]):
+            var_lines.append(i)
+            i += 1
+            while i < len(lines) and not in_decl[i] and lines[i][:1] in (" ", "\t"):
+                var_lines.append(i)
+                i += 1
+        else:
+            i += 1
+    var_done: set[str] = set()
+    fixed = 0
+    left: Counter[str] = Counter()
+    for ordinal, toks in need.items():
+        dname = unit.capture_fixes[ordinal][0]
+        short = dname.rsplit(".", 1)[-1]
+        # Same declaration sequence as the original parse: match by position, which also
+        # works for generated names that embed a line number (`inst_Mod_L15`).
+        d = parsed[ordinal] if by_ordinal else None
+        if d is not None and d.name != dname and not short.startswith(("inst_", "anon_")):
+            d = None
+        if d is None:
+            d = by_name.get(dname)
+        if d is None:
+            left["declaration_not_found"] += len(toks)
+            continue
+        s, e = d.start_line - 1, d.end_line
+        text = "\n".join(lines[s:e])
+        local_names = extract_binder_like_names(text)
+        if d.kind in ("structure", "class", "inductive"):
+            local_names.update(_FIELD_OR_CTOR_NAME_RE.findall(text))
+        for tok, repl in toks.items():
+            if tok.split(".", 1)[0] in local_names:
+                left["also_bound_locally"] += 1
+                continue
+            new_text, k = _qualify_token(text, tok, repl)
+            if k:
+                text = new_text
+                fixed += 1
+                continue
+            if tok not in var_done:
+                for vi in var_lines:
+                    new_line, kv = _qualify_token(lines[vi], tok, repl)
+                    if kv:
+                        lines[vi] = new_line
+                        var_done.add(tok)
+            if tok in var_done:
+                fixed += 1
+            else:
+                left["not_found_in_text"] += 1
+        lines[s:e] = text.split("\n")
+    for d in parsed:
+        if d.name not in unit.protect_decls:
+            continue
+        short = d.name.rsplit(".", 1)[-1]
+        s, e = d.start_line - 1, d.end_line
+        body = "\n".join(lines[s:e])
+        # A protected recursive definition cannot call itself by its short name.
+        if len(_capture_token_pattern(short).findall(body)) > 1:
+            left["protect_recursive"] += 1
+            continue
+        for i in range(s, e):
+            hm = _PROTECT_HEADER_RE.match(lines[i])
+            if hm:
+                if not re.search(r"\b(?:private|protected)\b", lines[i][: hm.end()]):
+                    lines[i] = f"{hm.group(1)}protected {lines[i][hm.end(1):]}"
+                break
+        else:
+            left["protect_header_not_found"] += 1
+    return fixed, left
+
+
 def merge_project_modules(
     module_sources: dict[str, tuple[str, str]],
     *,
@@ -777,6 +1177,7 @@ def merge_project_modules(
     plan: PrunePlan | None = None,
     consolidate_duplicates: bool = True,
     allow_cross_bundle_consolidation: bool = True,
+    external_names: frozenset[str] | None = None,
 ) -> tuple[dict[str, tuple[str, str]], MergeReport]:
     """Merge a dictionary of kept modules into cycle-free topological bundles.
 
@@ -855,11 +1256,28 @@ def merge_project_modules(
         """True if merging bundles `x` and `y` would let one hijack the other's `open`s."""
         return not (b_shadow[x].isdisjoint(b_ns[y]) and b_shadow[y].isdisjoint(b_ns[x]))
 
+    b_env, partial_env_modules = _external_env_keys(units, kept_set)
+    b_haz, haz_stats = _capture_hazards(units, kept_set, external_names)
+    unit_haz = {m: frozenset(h) for m, h in b_haz.items() if h}
+
+    def _merge_conflict(x: str, y: str) -> bool:
+        """True if bundles `x` and `y` must not share a file: different external import
+        environments, an `open` one would hijack, or a declaration of one that would
+        capture a reference of the other."""
+        return (
+            b_env[x] != b_env[y]
+            or _shadow_conflict(x, y)
+            or not b_haz[x].isdisjoint(b_decls[y])
+            or not b_haz[y].isdisjoint(b_decls[x])
+        )
+
     def _absorb_scope_sets(dst: str, src: str) -> None:
         b_ns[dst] |= b_ns[src]
         b_shadow[dst] |= b_shadow[src]
+        b_haz[dst] |= b_haz[src]
         b_ns[src].clear()
         b_shadow[src].clear()
+        b_haz[src].clear()
     b_standalone = {m: u.is_standalone for m, u in units.items()}
     b_lib = {m: u.lib_root for m, u in units.items()}
 
@@ -900,7 +1318,7 @@ def merge_project_modules(
                     continue
                 if not b_privs[rc].isdisjoint(b_privs[rp]):
                     continue
-                if _shadow_conflict(rc, rp):
+                if _merge_conflict(rc, rp):
                     continue
 
                 # Fuse child `rc` BEFORE consumer `rp`
@@ -966,7 +1384,7 @@ def merge_project_modules(
                 or b_loc[rep_b] + b_loc[b] > target_module_loc
                 or not b_decls[rep_b].isdisjoint(b_decls[b])
                 or not b_privs[rep_b].isdisjoint(b_privs[b])
-                or _shadow_conflict(rep_b, b)
+                or _merge_conflict(rep_b, b)
             ):
                 rep_b = b
                 continue
@@ -1080,6 +1498,97 @@ def merge_project_modules(
                 qf.append(p)
     cycle_count = len(final_names) - topo_f
 
+    # Captures the same-file guard cannot rule out: a bundle import makes every member of
+    # the imported bundle visible, including modules the unit never imported itself.
+    # Where the original meaning is known, write it out explicitly at the reference.
+    owner_bundle: dict[str, str] = {}
+    for m, u in units.items():
+        for n in u.decl_names:
+            owner_bundle.setdefault(n, mod_rename_map.get(m, m))
+    b_order: list[str] = []
+    b_state: dict[str, int] = {}
+    for start in bundle_deps:
+        if start in b_state:
+            continue
+        st: list[tuple[str, list[str], int]] = [(start, sorted(bundle_deps[start] & final_names), 0)]
+        b_state[start] = 1
+        while st:
+            node, ds, i = st[-1]
+            while i < len(ds) and ds[i] in b_state:
+                i += 1
+            if i < len(ds):
+                st[-1] = (node, ds, i + 1)
+                b_state[ds[i]] = 1
+                st.append((ds[i], sorted(bundle_deps.get(ds[i], set()) & final_names), 0))
+            else:
+                st.pop()
+                b_order.append(node)
+    b_bit = {b: 1 << i for i, b in enumerate(b_order)}
+    b_closure: dict[str, int] = {}
+    for b in b_order:
+        acc = b_bit[b]
+        for d in bundle_deps.get(b, ()):
+            acc |= b_closure.get(d, 0)
+        b_closure[b] = acc
+    cross_hazards = fixed_sites = unfixable_sites = 0
+    left_reasons: Counter[str] = Counter()
+    cross_examples: list[str] = []
+    pending_fixes: dict[str, list[tuple[str, dict[int, dict[str, str]]]]] = defaultdict(list)
+    for m, u in units.items():
+        if not (u.capture_fixes or u.forced_fixes or u.protect_decls):
+            continue
+        ub = mod_rename_map.get(m, m)
+        vis = b_closure.get(ub, 0)
+        need: dict[int, dict[str, str]] = {o: dict(toks) for o, (_n, toks) in u.forced_fixes.items()}
+        for o, (dname, _toks) in u.forced_fixes.items():
+            u.capture_fixes.setdefault(o, (dname, {}))
+        for ordinal, (dname, toks) in u.capture_fixes.items():
+            for tok, (repl, hs) in toks.items():
+                seen = next(
+                    (h for h in hs if (ob := owner_bundle.get(h)) and vis & b_bit.get(ob, 0)), None
+                )
+                if seen is None:
+                    continue
+                cross_hazards += 1
+                if repl is None:
+                    unfixable_sites += 1
+                    left_reasons["ambiguous_or_unknown_meaning"] += 1
+                    if left_reasons["ambiguous_or_unknown_meaning"] <= 15:
+                        cross_examples.append(f"{dname}: `{tok}` <- {seen} ({owner_bundle[seen]})")
+                else:
+                    need.setdefault(ordinal, {})[tok] = repl
+        if need or u.protect_decls:
+            pending_fixes[ub].append((m, need))
+    for bname, jobs in pending_fixes.items():
+        blines = bundle_texts[bname].split("\n")
+        members = bundle_units.get(bname, [])
+        single = len(members) == 1 and bname == members[0].mod_name
+        pos = {u.mod_name: i for i, u in enumerate(members)}
+        for m, need in jobs:
+            n_sites = sum(len(v) for v in need.values())
+            if single:
+                lo, hi = 0, len(blines)
+            else:
+                tag = f"__pc_u_{pos[m]}"
+                try:
+                    lo = blines.index(f"section {tag}")
+                    hi = blines.index(f"end {tag}", lo) + 1
+                except ValueError:
+                    unfixable_sites += n_sites
+                    left_reasons["section_not_found"] += n_sites
+                    continue
+            seg = blines[lo:hi]
+            fx, left = _apply_capture_fixes(seg, units[m], need)
+            blines[lo:hi] = seg
+            fixed_sites += fx
+            unfixable_sites += sum(left.values())
+            for reason, cnt in left.items():
+                if left_reasons[reason] < 15:
+                    toks = sorted({tok for v in need.values() for tok in v})[:6]
+                    cross_examples.append(f"{m}: {cnt} site(s) left, {reason}; tokens {toks}")
+                left_reasons[reason] += cnt
+        bundle_texts[bname] = "\n".join(blines)
+
     dangling_imports = 0
     out_imp_lines = 0
     out_nonblank = 0
@@ -1143,4 +1652,18 @@ def merge_project_modules(
         phase_b_total_consolidations=b1_same + b1_imp + b2_cross,
         phase_b_saved_loc=b_saved_loc,
     )
+    report.partial_env_modules = partial_env_modules
+    report.capture_hazard_modules = len(unit_haz)
+    report.capture_hazard_names = sum(len(h) for h in unit_haz.values())
+    report.capture_unresolved_dropped = haz_stats["unresolved_dropped"]
+    report.capture_ambiguous_sites = haz_stats["ambiguous"]
+    report.capture_protected_decls = haz_stats["protected_decls"]
+    report.capture_protected_ref_sites = haz_stats["protected_refs"]
+    if haz_stats["protected_overload_unknown"]:
+        left_reasons["protected_overload_unknown"] = haz_stats["protected_overload_unknown"]
+    report.cross_bundle_capture_hazards = cross_hazards
+    report.capture_fixed_sites = fixed_sites
+    report.capture_unfixable_sites = unfixable_sites
+    report.capture_unfixable_reasons = dict(left_reasons)
+    report.cross_bundle_capture_examples = cross_examples
     return merged_files, report

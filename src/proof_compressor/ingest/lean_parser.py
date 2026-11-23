@@ -68,7 +68,7 @@ _MODIFIER_PREFIX = (
 
 _DECL_KW_GROUP = (
     r"(theorem|lemma|def|abbrev|structure|class\s+inductive|class\s+abbrev|class|inductive|"
-    r"instance|axiom|opaque|constant|irreducible_def)"
+    r"instance|axiom|opaque|constant|irreducible_def|alias)"
 )
 
 _DECL_START_RE = re.compile(
@@ -96,13 +96,9 @@ _TOP_COMMAND_RE = re.compile(
     r"infix|infixl|infixr|prefix|postfix|local\s+infix|scoped\s+infix|"
     r"example|mutual|initialize|builtin_initialize|deriving\s+instance|"
     r"add_decl_doc|run_cmd|register_simp_attr|suppress_compilation|"
-    r"alias|include|omit|notation3|local\s+notation3|scoped\s+notation3|"
+    r"include|omit|notation3|local\s+notation3|scoped\s+notation3|"
     r"#check|#print|#eval|#reduce|#synth|#guard|#align|#check_failure"
     r")\b"
-)
-
-_IDENT_NAME_RE = re.compile(
-    r"^(?:«([^»]+)»|([A-Za-z_][A-Za-z0-9_'\u0080-\uffff]*(?:\.[A-Za-z_][A-Za-z0-9_'\u0080-\uffff]*)*))"
 )
 
 # Identifier extraction for references
@@ -115,6 +111,11 @@ _LEAN_ID_LETTER = (
     "\u03ca-\u03fb\u1f00-\u1ffe\u2100-\u214f"
 )
 _LEAN_ID_REST = _LEAN_ID_LETTER + "0-9'!?\u2080-\u2089\u2090-\u209c\u1d62-\u1d6a"
+# Declaration names may start with a Greek/letter-like character (`δ_comp_map`,
+# `ιMulti_ne_zero`) and end in `!`/`?`; an ASCII-only first character turned such
+# declarations into `anon_*` names that no reference could resolve to.
+_DECL_ATOM = f"(?:«[^»\\n]+»|[{_LEAN_ID_LETTER}][A-Za-z0-9_'!?\u0080-\uffff]*)"
+_IDENT_NAME_RE = re.compile(f"^(?:«([^»]+)»(?![.])|({_DECL_ATOM}(?:\\.{_DECL_ATOM})*))")
 _REF_ATOM = f"(?:«[^»\\n]+»|[{_LEAN_ID_LETTER}][{_LEAN_ID_REST}]*)"
 _REF_IDENT_RE = re.compile(
     f"(?<![{_LEAN_ID_REST}.«])"
@@ -273,6 +274,93 @@ def _extract_local_names(body: str) -> set[str]:
         found.update(names[1:] if m.group(1) == "|" else names)
     return {n for n in found if n not in _LOCAL_NOISE and n not in LEAN_STOPWORDS}
 
+# `(D : RayData K)` binds `D` with type head `RayData`. A later `D.clsHom_surjective` is
+# generalized field notation for `RayData.clsHom_surjective`, not a reference to a global `D`.
+_TYPED_BINDER_RE = re.compile(
+    r"[(\[{⦃]\s*"
+    f"({_BINDER_NAME}(?:\\s+{_BINDER_NAME})*)"
+    r"\s*:\s*@?\(*\s*"
+    f"({_REF_ATOM}(?:\\.{_REF_ATOM})*)"
+)
+_NOTATION_TYPE_HEADS = {"ℕ": "Nat", "ℤ": "Int", "ℚ": "Rat", "ℝ": "Real", "ℂ": "Complex"}
+_FIELD_AFTER_CLOSE_RE = re.compile(f"[)\\]⟩]\\.({_BINDER_NAME})")
+
+
+def _binder_type_heads(text: str) -> dict[str, str]:
+    """Map binder names to the last segment of their declared type's head constant."""
+    out: dict[str, str] = {}
+    for m in _TYPED_BINDER_RE.finditer(text):
+        head = m.group(2).rsplit(".", 1)[-1].replace("«", "").replace("»", "")
+        head = _NOTATION_TYPE_HEADS.get(head, head)
+        for name in m.group(1).split():
+            out.setdefault(name, head)
+    return out
+
+
+def _extract_field_refs(text: str, local_names: set[str], heads: dict[str, str]) -> list[str]:
+    """Field-notation uses as ``"<type head>|<field>"`` (head empty when unknown).
+
+    Covers ``x.foo`` for a local ``x`` and ``(expr).foo``. The target is ``T.foo`` for the
+    type ``T`` of the receiver, which a source parser can only narrow down, not determine.
+    """
+    if not text or "." not in text:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+
+    def _add(head: str, fld: str) -> None:
+        if "«" in fld or fld in LEAN_STOPWORDS:
+            return
+        key = f"{head}|{fld}"
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+
+    for m in _REF_IDENT_RE.finditer(text):
+        tok = m.group(1)
+        if "." not in tok:
+            continue
+        first, rest = tok.split(".", 1)
+        if first in local_names:
+            _add(heads.get(first, ""), rest.split(".", 1)[0])
+    for m in _FIELD_AFTER_CLOSE_RE.finditer(text):
+        _add("", m.group(1))
+    return out
+
+
+_TACTIC_BINDER_RE = re.compile(
+    # `by_cases h : p`, `suffices h : p`, `wlog h : p`, `by_contra h`
+    f"\\b(?:by_cases|suffices|wlog)[ \\t]+({_BINDER_NAME})[ \\t]*:"
+    f"|\\bby_contra!?[ \\t]+({_BINDER_NAME})"
+    # `choose f hf using`, `ext x y`, `funext x`
+    r"|\b(?:choose!?|ext|funext)[ \t]+([^\n:;]*?)(?::|\busing\b|$|;)"
+    # `filter_upwards [..] with x hx`, `gcongr with i`, `congr 1 with x`, `peel h with x hx`
+    r"|\b(?:peel|gcongr|congr!?|filter_upwards|lift)\b[^\n]*?\bwith[ \t]+([^\n;]*)",
+    re.M,
+)
+_OPERATOR_BINDER_RE = re.compile(r"[∀∃∑∏⋃⋂⨆⨅∫∮λ]!?\s*([^,\n]*?)(?:,|\bin\b|∈|=>|↦)")
+_INST_BINDER_RE = re.compile(r"\[[^\[\]]*\]")
+_SET_BUILDER_RE = re.compile(f"\\{{\\s*({_BINDER_NAME})\\s*(?::[^|}}\\n]*)?\\|")
+
+
+def extract_binder_like_names(text: str) -> set[str]:
+    """Every name that some binder in ``text`` could introduce (signature, tactics, binders
+    of quantifiers and big operators, set-builder). Deliberately generous: callers use it
+    to decide that a token is NOT safe to treat as a reference to a global constant."""
+    names = set(_extract_binder_names(text)) | _extract_local_names(text)
+    for m in _TACTIC_BINDER_RE.finditer(text):
+        for g in m.groups():
+            if g:
+                names.update(_LOCAL_NAME_RE.findall(_TYPE_ANNOT_RE.sub(" ", g)))
+    for m in _OPERATOR_BINDER_RE.finditer(text):
+        # `∀ {K : Type} [Field K] (x : K),` binds `K` and `x`, not `Field`
+        g = _INST_BINDER_RE.sub(" ", m.group(1))
+        names.update(_LOCAL_NAME_RE.findall(_TYPE_ANNOT_RE.sub(" ", g)))
+    for m in _SET_BUILDER_RE.finditer(text):
+        names.add(m.group(1))
+    return names
+
+
 _PUNCT_SPACE_RE = re.compile(r"\s*([()\[\]{}⦃⦄:,.→←↔∀∃λ⇒])\s*")
 
 
@@ -375,6 +463,9 @@ class ParsedDecl:
     open_namespaces: tuple[str, ...] = ()
     type_refs: list[str] = field(default_factory=list)
     proof_refs: list[str] = field(default_factory=list)
+    # ``"<type head>|<field>"`` field-notation uses in the signature / body
+    type_field_refs: list[str] = field(default_factory=list)
+    proof_field_refs: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -677,8 +768,13 @@ def extract_identifiers(
     text: str,
     *,
     exclude: set[str] | None = None,
+    local_names: set[str] | None = None,
 ) -> list[str]:
-    """Extract unique candidate Lean constant identifiers from text in order of appearance."""
+    """Extract unique candidate Lean constant identifiers from text in order of appearance.
+
+    Tokens whose first segment is in ``local_names`` (``h.symm`` for a local ``h``) are
+    field accesses on a local and are skipped; see ``_extract_field_refs``.
+    """
     if not text:
         return []
     seen: set[str] = set()
@@ -692,6 +788,8 @@ def extract_identifiers(
         if not tok or tok in seen or tok in LEAN_STOPWORDS:
             continue
         if exclude and tok in exclude:
+            continue
+        if local_names and "." in tok and tok.split(".", 1)[0] in local_names:
             continue
         # Skip single-character variable names (a..z) and notation letters (ℝ, ℕ, π, ε)
         if len(tok) == 1 and (tok.islower() or not tok.isascii()):
@@ -768,6 +866,23 @@ def parse_lean_source(
     in_mutual = False
     pending_attr_or_mod_lines: list[int] = []
     in_multiline_attr = False
+    # `variable` commands in scope: (scope depth, refs in binder types, binder names, type heads).
+    # Lean adds the variables a declaration mentions to its signature, so their types are
+    # dependencies of the declarations that follow, though no declaration names them.
+    var_entries: list[tuple[int, list[str], list[str], dict[str, str]]] = []
+    var_collect: list[str] | None = None
+
+    def _flush_variable() -> None:
+        nonlocal var_collect
+        if var_collect is None:
+            return
+        text = re.sub(r"^variables?\b", "", " ".join(var_collect)).strip()
+        var_collect = None
+        if not text:
+            return
+        names = _extract_binder_names(text)
+        refs = extract_identifiers(text, exclude=set(names))
+        var_entries.append((len(scope_stack), refs, names, _binder_type_heads(text)))
 
     # Active declaration accumulator:
     # (kind, decl_raw_name, is_private, start_line, header_rest, ns_tuple, open_tuple, doc, line_indices)
@@ -802,13 +917,29 @@ def parse_lean_source(
         bk = is_bookkeeping_decl(kind, short_name, type_sig_clean, body, body_loc)
 
         # Exclude locally bound variables and self-name from extracted references
-        binders = set(_extract_binder_names(type_sig_clean))
-        binders |= _extract_local_names(body)
+        local_names = set(_extract_binder_names(type_sig_clean))
+        local_names |= _extract_local_names(body)
+        heads: dict[str, str] = {}
+        var_refs: list[str] = []
+        for _depth, v_refs, v_names, v_heads in var_entries:
+            var_refs.extend(v_refs)
+            local_names.update(v_names)
+            heads.update(v_heads)
+        heads.update(_binder_type_heads(type_sig_clean))
+        binders = set(local_names)
         binders.add(short_name)
         binders.add(full_name)
 
-        type_refs = extract_identifiers(type_sig_clean, exclude=binders)
-        proof_refs = extract_identifiers(body, exclude=binders)
+        type_refs = extract_identifiers(type_sig_clean, exclude=binders, local_names=local_names)
+        proof_refs = extract_identifiers(body, exclude=binders, local_names=local_names)
+        if var_refs:
+            have = set(type_refs)
+            for r in var_refs:
+                if r not in binders and r not in have:
+                    have.add(r)
+                    type_refs.append(r)
+        type_field_refs = _extract_field_refs(type_sig_clean, local_names, heads)
+        proof_field_refs = _extract_field_refs(body, local_names, heads)
 
         declarations.append(
             ParsedDecl(
@@ -827,6 +958,8 @@ def parse_lean_source(
                 open_namespaces=active["open_tuple"],
                 type_refs=type_refs,
                 proof_refs=proof_refs,
+                type_field_refs=type_field_refs,
+                proof_field_refs=proof_field_refs,
             )
         )
         active = None
@@ -919,6 +1052,12 @@ def parse_lean_source(
         # Fast-path skip for indented lines (proof tactics, structure fields, continuations)
         first_ch = line[0]
         is_indented = first_ch in (" ", "\t")
+
+        if var_collect is not None:
+            if is_indented:
+                var_collect.append(line.strip())
+                continue
+            _flush_variable()
 
         if is_indented and not in_mutual:
             continue
@@ -1084,6 +1223,9 @@ def parse_lean_source(
                     in_mutual = False
                 else:
                     _pop_scope(em.group(1))
+                    depth = len(scope_stack)
+                    if var_entries and var_entries[-1][0] > depth:
+                        var_entries[:] = [e for e in var_entries if e[0] <= depth]
                 pending_attr_or_mod_lines.clear()
                 pending_local_opens.clear()
                 continue
@@ -1103,6 +1245,8 @@ def parse_lean_source(
             if _TOP_COMMAND_RE.match(stripped):
                 if active is not None:
                     _finalize_active(lineno - 1)
+                if stripped.startswith("variable") and not re.search(r"\bin\s*$", stripped):
+                    var_collect = [stripped]
                 pending_attr_or_mod_lines.clear()
                 pending_local_opens.clear()
                 continue

@@ -13,7 +13,7 @@ import zlib
 from collections import Counter, defaultdict, deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterable, Iterator, Sequence
 
 from proof_compressor.analyze.consolidate import (
     ConsolidationOp,
@@ -260,6 +260,10 @@ class PrunePlan:
     trans_ext_imports: dict[int, tuple[str, ...]] = field(default_factory=dict)
     dropped_only_namespaces: frozenset[str] = field(default_factory=frozenset)
     per_module_dropped_open_ns: dict[int, frozenset[str]] = field(default_factory=dict)
+    # `{cur_ns}::{tok}` -> `_root_.<ns>`: `open` tokens pinned to the namespace they resolved
+    # to in the original module, so a project namespace that pruning/merging makes newly
+    # visible (`A.Complex` vs Mathlib `Complex`) cannot hijack the innermost-first lookup.
+    per_module_open_pins: dict[int, dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass
@@ -338,6 +342,11 @@ class MaterializeReport:
     phase_b_saved_loc: int = 0
     merge_dangling_imports: int = 0
     merge_cycle_count: int = 0
+    merge_partial_env_modules: int = 0
+    merge_capture_hazard_names: int = 0
+    merge_cross_bundle_capture_hazards: int = 0
+    merge_capture_fixed_sites: int = 0
+    merge_capture_unfixable_sites: int = 0
 
     raw_archive_bytes: int = 0
     raw_uncompressed_bytes: int = 0
@@ -627,6 +636,8 @@ class _PruneGraphContext:
     all_proj_ns: set[str]
     extra_mod_edges: dict[int, set[int]] = field(default_factory=lambda: defaultdict(set))
     extra_kept_ns: set[str] = field(default_factory=set)
+    # Namespaces of the external libraries (Mathlib, Std, Lean core), when supplied.
+    external_ns: frozenset[str] | None = None
     restored_non_pure_barrels: set[int] = field(default_factory=set)
 
 
@@ -1442,16 +1453,110 @@ def _expand_decl_prefix_upward(
     return ext
 
 
+_EXAMPLE_START_RE = re.compile(
+    r"^(?:open\s+[^\n]*?\s+in\s+)?(?:(?:noncomputable|private|protected)\s+)*example\b"
+)
+_CONTINUATION_COL0 = ("|", ")", "]", "}", "\u27e9", "\u00b7")
+
+
+def _strip_examples(lines: Sequence[str], strip_line_mask: bytearray, kept_line_mask: bytearray) -> None:
+    """Mask top-level ``example`` blocks: they define no constant, so nothing depends on
+    them, yet a kept example can cite lemmas that dead-declaration stripping removed."""
+    n_lines = len(lines)
+    for i, ln in enumerate(lines):
+        if not ln or ln[0] in (" ", "\t") or not _EXAMPLE_START_RE.match(ln):
+            continue
+        j = i + 1
+        while j < n_lines:
+            nxt = lines[j]
+            if nxt and nxt[0] not in (" ", "\t") and not nxt.startswith(_CONTINUATION_COL0):
+                break
+            j += 1
+        ext_s0 = _expand_decl_prefix_upward(lines, i, kept_line_mask)
+        if any(kept_line_mask[k] for k in range(ext_s0, j)):
+            continue
+        for k in range(ext_s0, j):
+            if not _STRUCTURAL_LINE_RE.match(lines[k]):
+                strip_line_mask[k] = 1
+
+
+_VARIABLE_CMD_RE = re.compile(r"^(?:variables?|include|omit)\b")
+_SCOPE_NEUTRAL_CMD_RE = re.compile(r"^(?:open|universes?|set_option|suppress_compilation)\b|^--")
+
+
+def _strip_dead_variables(lines: Sequence[str], strip_line_mask: bytearray) -> None:
+    """Mask ``variable``/``include``/``omit`` commands that no surviving command follows in
+    their scope. With every declaration after them stripped, nothing records a dependency
+    on the types they mention, so the line could name a module that was pruned away."""
+    n_lines = len(lines)
+    # Scope frames: [index of last surviving content line, [(start, end) of variable commands]]
+    frames: list[list[Any]] = [[-1, []]]
+    in_block_comment = False
+
+    def _close(frame: list[Any]) -> None:
+        last_content, var_ranges = frame
+        for s, e in var_ranges:
+            if last_content < s:
+                for k in range(s, e):
+                    strip_line_mask[k] = 1
+
+    i = 0
+    while i < n_lines:
+        ln = lines[i]
+        if strip_line_mask[i] or not ln.strip():
+            i += 1
+            continue
+        if in_block_comment:
+            in_block_comment = "-/" not in ln
+            i += 1
+            continue
+        if ln[0] in (" ", "\t"):
+            i += 1
+            continue
+        if ln.startswith("/-"):
+            in_block_comment = "-/" not in ln[2:]
+            # A docstring belongs to the declaration below it, which is the content line.
+            i += 1
+            continue
+        if _NAMESPACE_DECL_RE.match(ln) or _SECTION_OPEN_RE.match(ln):
+            frames.append([-1, []])
+        elif _SCOPE_END_RE.match(ln):
+            if len(frames) > 1:
+                done = frames.pop()
+                _close(done)
+                frames[-1][0] = max(frames[-1][0], done[0])
+        elif _VARIABLE_CMD_RE.match(ln) and not _IN_PREFIX_END_RE.search(ln):
+            j = i + 1
+            while j < n_lines and lines[j][:1] in (" ", "\t"):
+                j += 1
+            frames[-1][1].append((i, j))
+            i = j
+            continue
+        elif not _SCOPE_NEUTRAL_CMD_RE.match(ln):
+            frames[-1][0] = i
+        i += 1
+    while frames:
+        done = frames.pop()
+        _close(done)
+        if frames:
+            frames[-1][0] = max(frames[-1][0], done[0])
+
+
 def _compute_strip_line_mask(
     lines: Sequence[str],
     decl_spans: Sequence[tuple[int, int, int, bool]],
     kept_decl_ids: set[int],
 ) -> tuple[bytearray, int]:
-    """Compute 0-based line mask for intra-module dead theorems/lemmas in ``decl_spans``."""
+    """Compute 0-based line mask for intra-module dead theorems/lemmas in ``decl_spans``
+    and for top-level ``example`` blocks."""
     n_lines = len(lines)
     strip_line_mask = bytearray(n_lines)
     stripped_decls = 0
-    if not decl_spans or n_lines == 0:
+    if n_lines == 0:
+        return strip_line_mask, stripped_decls
+    if not decl_spans:
+        _strip_examples(lines, strip_line_mask, bytearray(n_lines))
+        _strip_dead_variables(lines, strip_line_mask)
         return strip_line_mask, stripped_decls
 
     kept_line_mask = bytearray(n_lines)
@@ -1493,6 +1598,8 @@ def _compute_strip_line_mask(
                 strip_line_mask[i] = 1
         stripped_decls += 1
 
+    _strip_examples(lines, strip_line_mask, kept_line_mask)
+    _strip_dead_variables(lines, strip_line_mask)
     return strip_line_mask, stripped_decls
 
 
@@ -1548,8 +1655,72 @@ def _rewrite_open_line(
     cur_ns_prefix: str,
     dropped_only_ns: frozenset[str],
     mod_dropped_open: frozenset[str] | None = None,
+    mod_pins: dict[str, str] | None = None,
 ) -> tuple[str | None, bool]:
-    """Strip dropped-only or per-module unimported project namespace tokens from ``open ...``."""
+    """Strip dropped-only or per-module unimported project namespace tokens from ``open ...``
+    and pin shadowable tokens to ``_root_.<ns>`` (see ``PrunePlan.per_module_open_pins``)."""
+    out, changed = _strip_open_tokens(line, cur_ns_prefix, dropped_only_ns, mod_dropped_open)
+    if out is None:
+        return None, True
+    out, pinned = _pin_open_tokens(out, cur_ns_prefix, mod_pins)
+    return out, changed or pinned
+
+
+def _pin_open_tokens(
+    line: str, cur_ns_prefix: str, mod_pins: dict[str, str] | None
+) -> tuple[str, bool]:
+    if not mod_pins:
+        return line, False
+    m = _NAMESPACE_OPEN_LINE_RE.match(line)
+    if not m:
+        return line, False
+    head_len = m.start(4)
+    rest = m.group(4)
+    body = rest.split("--", 1)[0]
+    if body.rstrip().endswith(" in") or body.rstrip().endswith("\tin"):
+        body = body.rstrip()[:-3]
+    if "(" in body or ")" in body or " hiding " in f" {body} " or " renaming " in f" {body} ":
+        return line, False
+    pieces: list[str] = []
+    pos = 0
+    changed = False
+    for tm in re.finditer(r"\S+", body):
+        if tm.group(0) == "in":
+            break
+        new_tok = mod_pins.get(f"{cur_ns_prefix}::{tm.group(0)}")
+        if new_tok is not None:
+            pieces.append(rest[pos : tm.start()] + new_tok)
+            pos = tm.end()
+            changed = True
+    if not changed:
+        return line, False
+    return line[:head_len] + "".join(pieces) + rest[pos:], True
+
+
+def _is_dropped_ns_tok(
+    tok: str,
+    cur_ns_prefix: str,
+    dropped_only_ns: frozenset[str],
+    mod_dropped_open: frozenset[str] | None,
+) -> bool:
+    if not tok:
+        return False
+    if mod_dropped_open and f"{cur_ns_prefix}::{tok}" in mod_dropped_open:
+        return True
+    first_seg = tok.split(".", 1)[0]
+    if first_seg in _PROTECTED_MATHLIB_TOP_NS:
+        return False
+    # `{cur_ns}.{tok}` being pruned says nothing unless the token resolved there originally;
+    # that case is decided per module from the original import DAG (`mod_dropped_open`).
+    return tok in dropped_only_ns
+
+
+def _strip_open_tokens(
+    line: str,
+    cur_ns_prefix: str,
+    dropped_only_ns: frozenset[str],
+    mod_dropped_open: frozenset[str] | None = None,
+) -> tuple[str | None, bool]:
     m = _NAMESPACE_OPEN_LINE_RE.match(line)
     if not m:
         return line, False
@@ -1571,6 +1742,26 @@ def _rewrite_open_line(
     in_suffix = ""
     if stripped_no_cmt == "in":
         return line, False
+    inline_in = re.search(r"\s+in\s+\S", stripped_no_cmt)
+    if inline_in:
+        # `open X in theorem foo ...`: the command after `in` is not a namespace list.
+        cut = inline_in.start()
+        head_body = stripped_no_cmt[:cut]
+        if "(" in head_body or ")" in head_body or " hiding " in f" {head_body} ":
+            return line, False
+        head_tokens = head_body.split()
+        kept_head = [t for t in head_tokens if not _is_dropped_ns_tok(
+            t, cur_ns_prefix, dropped_only_ns, mod_dropped_open)]
+        if len(kept_head) == len(head_tokens):
+            return line, False
+        if not kept_head:
+            # Drop the `open ... in` prefix but keep the command it scoped.
+            return f"{indent}{stripped_no_cmt[inline_in.end() - 1:]}{trailing_ws}{comment_suffix}", True
+        return (
+            f"{indent}{open_kw}{sp}{' '.join(kept_head)}{stripped_no_cmt[cut:]}"
+            f"{trailing_ws}{comment_suffix}",
+            True,
+        )
     if stripped_no_cmt.endswith(" in") or stripped_no_cmt.endswith("\tin"):
         in_suffix = stripped_no_cmt[-3:]
         rest_body = stripped_no_cmt[:-3].rstrip()
@@ -1578,18 +1769,7 @@ def _rewrite_open_line(
         rest_body = stripped_no_cmt
 
     def _is_dropped_ns(tok: str) -> bool:
-        if not tok:
-            return False
-        first_seg = tok.split(".", 1)[0]
-        if first_seg in _PROTECTED_MATHLIB_TOP_NS:
-            return False
-        if tok in dropped_only_ns:
-            return True
-        if cur_ns_prefix and f"{cur_ns_prefix}.{tok}" in dropped_only_ns:
-            return True
-        if mod_dropped_open and f"{cur_ns_prefix}::{tok}" in mod_dropped_open:
-            return True
-        return False
+        return _is_dropped_ns_tok(tok, cur_ns_prefix, dropped_only_ns, mod_dropped_open)
 
     if "(" in rest_body or ")" in rest_body:
         m_paren = re.match(
@@ -1733,10 +1913,11 @@ def transform_lean_source_full(
                 continue
 
             mod_dropped_open = plan.per_module_dropped_open_ns.get(module_id)
-            if plan.dropped_only_namespaces or mod_dropped_open:
+            mod_pins = plan.per_module_open_pins.get(module_id)
+            if plan.dropped_only_namespaces or mod_dropped_open or mod_pins:
                 cur_ns_prefix = ".".join(v for k, v in ns_stack if k == "ns" and v)
                 rewritten_open, changed_open = _rewrite_open_line(
-                    line, cur_ns_prefix, plan.dropped_only_namespaces, mod_dropped_open
+                    line, cur_ns_prefix, plan.dropped_only_namespaces, mod_dropped_open, mod_pins
                 )
                 if changed_open:
                     if rewritten_open is None:
@@ -1947,15 +2128,25 @@ def _write_bytes_to_tar(tf: tarfile.TarFile, arcname: str, data: bytes, mtime: i
 # ---------------------------------------------------------------------------
 
 
+_OpenQuery = tuple[str, str, list[str], frozenset[str]]
+
+
 def _compute_per_module_dropped_open_ns(
     plan: PrunePlan,
     ctx: _PruneGraphContext,
     raw_by_mid: dict[int, bytes],
     *,
     strip_dead_decls: bool = True,
-) -> dict[int, frozenset[str]]:
-    """Identify dotted project namespaces in ``open ...`` lines that are NOT defined in
-    each caller module's own surviving file or kept transitive import closure.
+) -> tuple[dict[int, frozenset[str]], dict[int, dict[str, str]]]:
+    """Identify ``open ...`` tokens that pruning breaks, per kept module.
+
+    Returns ``(dropped, pins)``. ``dropped`` holds ``{cur_ns}::{tok}`` keys whose project
+    namespace is no longer defined in the module's surviving file or kept transitive import
+    closure (dotted tokens, plus undotted tokens that originally resolved to a project
+    namespace such as ``open ComplexAt`` inside ``namespace A.B``). ``pins`` maps keys to
+    ``_root_.<ns>`` for tokens that a more-inner project namespace could hijack once
+    pruning/merging changes visibility: Lean resolves ``open X`` innermost-first and opens
+    only the first match.
     """
     dropped_barrels = (
         ctx.all_zero_decl_mods - plan.kept_modules
@@ -2029,8 +2220,12 @@ def _compute_per_module_dropped_open_ns(
         if dm is not None and dm in plan.kept_modules:
             _add_ns_prefixes(mod_own_ns[dm], ctx.decl_name.get(did, ""))
 
-    open_queries: dict[int, list[tuple[str, str, list[str]]]] = {}
+    # (tok, cur_ns, candidates, namespaces this file declared before the `open` line)
+    open_queries: dict[int, list[_OpenQuery]] = {}
     all_cands: set[str] = set()
+    # same shape; candidates are prefix candidates innermost-first, for shadowable tokens
+    res_queries: dict[int, list[_OpenQuery]] = {}
+    shadowable_ns = ctx.all_proj_ns | ctx.extra_kept_ns
 
     def _candidates(tok: str, cur_ns: str) -> list[str]:
         cands = [tok]
@@ -2054,9 +2249,10 @@ def _compute_per_module_dropped_open_ns(
         spans = ctx.spans_by_mod.get(mid, [])
         if strip_dead_decls and spans:
             mask, _ = _compute_strip_line_mask(lines, spans, plan.kept_decl_ids)
-            surv_lines = [ln for i, ln in enumerate(lines) if not mask[i]]
+            surv_idx = [i for i in range(len(lines)) if not mask[i]]
         else:
-            surv_lines = lines
+            surv_idx = list(range(len(lines)))
+        surv_lines = [lines[i] for i in surv_idx]
 
         if has_ns:
             ns_set = _collect_declared_namespaces("\n".join(surv_lines))
@@ -2065,16 +2261,54 @@ def _compute_per_module_dropped_open_ns(
 
         if has_open:
             ns_stack: list[tuple[str, str | None]] = []
-            q_list: list[tuple[str, str, list[str]]] = []
-            for ln in surv_lines:
+            q_list: list[_OpenQuery] = []
+            # Lean elaborates top to bottom: an `open` only sees namespaces this file
+            # declared above it (plus its imports), not ones declared further down.
+            kept_starts = sorted(
+                (s_line, did)
+                for did, s_line, _e, _c in spans
+                if did in plan.kept_decl_ids and s_line > 0
+            )
+            ks = 0
+            declared_before: set[str] = set()
+            before_snap: frozenset[str] = frozenset()
+            for li, ln in zip(surv_idx, surv_lines, strict=True):
+                grew = False
+                while ks < len(kept_starts) and kept_starts[ks][0] - 1 < li:
+                    n0 = len(declared_before)
+                    _add_ns_prefixes(declared_before, ctx.decl_name.get(kept_starts[ks][1], ""))
+                    grew = grew or len(declared_before) != n0
+                    ks += 1
+                if grew:
+                    before_snap = frozenset(declared_before)
                 om = _NAMESPACE_OPEN_LINE_RE.match(ln)
                 if om:
                     rest = om.group(4).split("--", 1)[0].rstrip()
                     if rest.endswith(" in") or rest.endswith("\tin"):
                         rest = rest[:-3].rstrip()
+                    # `open X (a b)` names exactly one namespace; check it like a plain token.
+                    m_sel = re.match(r"^\s*([^\s()]+)\s*\([^()]*\)\s*$", rest)
+                    if m_sel:
+                        rest = m_sel.group(1)
                     if "(" not in rest and ")" not in rest:
                         cur_ns = ".".join(v for k, v in ns_stack if k == "ns" and v)
-                        for tok in rest.split():
+                        toks = rest.split()
+                        if "in" in toks:
+                            toks = toks[: toks.index("in")]
+                        if cur_ns and not ({"hiding", "renaming"} & set(toks)):
+                            parts = cur_ns.split(".")
+                            for tok in toks:
+                                if tok.startswith("_root_"):
+                                    continue
+                                pcs = [
+                                    ".".join(parts[:i]) + "." + tok
+                                    for i in range(len(parts), 0, -1)
+                                ]
+                                if any(c in shadowable_ns for c in pcs):
+                                    res_queries.setdefault(mid, []).append(
+                                        (tok, cur_ns, pcs, before_snap)
+                                    )
+                        for tok in toks:
                             if "." not in tok:
                                 continue
                             first_seg = tok.split(".", 1)[0]
@@ -2084,20 +2318,30 @@ def _compute_per_module_dropped_open_ns(
                                 continue
                             cs = _candidates(tok, cur_ns)
                             if any(c in ctx.all_proj_ns for c in cs):
-                                q_list.append((tok, cur_ns, cs))
+                                q_list.append((tok, cur_ns, cs, before_snap))
                                 all_cands.update(cs)
                 _update_scope_stack(ns_stack, ln)
+                if _NAMESPACE_DECL_RE.match(ln):
+                    full = ".".join(v for k, v in ns_stack if k == "ns" and v)
+                    n0 = len(declared_before)
+                    _add_ns_prefixes(declared_before, full + ".x")
+                    if len(declared_before) != n0:
+                        before_snap = frozenset(declared_before)
             if q_list:
                 open_queries[mid] = q_list
 
+    pins = _resolve_original_open_targets(plan, ctx, raw_by_mid, res_queries, open_queries, all_cands)
+
     if not open_queries:
-        return {}
+        return {}, pins
 
     present_cands: set[str] = set()
     for s in mod_own_ns.values():
         present_cands.update(s & all_cands)
 
-    ok_map: dict[int, list[bool]] = {m: [False] * len(ql) for m, ql in open_queries.items()}
+    ok_map: dict[int, list[bool]] = {
+        m: [any(c in q[3] for c in q[2]) for q in ql] for m, ql in open_queries.items()
+    }
     cand_list = sorted(present_cands)
     for off in range(0, len(cand_list), 4096):
         chunk = cand_list[off : off + 4096]
@@ -2112,23 +2356,138 @@ def _compute_per_module_dropped_open_ns(
                 b |= trans.get(v, 0)
             trans[u] = b
         for mid, ql in open_queries.items():
-            tb = trans.get(mid, 0)
+            tb = 0
+            for v in eff_imps.get(mid, ()):
+                tb |= trans.get(v, 0)
             ok_flags = ok_map[mid]
-            for idx, (_, _, cs) in enumerate(ql):
+            for idx, (_, _, cs, before) in enumerate(ql):
                 if not ok_flags[idx]:
-                    if any(tb & cbit.get(c, 0) for c in cs):
+                    if any(c in before or tb & cbit.get(c, 0) for c in cs):
                         ok_flags[idx] = True
 
     result: dict[int, frozenset[str]] = {}
     for mid, ql in open_queries.items():
         bad_keys = {
             f"{cur_ns}::{tok}"
-            for (tok, cur_ns, _), is_ok in zip(ql, ok_map[mid], strict=True)
+            for (tok, cur_ns, _, _), is_ok in zip(ql, ok_map[mid], strict=True)
             if not is_ok
         }
         if bad_keys:
             result[mid] = frozenset(bad_keys)
-    return result
+    return result, pins
+
+
+def _resolve_original_open_targets(
+    plan: PrunePlan,
+    ctx: _PruneGraphContext,
+    raw_by_mid: dict[int, bytes],
+    res_queries: dict[int, list[_OpenQuery]],
+    open_queries: dict[int, list[_OpenQuery]],
+    all_cands: set[str],
+) -> dict[int, dict[str, str]]:
+    """Resolve shadowable ``open`` tokens against the ORIGINAL import DAG.
+
+    Emits ``_root_`` pins (see ``PrunePlan.per_module_open_pins``) and, for undotted tokens
+    that originally resolved to a project namespace, appends a kept-closure availability
+    query to ``open_queries`` so the caller drops them when that namespace was pruned away.
+    """
+    if not res_queries:
+        return {}
+    shadowable_ns = ctx.all_proj_ns | ctx.extra_kept_ns
+    wanted: set[str] = set()
+    for ql in res_queries.values():
+        for _, _, pcs, _ in ql:
+            wanted.update(pcs)
+
+    orig_own: dict[int, set[str]] = defaultdict(set)
+    for did, dm in ctx.decl_mod.items():
+        name = ctx.decl_name.get(did, "")
+        if "." in name:
+            segs = name.split(".")
+            for i in range(1, len(segs)):
+                ns = ".".join(segs[:i])
+                if ns in wanted:
+                    orig_own[dm].add(ns)
+    for mid, rb in raw_by_mid.items():
+        if rb and b"namespace" in rb:
+            declared = _collect_declared_namespaces(rb.decode("utf-8", errors="replace"))
+            orig_own[mid].update(declared & wanted)
+
+    # Post-order over the original project import DAG
+    nodes = set(plan.mod_imports) | set(orig_own) | set(res_queries)
+    state: dict[int, int] = {}
+    post_order: list[int] = []
+    for start in sorted(nodes):
+        if state.get(start, 0):
+            continue
+        stack: list[tuple[int, int]] = [(start, 0)]
+        state[start] = 1
+        while stack:
+            node, idx = stack[-1]
+            nbs = plan.mod_imports.get(node, ())
+            if idx < len(nbs):
+                stack[-1] = (node, idx + 1)
+                nb = nbs[idx]
+                if not state.get(nb, 0):
+                    state[nb] = 1
+                    stack.append((nb, 0))
+            else:
+                stack.pop()
+                post_order.append(node)
+
+    best: dict[int, list[int | None]] = {
+        m: [next((ci for ci, c in enumerate(q[2]) if c in q[3]), None) for q in ql]
+        for m, ql in res_queries.items()
+    }
+    cand_list = sorted(wanted & {ns for s in orig_own.values() for ns in s})
+    for off in range(0, len(cand_list), 4096):
+        chunk = cand_list[off : off + 4096]
+        cbit = {c: 1 << i for i, c in enumerate(chunk)}
+        trans: dict[int, int] = {}
+        for u in post_order:
+            b = 0
+            for ns in orig_own.get(u, ()):
+                bit = cbit.get(ns)
+                if bit:
+                    b |= bit
+            for v in plan.mod_imports.get(u, ()):
+                b |= trans.get(v, 0)
+            trans[u] = b
+        for mid, ql in res_queries.items():
+            # Imports only: the module's own namespaces count just above the `open` line.
+            tb = 0
+            for v in plan.mod_imports.get(mid, ()):
+                tb |= trans.get(v, 0)
+            row = best[mid]
+            for qi, (_, _, pcs, before) in enumerate(ql):
+                for ci, c in enumerate(pcs):
+                    if row[qi] is not None and ci >= row[qi]:
+                        break
+                    bit = cbit.get(c)
+                    if c in before or (bit and tb & bit):
+                        row[qi] = ci
+                        break
+
+    pins: dict[int, dict[str, str]] = {}
+    for mid, ql in res_queries.items():
+        for (tok, cur_ns, pcs, before), ci in zip(ql, best[mid], strict=True):
+            inner = pcs if ci is None else pcs[:ci]
+            target = tok if ci is None else pcs[ci]
+            # A token not found under the current namespace may still resolve relative to an
+            # already-open namespace (`open CategoryTheory Limits`), which is invisible here.
+            # Pin it to the root only when the root namespace is known to exist.
+            if tok in ctx.all_proj_ns:
+                root_known = True
+            elif ctx.external_ns is not None:
+                root_known = tok in ctx.external_ns
+            else:
+                root_known = tok.split(".", 1)[0] in _PROTECTED_MATHLIB_TOP_NS
+            if (ci is not None or root_known) and any(c in shadowable_ns for c in inner):
+                pins.setdefault(mid, {})[f"{cur_ns}::{tok}"] = f"_root_.{target}"
+            if ci is not None and "." not in tok:
+                open_queries.setdefault(mid, []).append((tok, cur_ns, [target], before))
+                all_cands.add(target)
+    return pins
 
 
 _IDENT_TOKEN_RE = re.compile(
@@ -2324,11 +2683,47 @@ def materialize_project(
     allow_cross_bundle_consolidation: bool = True,
     dry_run: bool = False,
     max_files: int | None = None,
+    external_namespaces: str | Path | Iterable[str] | None = None,
+    external_names: str | Path | Iterable[str] | None = None,
 ) -> MaterializeReport:
     """Compute pruning + consolidation plan and stream-materialize a compressed Lean 4 project
     to a directory (``output_dir``) and/or directly into a ``.tar.gz`` archive (``output_archive``)
     with zero intermediate disk unpacking.
+
+    ``external_namespaces`` (a file with one namespace per line, or an iterable) lists the
+    namespaces of the libraries the project imports. With it, an ``open X`` that a project
+    namespace could shadow is pinned to ``_root_.X`` exactly when a root ``X`` exists.
     """
+    def _load_names(src: str | Path | Iterable[str]) -> frozenset[str]:
+        if isinstance(src, (str, Path)):
+            lines = Path(src).read_text(encoding="utf-8").splitlines()
+            return frozenset(ln.strip() for ln in lines if ln.strip())
+        return frozenset(src)
+
+    # ``external_names``: every constant of the imported libraries (one per line). It also
+    # yields their namespaces, and lets module merging detect and repair name capture.
+    ext_names: frozenset[str] | None = None
+    ext_ns: frozenset[str] | None = None
+    if external_names is not None:
+        ext_names = _load_names(external_names)
+        ns_acc: set[str] = set()
+        for nm in ext_names:
+            i = nm.rfind(".")
+            while i > 0:
+                nm = nm[:i]
+                if nm in ns_acc:
+                    break
+                ns_acc.add(nm)
+                i = nm.rfind(".")
+        ext_ns = frozenset(ns_acc)
+    if external_namespaces is not None and ext_ns is not None:
+        ext_ns = ext_ns | _load_names(external_namespaces)
+    elif external_namespaces is not None:
+        if isinstance(external_namespaces, (str, Path)):
+            text = Path(external_namespaces).read_text(encoding="utf-8")
+            ext_ns = frozenset(ln.strip() for ln in text.splitlines() if ln.strip())
+        else:
+            ext_ns = frozenset(external_namespaces)
     conn, should_close = _open_db(db)
     try:
         plan, report, ctx = _compute_prune_plan_with_ctx(
@@ -2337,6 +2732,7 @@ def materialize_project(
             mode=mode,
             collapse_barrels=collapse_barrels,
         )
+        ctx.external_ns = ext_ns
 
         has_output_target = (output_dir is not None) or (output_archive is not None)
         cplan: ConsolidationPlan | None = None
@@ -2424,7 +2820,10 @@ def materialize_project(
                 _finalize_bridges_and_namespaces(plan, ctx)
 
             if rewrite_imports:
-                plan.per_module_dropped_open_ns = _compute_per_module_dropped_open_ns(
+                (
+                    plan.per_module_dropped_open_ns,
+                    plan.per_module_open_pins,
+                ) = _compute_per_module_dropped_open_ns(
                     plan,
                     ctx,
                     raw_by_mid,
@@ -2628,6 +3027,7 @@ def materialize_project(
                     plan=plan,
                     consolidate_duplicates=consolidate_duplicates,
                     allow_cross_bundle_consolidation=allow_cross_bundle_consolidation,
+                    external_names=ext_names,
                 )
                 for cfg_rel, cfg_bytes in staged_configs.items():
                     if out_root is not None:
@@ -2696,6 +3096,11 @@ def materialize_project(
             report.phase_b_saved_loc = merge_rep.phase_b_saved_loc
             report.merge_dangling_imports = merge_rep.dangling_imports
             report.merge_cycle_count = merge_rep.cycle_count
+            report.merge_partial_env_modules = merge_rep.partial_env_modules
+            report.merge_capture_hazard_names = merge_rep.capture_hazard_names
+            report.merge_cross_bundle_capture_hazards = merge_rep.cross_bundle_capture_hazards
+            report.merge_capture_fixed_sites = merge_rep.capture_fixed_sites
+            report.merge_capture_unfixable_sites = merge_rep.capture_unfixable_sites
             report.kept_modules = merge_rep.output_modules
             report.dropped_modules = max(0, report.raw_modules - merge_rep.output_modules)
             report.module_reduction_pct = _pct(report.dropped_modules, report.raw_modules)
