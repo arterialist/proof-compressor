@@ -15,6 +15,7 @@ Two jobs:
 
 from __future__ import annotations
 
+import glob
 import json
 import re
 import sqlite3
@@ -73,7 +74,8 @@ def resolve_archive_parts(source: str | Path) -> list[Path]:
         parts = sorted(p.parent.glob(f"{prefix}{'[0-9]' * width}"))
         return parts
     if any(ch in str(source) for ch in "*?["):
-        return sorted(Path().glob(str(source)))
+        # Path().glob rejects absolute patterns; glob.glob handles both.
+        return sorted(Path(x) for x in glob.glob(str(source)))
     return [p]
 
 
@@ -530,7 +532,9 @@ def check_chapter_links(db: DbHandle, tex: str) -> dict[str, list[str]]:
             ph = ",".join("?" for _ in batch)
             for r in query_all(
                 conn,
-                f"""SELECT d.name, COALESCE(m.reachable, 0) AS reachable
+                # Missing metrics row = reachability unknown; match audit_latex, which
+                # treats it as reachable rather than flagging it.
+                f"""SELECT d.name, COALESCE(m.reachable, 1) AS reachable
                     FROM declarations d LEFT JOIN metrics m ON m.decl_id = d.id
                     WHERE d.name IN ({ph})""",
                 tuple(batch),

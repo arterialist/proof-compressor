@@ -7,7 +7,7 @@ import sqlite3
 from collections import Counter, defaultdict, deque
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 from proof_compressor.schema import connect_db, set_meta
 

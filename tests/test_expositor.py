@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import re
 import shutil
 from pathlib import Path
@@ -17,7 +16,6 @@ from proof_compressor.expose.filter import (
     classify_bookkeeping,
     detect_bookkeeping_leaks,
     extract_all_cluster_idioms,
-    extract_proof_idioms,
     tag_bookkeeping,
 )
 from proof_compressor.expose.latex import generate_latex

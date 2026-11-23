@@ -11,7 +11,6 @@ from typing import Any, Sequence
 
 from proof_compressor.analyze import (
     VALID_MATERIALIZE_MODES,
-    analyze_topology,
     materialize_project,
     run_analysis,
 )
@@ -546,9 +545,12 @@ def _cmd_refactor_plan(args: argparse.Namespace) -> int:
     if args.verify_project:
         from proof_compressor.refactor.gate import verify_refactor_gate
 
+        # Build-only verification of the project as it stands: no edit was made here,
+        # so the LOC-reduction test does not apply.
         gate_res = verify_refactor_gate(
             Path(args.verify_project),
             run_lake=not args.no_lake,
+            check_loc=False,
         )
         gate_dict = (
             gate_res.to_dict()
@@ -570,6 +572,8 @@ def _cmd_refactor_plan(args: argparse.Namespace) -> int:
         if gate_dict is not None:
             print("\n[Verification Gate]")
             print(json.dumps(gate_dict, indent=2, default=str))
+    if gate_dict is not None and not gate_dict.get("passed", False):
+        return 3
     return 0
 
 

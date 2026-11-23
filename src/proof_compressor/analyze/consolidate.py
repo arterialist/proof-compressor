@@ -58,7 +58,7 @@ _STRUCTURAL_BODY_LINE_RE = re.compile(
     r"inductive|instance|axiom|opaque|constant)\b"
 )
 _UNIVERSE_DECL_RE = re.compile(r"^universes?\s+(.*)$")
-_VARIABLE_DECL_RE = re.compile(r"^variables?\s+(.*)$")
+_VARIABLE_DECL_RE = re.compile(r"^variables?(?:\s+(.*))?$")
 _NAMESPACE_LINE_RE = re.compile(r"^namespace\s+([A-Za-z_][A-Za-z0-9_.\u0080-\uffff']*)")
 _SECTION_LINE_RE = re.compile(
     r"^(?:noncomputable\s+)?section(?:\s+([A-Za-z_][A-Za-z0-9_.\u0080-\uffff']*))?\b"
@@ -842,7 +842,6 @@ def _extract_decl_source_context(
     var_stack: list[BinderEntry] = []
     univ_stack: list[str] = []
     in_mutual = False
-    has_unparseable_var = False
 
     def _pop_scope(end_name: str | None) -> None:
         if not scope_stack:
@@ -929,7 +928,14 @@ def _extract_decl_source_context(
             continue
         vm = _VARIABLE_DECL_RE.match(st)
         if vm:
-            parsed_v = parse_binder_list(vm.group(1))
+            # `variable {R : Type}\n  (r : R)`: binders continue on indented lines, and
+            # missing them would delegate with the wrong explicit arguments.
+            binder_text = vm.group(1) or ""
+            j = idx + 1
+            while j < start_line - 1 and clean_lines[j][:1] in (" ", "\t"):
+                binder_text += " " + clean_lines[j].strip()
+                j += 1
+            parsed_v = parse_binder_list(binder_text)
             if parsed_v is None:
                 # Sentinel stays scoped to the active section/namespace and pops on `end`
                 var_stack.append(BinderEntry(bracket="(", var_name="__unparseable__", type_expr="__unparseable__"))

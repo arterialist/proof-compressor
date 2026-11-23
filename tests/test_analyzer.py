@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 import time
 from pathlib import Path
 
@@ -18,7 +17,6 @@ from proof_compressor.analyze import (
 )
 from proof_compressor.analyze.topology import (
     build_csr,
-    compute_dag_flow,
     compute_dominators_chk,
     tarjan_scc_iterative,
     transitive_reduction,
@@ -26,10 +24,8 @@ from proof_compressor.analyze.topology import (
 from proof_compressor.cli import main as cli_main
 from proof_compressor.schema import (
     batch_insert_declarations,
-    batch_insert_edges,
     batch_insert_module_imports,
     batch_insert_modules,
-    connect_db,
     init_db,
 )
 

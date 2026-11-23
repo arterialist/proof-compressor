@@ -177,11 +177,15 @@ def compute_dominators_chk(
     in_offsets: array,
     in_targets: array,
     node_loc: array,
+    scc_id: array | None = None,
 ) -> tuple[array, array, array, array]:
     """Iterative Cooper-Harvey-Kennedy dominator tree from virtual super-root S = n.
 
     Returns `(idom, dom_depth, dom_count, dom_loc)` of length `n` (excluding S).
     `idom[u] == n` means `u` is directly dominated by the virtual super-root.
+
+    `scc_id` (from `tarjan_scc_iterative`) is used to attach unreachable cycles to S
+    via their source components; it is computed here when not supplied.
     """
     super_root = n
     # Build super-root outgoing list: explicit roots plus any zero-in-degree nodes
@@ -190,8 +194,6 @@ def compute_dominators_chk(
     for i in range(n):
         if in_offsets[i] == in_offsets[i + 1]:
             sr_set.add(i)
-    if not sr_set and n > 0:
-        sr_set.add(0)
 
     sr_targets = sorted(sr_set)
 
@@ -232,9 +234,17 @@ def compute_dominators_chk(
 
     _dfs_from(super_root)
 
-    # Any cycle with no external entry (not reached from sr_targets) gets attached to super_root
+    # Any cycle with no external entry (not reached from sr_targets) gets attached to super_root.
+    # Seed from source components first: Tarjan numbers SCCs in reverse topological order, so
+    # the highest unvisited scc_id cannot be reached from any other unvisited node. Seeding
+    # by plain index order could pick a node downstream of the cycle and wrongly hang it off S.
     extra_sr: list[int] = []
-    for i in range(n):
+    unvisited = [i for i in range(n) if not visited[i]]
+    if unvisited:
+        if scc_id is None:
+            scc_id, _ = tarjan_scc_iterative(n, out_offsets, out_targets)
+        unvisited.sort(key=lambda i: (-scc_id[i], i))
+    for i in unvisited:
         if not visited[i]:
             extra_sr.append(i)
             sr_set.add(i)
@@ -505,7 +515,6 @@ def compute_backbone_dag(
         return []
 
     # Map each pillar to a bit position
-    k = len(pillar_indices)
     scc_to_bits: dict[int, int] = defaultdict(int)
     for bit, idx in enumerate(pillar_indices):
         scc_to_bits[scc_id[idx]] |= 1 << bit
@@ -687,6 +696,7 @@ def analyze_topology(
             in_offsets,
             in_targets,
             node_loc,
+            scc_id,
         )
 
         # 5. Compute bottleneck_score & definition centrality
@@ -700,7 +710,6 @@ def analyze_topology(
             d_loc = float(dom_loc[u])
             ds_loc = float(desc_loc[c])
             an_cnt = float(anc_count[c])
-            b_loc = float(node_loc[u])
 
             # Interface narrowness: concise type signatures score higher
             slen = max(20, sig_lens[u])

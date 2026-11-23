@@ -8,7 +8,7 @@ import re
 import sqlite3
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 from proof_compressor.expose._db import (
     DbHandle,
@@ -510,7 +510,9 @@ def _build_blueprint_payload(
             chapter_page_map=chapter_page_map,
         )
 
-    # Populate direct dependencies / dependents for all registered Level-2 declarations
+    # Populate direct dependencies / dependents for all registered Level-2 declarations.
+    # Capped at 20 per declaration in SQL (a shared batch LIMIT let high-degree pillars
+    # starve the rest of the batch, which then showed as "Terminal / root").
     reg_ids = list(decl_records_by_id.keys())
     if reg_ids:
         for i in range(0, len(reg_ids), 400):
@@ -519,14 +521,21 @@ def _build_blueprint_payload(
             dep_rows = query_all(
                 conn,
                 f"""
-                SELECT DISTINCT e.src_id, d.id AS dst_id, d.name, d.short_name, d.kind
-                FROM edges e
-                JOIN declarations d ON d.id = e.dst_id
-                WHERE e.src_id IN ({ph})
-                  AND d.id != e.src_id
-                  AND d.is_mathlib = 0
-                  AND d.is_bookkeeping = 0
-                LIMIT 4000
+                SELECT src_id, dst_id, name, short_name, kind FROM (
+                    SELECT src_id, dst_id, name, short_name, kind,
+                           ROW_NUMBER() OVER (PARTITION BY src_id ORDER BY name) AS rn
+                    FROM (
+                        SELECT DISTINCT e.src_id, d.id AS dst_id, d.name, d.short_name, d.kind
+                        FROM edges e
+                        JOIN declarations d ON d.id = e.dst_id
+                        WHERE e.src_id IN ({ph})
+                          AND d.id != e.src_id
+                          AND d.is_mathlib = 0
+                          AND d.is_bookkeeping = 0
+                    )
+                )
+                WHERE rn <= 20
+                ORDER BY src_id, rn
                 """,
                 tuple(batch),
             )
@@ -545,14 +554,21 @@ def _build_blueprint_payload(
             rev_rows = query_all(
                 conn,
                 f"""
-                SELECT DISTINCT e.dst_id, d.id AS src_id, d.name, d.short_name, d.kind
-                FROM edges e
-                JOIN declarations d ON d.id = e.src_id
-                WHERE e.dst_id IN ({ph})
-                  AND d.id != e.dst_id
-                  AND d.is_mathlib = 0
-                  AND d.is_bookkeeping = 0
-                LIMIT 4000
+                SELECT dst_id, src_id, name, short_name, kind FROM (
+                    SELECT dst_id, src_id, name, short_name, kind,
+                           ROW_NUMBER() OVER (PARTITION BY dst_id ORDER BY name) AS rn
+                    FROM (
+                        SELECT DISTINCT e.dst_id, d.id AS src_id, d.name, d.short_name, d.kind
+                        FROM edges e
+                        JOIN declarations d ON d.id = e.src_id
+                        WHERE e.dst_id IN ({ph})
+                          AND d.id != e.dst_id
+                          AND d.is_mathlib = 0
+                          AND d.is_bookkeeping = 0
+                    )
+                )
+                WHERE rn <= 20
+                ORDER BY dst_id, rn
                 """,
                 tuple(batch),
             )
@@ -1415,7 +1431,7 @@ function renderManuscriptChapters(grid, q) {
             ${auditBadge}
             <button class="stmt-link" onclick="inspectDecl(${d.id})">${esc(d.name)}</button>
           </div>
-          <div class="math-box">\\[${d.latex_stmt}\\]</div>
+          <div class="math-box">\\[${esc(d.latex_stmt)}\\]</div>
         </div>`;
     }).join("");
     const extraChips = c.all_link_ids
@@ -1490,7 +1506,7 @@ function renderChapters() {
             ${auditBadge}
             <button class="stmt-link" onclick="inspectDecl(${d.id})">${esc(d.name)}</button>
           </div>
-          <div class="math-box">\\[${d.latex_stmt}\\]</div>
+          <div class="math-box">\\[${esc(d.latex_stmt)}\\]</div>
         </div>`;
     }).join("");
 
@@ -1571,11 +1587,11 @@ function renderDeclDetail(id) {
       : `<span class="badge">audit unchecked</span>`);
 
   const depsHtml = d.deps.length
-    ? d.deps.map(dep => `<button class="dep-chip" onclick="inspectDeclByName('${esc(dep.name)}')">${esc(dep.name)}</button>`).join("")
+    ? d.deps.map(dep => `<button class="dep-chip" data-name="${esc(dep.name)}" onclick="inspectDeclByName(this.dataset.name)">${esc(dep.name)}</button>`).join("")
     : `<span style="color:var(--muted); font-size:0.84rem;">No recorded project dependencies</span>`;
 
   const revHtml = d.dependents.length
-    ? d.dependents.map(dep => `<button class="dep-chip" onclick="inspectDeclByName('${esc(dep.name)}')">${esc(dep.name)}</button>`).join("")
+    ? d.dependents.map(dep => `<button class="dep-chip" data-name="${esc(dep.name)}" onclick="inspectDeclByName(this.dataset.name)">${esc(dep.name)}</button>`).join("")
     : `<span style="color:var(--muted); font-size:0.84rem;">Terminal / root declaration</span>`;
 
   panel.innerHTML = `
@@ -1594,7 +1610,7 @@ function renderDeclDetail(id) {
     </div>
     ${d.docstring ? `<p style="font-size:0.9rem;">${esc(d.docstring)}</p>` : ""}
     <h3 style="font-size:0.86rem; color:var(--muted); margin:12px 0 4px;">Mathematical Statement</h3>
-    <div class="math-box">\\[${d.latex_stmt}\\]</div>
+    <div class="math-box">\\[${esc(d.latex_stmt)}\\]</div>
     <h3 style="font-size:0.86rem; color:var(--muted); margin:12px 0 4px;">Exact Lean 4 Type Signature</h3>
     <pre class="lean-code">${esc(d.type_sig || "(not recorded)")}</pre>
     <h3 style="font-size:0.86rem; color:var(--muted); margin:12px 0 4px;">Axiom Footprint</h3>

@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import sqlite3
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -178,7 +178,12 @@ def normalize_signature(type_sig: str | None) -> str:
         tok = match.group(0)
         if tok in binder_map:
             return binder_map[tok]
-        if "." in tok:
+        head, _, rest = tok.partition(".")
+        if rest and head in binder_map:
+            # Projection on a bound variable (`s.re`): keep the field so `s.re < t.re`
+            # and `t.re < s.re` stay distinct.
+            return f"{binder_map[head]}.{rest}"
+        if rest:
             return tok.rsplit(".", 1)[-1]
         return tok
 
@@ -313,11 +318,18 @@ def analyze_dedup(
                 d["name"],
             )
 
+        # canonical_type_hash covers the type signature only. For a theorem the type *is*
+        # the statement, so equal hashes mean equal statements. For def/structure/class the
+        # type says nothing about the body (every `: Prop` def would collide), so type-based
+        # duplicate detection is restricted to theorems.
+        def _type_identifies(d: dict[str, Any]) -> bool:
+            return d["kind_group"] == "thm"
+
         # 1. Exact canonical_type_hash duplicate grouping
         by_chash: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
         for d in decls.values():
             ch = d["canonical_type_hash"]
-            if ch:
+            if ch and _type_identifies(d):
                 by_chash[(d["kind_group"], ch)].append(d)
 
         exact_redundant_ids: set[int] = set()
@@ -366,7 +378,7 @@ def analyze_dedup(
         buckets: dict[tuple[str, str, int], list[int]] = defaultdict(list)
 
         for did, d in decls.items():
-            if did in exact_redundant_ids:
+            if did in exact_redundant_ids or not _type_identifies(d):
                 continue
             sig = d["type_sig"]
             if not sig or len(sig) < 8:
@@ -390,7 +402,7 @@ def analyze_dedup(
 
         # 2a. Exact deep-normalized matches (alpha/namespace/implicit-binder isomorphic)
         already_near_grouped: set[int] = set()
-        for (kg, dhash), members in norm_by_deep.items():
+        for (kg, _dhash), members in norm_by_deep.items():
             if len(members) < 2:
                 continue
             # Ensure they weren't already identical canonical_type_hash
@@ -513,7 +525,7 @@ def analyze_dedup(
         for did, d in decls.items():
             reasons: list[str] = []
             ch = d["canonical_type_hash"]
-            if ch and ch in mathlib_hashes:
+            if ch and _type_identifies(d) and ch in mathlib_hashes:
                 reasons.append(f"exact_mathlib_type_match:{mathlib_hashes[ch]}")
 
             sn = d["short_name"]

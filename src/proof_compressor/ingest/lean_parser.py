@@ -38,6 +38,9 @@ _COMMENT_TOKEN_RE = re.compile(
     r'|--[^\n]*'
     r'|"(?:\\.|[^"\\])*"'
 )
+# Inside a block comment only nesting markers matter: `--` and `"` are plain text there
+# and must not swallow the closing `-/`.
+_BLOCK_COMMENT_TOKEN_RE = re.compile(r"/-|-/")
 
 # ---------------------------------------------------------------------------
 # Top-level command & declaration patterns
@@ -50,7 +53,7 @@ _NAMESPACE_RE = re.compile(
     r"^namespace\s+([A-Za-z_][A-Za-z0-9_.\u0080-\uffff']*)"
 )
 _SECTION_RE = re.compile(
-    r"^(?:noncomputable\s+)?section(?:\s+([A-Za-z_][A-Za-z0-9_.\u0080-\uffff']*))?\b"
+    r"^(?:@\[[^\]]*\]\s*)?(?:(?:public|private|meta|noncomputable)\s+)*section(?:\s+([A-Za-z_][A-Za-z0-9_.\u0080-\uffff']*))?\b"
 )
 _END_RE = re.compile(
     r"^end(?:\s+([A-Za-z_][A-Za-z0-9_.\u0080-\uffff']*))?\s*$"
@@ -60,11 +63,12 @@ _MUTUAL_RE = re.compile(r"^mutual\s*$")
 
 _MODIFIER_PREFIX = (
     r"(?:@\[[^\]]*\]\s*)*"
-    r"(?:(?:private|protected|public|noncomputable|partial|unsafe|meta|scoped|local)\s+)*"
+    r"(?:(?:private|protected|public|noncomputable|partial|unsafe|meta|scoped|local|nonrec)\s+)*"
 )
 
 _DECL_KW_GROUP = (
-    r"(theorem|lemma|def|abbrev|structure|class|inductive|instance|axiom|opaque|constant)"
+    r"(theorem|lemma|def|abbrev|structure|class\s+inductive|class\s+abbrev|class|inductive|"
+    r"instance|axiom|opaque|constant|irreducible_def)"
 )
 
 _DECL_START_RE = re.compile(
@@ -78,7 +82,7 @@ _OPEN_IN_DECL_RE = re.compile(
 _ATTR_ONLY_RE = re.compile(r"^@\[[^\]]*\]\s*$")
 _ATTR_START_RE = re.compile(r"^@\[")
 _MODIFIER_ONLY_RE = re.compile(
-    r"^(?:(?:private|protected|public|noncomputable|partial|unsafe|meta|scoped|local)\s*)+$"
+    r"^(?:(?:private|protected|public|noncomputable|partial|unsafe|meta|scoped|local|nonrec)\s*)+$"
 )
 
 # Commands that terminate a previous declaration at column 0
@@ -92,6 +96,7 @@ _TOP_COMMAND_RE = re.compile(
     r"infix|infixl|infixr|prefix|postfix|local\s+infix|scoped\s+infix|"
     r"example|mutual|initialize|builtin_initialize|deriving\s+instance|"
     r"add_decl_doc|run_cmd|register_simp_attr|suppress_compilation|"
+    r"alias|include|omit|notation3|local\s+notation3|scoped\s+notation3|"
     r"#check|#print|#eval|#reduce|#synth|#guard|#align|#check_failure"
     r")\b"
 )
@@ -101,9 +106,19 @@ _IDENT_NAME_RE = re.compile(
 )
 
 # Identifier extraction for references
+# Lean identifier characters (Lean `isLetterLike` / `isSubScriptAlnum`): Greek except
+# λ Π Σ, Coptic, polytonic Greek, letter-like symbols (ℕ ℝ ...), and sub/superscript
+# alphanumerics. Plain `\u0080-\uffff` would also swallow operators such as `≤` and `→`.
+_LEAN_ID_LETTER = (
+    "A-Za-z_"
+    "\u03b1-\u03ba\u03bc-\u03c9\u0391-\u039f\u03a1\u03a4-\u03a9"
+    "\u03ca-\u03fb\u1f00-\u1ffe\u2100-\u214f"
+)
+_LEAN_ID_REST = _LEAN_ID_LETTER + "0-9'!?\u2080-\u2089\u2090-\u209c\u1d62-\u1d6a"
+_REF_ATOM = f"(?:«[^»\\n]+»|[{_LEAN_ID_LETTER}][{_LEAN_ID_REST}]*)"
 _REF_IDENT_RE = re.compile(
-    r"(?<![A-Za-z0-9_'\.])"
-    r"([A-Za-z_][A-Za-z0-9_'\u2080-\u2089]*(?:\.[A-Za-z_][A-Za-z0-9_'\u2080-\u2089]*)*)"
+    f"(?<![{_LEAN_ID_REST}.«])"
+    f"({_REF_ATOM}(?:\\.{_REF_ATOM})*)"
 )
 
 # ---------------------------------------------------------------------------
@@ -122,12 +137,12 @@ LEAN_STOPWORDS = frozenset({
     "with", "if", "then", "else", "do", "return", "for", "in", "unless",
     "try", "catch", "finally", "calc", "suffices", "nomatch", "nofun",
     "sorry", "admit", "Type", "Prop", "Sort", "true", "false", "and", "or",
-    "not", "forall", "exists", "fun", "at", "only", "using", "as", "is",
+    "not", "forall", "exists", "at", "only", "using", "as", "is",
     "to", "of", "on", "this", "it",
     # Common tactics
     "simp", "dsimp", "simp_all", "simpa", "simp_rw", "rw", "rwa", "erw",
     "exact", "apply", "refine", "intro", "intros", "rintro", "rcases",
-    "obtain", "cases", "induction", "rcases", "constructor", "left", "right",
+    "obtain", "cases", "induction", "constructor", "left", "right",
     "use", "existsi", "specialize", "generalize", "clear", "revert", "subst",
     "change", "conv", "conv_lhs", "conv_rhs", "ring", "ring_nf", "linarith",
     "nlinarith", "omega", "norm_num", "norm_cast", "push_cast", "positivity",
@@ -135,10 +150,10 @@ LEAN_STOPWORDS = frozenset({
     "exfalso", "by_contra", "by_cases", "split", "split_ifs", "ext", "funext",
     "congr", "congr_arg", "gcongr", "mono", "bound", "continuity",
     "measurability", "fun_prop", "abel", "group", "module", "polyrith",
-    "linear_combination", "trans", "symm", "calc", "nth_rw", "set", "rename_i",
-    "all_goals", "any_goals", "first", "repeat", "try", "done", "swap",
+    "linear_combination", "trans", "symm", "nth_rw", "set", "rename_i",
+    "all_goals", "any_goals", "first", "repeat", "done", "swap",
     "rotate_left", "rotate_right", "assumption", "filter_upwards", "fin_cases",
-    "interval_cases", "decide", "native_decide", "ac_rfl", "pi_instance",
+    "interval_cases", "native_decide", "ac_rfl", "pi_instance",
     "infer_instance", "exact_mod_cast", "apply_mod_cast", "rw_mod_cast",
     "push_neg", "contrapose", "choose", "classical", "wlog", "peel", "rel",
     "grw", "grind", "lia",
@@ -148,7 +163,7 @@ LEAN_STOPWORDS = frozenset({
     "he", "hf", "hg", "h'", "ih", "IH", "eq", "ne", "lt", "le", "gt", "ge",
     "mp", "mpr", "fst", "snd", "val", "prop", "mk", "rec", "casesOn",
     "zero", "one", "add", "sub", "mul", "div", "neg", "inv", "pow", "mod",
-    "map", "bind", "pure", "get", "set", "len", "size", "length",
+    "map", "bind", "pure", "get", "len", "size", "length",
 })
 
 # ---------------------------------------------------------------------------
@@ -195,21 +210,68 @@ _UNICODE_NORM = (
     ("=>", "⇒"),
 )
 
+# Binder names use the same Lean identifier classes as references: an ASCII-only class
+# missed `hσ`/`φ₁`, so those locals leaked out as references to unrelated globals.
+_BINDER_NAME = f"[{_LEAN_ID_LETTER}][{_LEAN_ID_REST}]*"
 _BINDER_GROUP_RE = re.compile(
     r"([(\[{⦃])\s*"
-    r"([A-Za-z_][A-Za-z0-9_'\u2080-\u2089]*(?:\s+[A-Za-z_][A-Za-z0-9_'\u2080-\u2089]*)*)"
+    f"({_BINDER_NAME}(?:\\s+{_BINDER_NAME})*)"
     r"\s*:"
 )
 
 _QUANT_BINDER_RE = re.compile(
     r"(∀|∃|λ)\s*"
-    r"([A-Za-z_][A-Za-z0-9_'\u2080-\u2089]*(?:\s+[A-Za-z_][A-Za-z0-9_'\u2080-\u2089]*)*)"
+    f"({_BINDER_NAME}(?:\\s+{_BINDER_NAME})*)"
     r"(?=\s*(?::|,|⇒))"
 )
 
 _STANDALONE_IDENT_RE = re.compile(
-    r"(?<![A-Za-z0-9_'\.])([A-Za-z_][A-Za-z0-9_'\u2080-\u2089]*)(?![A-Za-z0-9_'])"
+    f"(?<![{_LEAN_ID_REST}.])({_BINDER_NAME})(?![{_LEAN_ID_REST}])"
 )
+
+# Names bound inside proof bodies. These are locals, never references to globals.
+_LOCAL_NAME_RE = re.compile(_BINDER_NAME)
+_INTRO_LINE_RE = re.compile(r"\b(?:intro|intros|rintro|introv|rename_i)\b([^\n;]*)")
+_OBTAIN_RE = re.compile(r"\bobtain\b([^\n]*?)(?::=|\s:\s|$)", re.M)
+_WITH_PATTERN_RE = re.compile(
+    r"\b(?:rcases|cases'|induction'|obtain|rcases'|cases)\b[^\n]*?\bwith\b([^\n|]*)"
+)
+_HAVE_NAME_RE = re.compile(
+    f"\\b(?:have|haveI|let|letI|set|replace|generalize)\\s+(?:⟨([^⟩\\n]*)⟩|({_BINDER_NAME}))"
+)
+_SET_WITH_RE = re.compile(r"\bset\b[^\n]*?\bwith\s+(?:←\s*)?([^\s\]]+)")
+_FUN_RE = re.compile(r"\b(?:fun|λ)\b([^\n]*?)(?:=>|↦)")
+_MATCH_ARM_RE = re.compile(r"^\s*(\||case\s+\S+|next)\s+([^\n]*?)=>", re.M)
+_TYPE_ANNOT_RE = re.compile(r":[^()\[\]{}⦃⦄⟨⟩]*")
+_LOCAL_NOISE = frozenset({"rfl", "this", "_", "at", "with", "using"})
+
+
+def _extract_local_names(body: str) -> set[str]:
+    """Names introduced by tactics, `fun`, `have`/`let`, and match arms in a proof body."""
+    if not body:
+        return set()
+    found: set[str] = set()
+
+    def _add_all(text: str) -> None:
+        found.update(_LOCAL_NAME_RE.findall(_TYPE_ANNOT_RE.sub(" ", text)))
+
+    for m in _INTRO_LINE_RE.finditer(body):
+        _add_all(m.group(1))
+    for m in _OBTAIN_RE.finditer(body):
+        _add_all(m.group(1))
+    for m in _WITH_PATTERN_RE.finditer(body):
+        _add_all(m.group(1))
+    for m in _HAVE_NAME_RE.finditer(body):
+        _add_all(m.group(1) or m.group(2))
+    for m in _SET_WITH_RE.finditer(body):
+        found.add(m.group(1))
+    for m in _FUN_RE.finditer(body):
+        _add_all(m.group(1))
+    for m in _MATCH_ARM_RE.finditer(body):
+        names = _LOCAL_NAME_RE.findall(_TYPE_ANNOT_RE.sub(" ", m.group(2)))
+        # `| ctor a b =>`: the constructor is a reference, its arguments are locals
+        found.update(names[1:] if m.group(1) == "|" else names)
+    return {n for n in found if n not in _LOCAL_NOISE and n not in LEAN_STOPWORDS}
 
 _PUNCT_SPACE_RE = re.compile(r"\s*([()\[\]{}⦃⦄:,.→←↔∀∃λ⇒])\s*")
 
@@ -218,6 +280,9 @@ _BINDER_KEYWORDS = frozenset({
     "forall", "exists", "fun", "let", "have", "if", "then", "else",
     "match", "with", "do", "in", "by", "where", "Prop", "Type", "Sort", "_",
 })
+
+
+_BINDER_PRECEDERS = frozenset(")]}⦄∀∃λ")
 
 
 def _extract_binder_names(type_sig: str) -> list[str]:
@@ -236,6 +301,12 @@ def _extract_binder_names(type_sig: str) -> list[str]:
     for m in _BINDER_GROUP_RE.finditer(type_sig):
         bracket = m.group(1)
         names_str = m.group(2)
+        # A real binder group opens the signature, follows another binder group, or follows
+        # a quantifier. `((cos x : ℂ))` or `f (g x : ℝ)` is a type ascription, and renaming
+        # `cos`/`g` would make unrelated statements hash the same.
+        prev = type_sig[: m.start()].rstrip()[-1:]
+        if prev and prev not in _BINDER_PRECEDERS:
+            continue
         # In instance binders `[Foo α]`, there is no `:`; if `[inst : Foo α]`, `inst` is a binder name.
         if bracket in ("(", "{", "[", "⦃"):
             hits.append((m.start(), names_str))
@@ -397,9 +468,14 @@ def strip_comments_and_extract_docstrings(source: str) -> tuple[str, dict[int, s
             counted_up_to = pos
         return line_num
 
-    for m in _COMMENT_TOKEN_RE.finditer(source):
+    scan_pos = 0
+    while True:
+        m = (_COMMENT_TOKEN_RE if depth == 0 else _BLOCK_COMMENT_TOKEN_RE).search(source, scan_pos)
+        if m is None:
+            break
         tok = m.group(0)
         start, end = m.start(), m.end()
+        scan_pos = end
 
         if depth == 0:
             if tok[0] == '"':
@@ -432,8 +508,17 @@ def strip_comments_and_extract_docstrings(source: str) -> tuple[str, dict[int, s
                         docstrings[_line_at(end)] = raw_doc
                     # Replace block comment with newlines only (preserving exact line count)
                     nl_count = span.count("\n")
-                    out_parts.append("\n" * nl_count if nl_count else " ")
+                    at_col0 = block_start == 0 or source[block_start - 1] == "\n"
+                    if at_col0:
+                        # `/-- doc -/ theorem foo`: drop the comment and the gap after it so
+                        # the code keeps column 0 and is not mistaken for a continuation line.
+                        out_parts.append("\n" * nl_count)
+                        while end < len(source) and source[end] in " \t":
+                            end += 1
+                    else:
+                        out_parts.append("\n" * nl_count if nl_count else " ")
                     last_pos = end
+                    scan_pos = end
 
     if depth > 0:
         # Unclosed block comment at EOF
@@ -600,12 +685,16 @@ def extract_identifiers(
     out: list[str] = []
     for m in _REF_IDENT_RE.finditer(text):
         tok = m.group(1)
-        if tok in seen or tok in LEAN_STOPWORDS:
+        if "«" in tok:
+            tok = tok.replace("«", "").replace("»", "")
+        if tok.startswith("_root_."):
+            tok = tok[7:]
+        if not tok or tok in seen or tok in LEAN_STOPWORDS:
             continue
         if exclude and tok in exclude:
             continue
-        # Skip single-character lowercase variable names (a..z)
-        if len(tok) == 1 and tok.islower():
+        # Skip single-character variable names (a..z) and notation letters (ℝ, ℕ, π, ε)
+        if len(tok) == 1 and (tok.islower() or not tok.isascii()):
             continue
         seen.add(tok)
         out.append(tok)
@@ -662,8 +751,9 @@ def parse_lean_source(
         package = module_path.split(".", 1)[0] if module_path else ""
 
     cleaned, docstrings = strip_comments_and_extract_docstrings(source)
-    lines = cleaned.splitlines()
-    raw_lines = source.splitlines()
+    # Split on "\n" only: str.splitlines() also breaks on \x0c, \x1c-\x1e, \x85, \u2028...,
+    # which would desync line numbers from the "\n"-counted docstring keys.
+    lines = [ln[:-1] if ln.endswith("\r") else ln for ln in cleaned.split("\n")]
     total_loc = sum(1 for ln in lines if ln.strip())
 
     imports: list[str] = []
@@ -713,6 +803,7 @@ def parse_lean_source(
 
         # Exclude locally bound variables and self-name from extracted references
         binders = set(_extract_binder_names(type_sig_clean))
+        binders |= _extract_local_names(body)
         binders.add(short_name)
         binders.add(full_name)
 
@@ -745,13 +836,16 @@ def parse_lean_source(
             return None
         # Look backwards past blank lines and pending attribute/modifier lines
         earliest = pending_attr_or_mod_lines[0] if pending_attr_or_mod_lines else decl_start_line
+        if earliest in docstrings:
+            # `/-- doc -/ theorem foo` on one line
+            return docstrings[earliest]
         probe = earliest - 1
         while probe >= 1:
+            if lines[probe - 1].strip():
+                # Hit a code line first; a docstring ending there belongs to that code
+                break
             if probe in docstrings:
                 return docstrings[probe]
-            if lines[probe - 1].strip():
-                # Hit non-blank code line before finding a docstring
-                break
             probe -= 1
         return None
 
@@ -813,14 +907,18 @@ def parse_lean_source(
         if not line:
             continue
 
+        if in_multiline_attr:
+            if "]" not in line:
+                continue
+            in_multiline_attr = False
+            # `@[simp,\n  norm_cast] theorem foo`: the declaration starts after the `]`
+            line = line[line.index("]") + 1 :].lstrip()
+            if not line:
+                continue
+
         # Fast-path skip for indented lines (proof tactics, structure fields, continuations)
         first_ch = line[0]
         is_indented = first_ch in (" ", "\t")
-
-        if in_multiline_attr:
-            if "]" in line:
-                in_multiline_attr = False
-            continue
 
         if is_indented and not in_mutual:
             continue
@@ -862,7 +960,11 @@ def parse_lean_source(
             if active is not None:
                 _finalize_active(lineno - 1)
 
-            kind = dm.group(1)
+            kind = " ".join(dm.group(1).split())
+            if kind in ("class inductive", "class abbrev"):
+                kind = "class"
+            elif kind == "irreducible_def":
+                kind = "def"
             after_kw = dm.group(2).lstrip()
 
             # Check if `private` modifier appeared on this line or pending modifier lines
@@ -878,6 +980,10 @@ def parse_lean_source(
             raw_decl_name = ""
             rest_after_name = after_kw
             if kind == "instance":
+                # `instance (priority := 100) instFoo : ...` names the instance after the priority
+                pm = re.match(r"\(priority\s*:=\s*[^)]*\)\s*", after_kw)
+                if pm:
+                    after_kw = after_kw[pm.end() :]
                 # Anonymous instance if starts with `:`, `(`, `[`, `{`, `⦃`, `where`, `:=`
                 if after_kw and after_kw[0] not in (":", "(", "[", "{", "⦃"):
                     nm = _IDENT_NAME_RE.match(after_kw)
@@ -938,6 +1044,7 @@ def parse_lean_source(
                     _finalize_active(lineno - 1)
                 imports.append(im.group(1))
                 pending_attr_or_mod_lines.clear()
+                pending_local_opens.clear()
                 continue
 
             nsm = _NAMESPACE_RE.match(stripped)
@@ -948,6 +1055,7 @@ def parse_lean_source(
                 scope_stack.append(("namespace", segs, len(open_stack)))
                 ns_segments.extend(segs)
                 pending_attr_or_mod_lines.clear()
+                pending_local_opens.clear()
                 continue
 
             secm = _SECTION_RE.match(stripped)
@@ -957,6 +1065,7 @@ def parse_lean_source(
                 segs = secm.group(1).split(".") if secm.group(1) else []
                 scope_stack.append(("section", segs, len(open_stack)))
                 pending_attr_or_mod_lines.clear()
+                pending_local_opens.clear()
                 continue
 
             if _MUTUAL_RE.match(stripped):
@@ -964,6 +1073,7 @@ def parse_lean_source(
                     _finalize_active(lineno - 1)
                 in_mutual = True
                 pending_attr_or_mod_lines.clear()
+                pending_local_opens.clear()
                 continue
 
             em = _END_RE.match(stripped)
@@ -975,6 +1085,7 @@ def parse_lean_source(
                 else:
                     _pop_scope(em.group(1))
                 pending_attr_or_mod_lines.clear()
+                pending_local_opens.clear()
                 continue
 
             om = _OPEN_RE.match(stripped)
@@ -993,6 +1104,7 @@ def parse_lean_source(
                 if active is not None:
                     _finalize_active(lineno - 1)
                 pending_attr_or_mod_lines.clear()
+                pending_local_opens.clear()
                 continue
 
     if active is not None:

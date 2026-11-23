@@ -108,7 +108,16 @@ def ingest_olean_jsonl(
         mod_path_to_id: dict[str, int] = {}
         decl_name_to_id: dict[str, int] = {}
 
-        if merge:
+        if not merge:
+            # `--no-merge` replaces existing content. Leaving old rows in place would make
+            # new ids (restarting at 1) collide with them: INSERT OR IGNORE drops the new
+            # rows while edges are still written against the colliding ids.
+            for table in (
+                "edges", "metrics", "clusters", "symbols",
+                "module_imports", "declarations", "modules",
+            ):
+                conn.execute(f"DELETE FROM {table}")
+        else:
             for row in conn.execute("SELECT id, path FROM modules"):
                 mod_path_to_id[row["path"]] = row["id"]
             for row in conn.execute("SELECT id, name FROM declarations"):

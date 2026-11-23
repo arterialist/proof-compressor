@@ -142,7 +142,7 @@ def _topo_order_groups(
 
 def _shared_prefix_len(a: tuple[str, ...], b: tuple[str, ...]) -> int:
     k = 0
-    for xa, xb in zip(a, b):
+    for xa, xb in zip(a, b, strict=False):
         if xa != xb:
             break
         k += 1

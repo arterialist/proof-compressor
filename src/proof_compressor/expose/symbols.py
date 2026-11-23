@@ -598,22 +598,24 @@ def escape_latex_text(text: str) -> str:
 
     # Normalize any non-ASCII chars in prose/titles to ASCII equivalents
     normalized = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
-    replacements = (
-        ("\\", r"\textbackslash{}"),
-        ("&", r"\&"),
-        ("%", r"\%"),
-        ("$", r"\$"),
-        ("#", r"\#"),
-        ("_", r"\_"),
-        ("{", r"\{"),
-        ("}", r"\}"),
-        ("~", r"\textasciitilde{}"),
-        ("^", r"\textasciicircum{}"),
-    )
-    out = normalized
-    for old, new in replacements:
-        out = out.replace(old, new)
-    return out
+    # Single pass: sequential str.replace would re-escape the braces that
+    # `\textbackslash{}` introduces.
+    return _LATEX_TEXT_ESCAPE_RE.sub(lambda m: _LATEX_TEXT_ESCAPES[m.group(0)], normalized)
+
+
+_LATEX_TEXT_ESCAPES = {
+    "\\": r"\textbackslash{}",
+    "&": r"\&",
+    "%": r"\%",
+    "$": r"\$",
+    "#": r"\#",
+    "_": r"\_",
+    "{": r"\{",
+    "}": r"\}",
+    "~": r"\textasciitilde{}",
+    "^": r"\textasciicircum{}",
+}
+_LATEX_TEXT_ESCAPE_RE = re.compile(r"[\\&%$#_{}~^]")
 
 
 def lean_type_to_latex(

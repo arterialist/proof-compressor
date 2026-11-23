@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 from dataclasses import asdict, dataclass, field
@@ -86,12 +87,10 @@ def parse_print_axioms(output: str) -> dict[str, list[str]]:
     if not output:
         return result
 
-    pat_deps = re.compile(
-        r"'([^']+)'\s+depends on axioms:\s*\[([^\]]*)\]"
-    )
-    pat_none = re.compile(
-        r"'([^']+)'\s+does not depend on any axioms"
-    )
+    # Non-greedy, line-bounded name match so primes anywhere in a name (`C2'`,
+    # `mul_le'_of_pos`) survive; `[^']+` would split such names at the first prime.
+    pat_deps = re.compile(r"'([^\n]+?)'\s+depends on axioms:\s*\[([^\]]*)\]")
+    pat_none = re.compile(r"'([^\n]+?)'\s+does not depend on any axioms")
 
     for m in pat_deps.finditer(output):
         name = m.group(1).strip()
@@ -111,11 +110,26 @@ def parse_check_signatures(output: str) -> dict[str, str]:
     sigs: dict[str, str] = {}
     if not output:
         return sigs
-    # Lean prints: `@Foo.bar : <type>` or `Foo.bar : <type>`
-    for m in re.finditer(r"^@?([A-Za-z0-9_.']+)\s*:\s*(.+)$", output, re.MULTILINE):
-        name = m.group(1).strip()
-        sig = " ".join(m.group(2).split())
-        sigs[name] = sig
+    # Lean prints `@Foo.bar : <type>` or `Foo.bar : <type>` and wraps long types onto
+    # indented continuation lines. Names may contain Unicode (`h₁_pos`) and primes.
+    header_re = re.compile(r"^@?([^\s:@'][^\s:]*)\s+:\s*(.*)$")
+    name: str | None = None
+    parts: list[str] = []
+
+    def _flush() -> None:
+        if name is not None:
+            sigs[name] = " ".join(" ".join(parts).split())
+
+    for line in output.splitlines():
+        if name is not None and line[:1] in (" ", "\t") and line.strip():
+            parts.append(line)
+            continue
+        _flush()
+        name, parts = None, []
+        m = header_re.match(line)
+        if m:
+            name, parts = m.group(1), [m.group(2)]
+    _flush()
     return sigs
 
 
@@ -137,27 +151,46 @@ def find_lake_binary(lake_bin: str | None = None) -> str | None:
     return None
 
 
-def _default_runner(
-    cmd: list[str],
-    cwd: Path,
-    env: dict[str, str],
-    timeout_s: int,
-) -> tuple[int, str, str]:
+def _kill_process_group(proc: subprocess.Popen[str]) -> None:
     try:
-        proc = subprocess.run(
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except OSError:
+        proc.kill()
+
+
+def run_subprocess_clean(
+    cmd: list[str], cwd: Path, env: dict[str, str], timeout_s: int
+) -> tuple[int, str, str]:
+    """Run `cmd` in its own process group and kill the whole tree on timeout or interrupt.
+
+    `lake build` spawns `lean` workers; killing only `lake` would leave them compiling a
+    candidate that has already been reverted.
+    """
+    try:
+        proc = subprocess.Popen(
             cmd,
             cwd=str(cwd),
             env=env,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout_s,
-            check=False,
+            start_new_session=True,
         )
-        return proc.returncode, proc.stdout, proc.stderr
-    except subprocess.TimeoutExpired as exc:
-        return 124, exc.stdout or "", f"Command timed out after {timeout_s}s"
     except OSError as exc:
         return 127, "", str(exc)
+
+    try:
+        out, err = proc.communicate(timeout=timeout_s)
+        return proc.returncode, out, err
+    except subprocess.TimeoutExpired:
+        _kill_process_group(proc)
+        out, _err = proc.communicate()
+        return 124, out or "", f"Command timed out after {timeout_s}s"
+    except BaseException:
+        # Ctrl-C reaches only our process group (the child runs in its own session).
+        _kill_process_group(proc)
+        proc.communicate()
+        raise
 
 
 def verify_refactor_gate(
@@ -171,16 +204,23 @@ def verify_refactor_gate(
     before_files: Sequence[str | Path] | None = None,
     after_files: Sequence[str | Path] | None = None,
     allowed_axioms: set[str] | frozenset[str] | None = None,
+    baseline_axioms: dict[str, list[str]] | None = None,
+    check_loc: bool = True,
     min_loc_reduction: int = 1,
     run_lake: bool = True,
     lake_bin: str | None = None,
     timeout_s: int = 300,
     command_runner: CommandRunner | None = None,
 ) -> GateResult:
-    """Run the full Stage 4 verification gate: LOC reduction + `lake build` + `#print axioms`."""
+    """Run the full Stage 4 verification gate: LOC reduction + `lake build` + `#print axioms`.
+
+    With `baseline_axioms`, each declaration found there must keep its axiom set or shrink
+    it (invariance); declarations missing from the baseline are checked against
+    `allowed_axioms`. `check_loc=False` skips the LOC test for build-only verification.
+    """
     proj_path = Path(project_dir)
     allowed = set(STANDARD_LEAN_AXIOMS if allowed_axioms is None else allowed_axioms)
-    runner = command_runner or _default_runner
+    runner = command_runner or run_subprocess_clean
     errors: list[str] = []
 
     # 1. Strict LOC reduction check
@@ -192,7 +232,9 @@ def verify_refactor_gate(
     )
 
     loc_passed = True
-    if b_loc is None or a_loc is None:
+    if not check_loc:
+        loc_check: dict[str, Any] = {"passed": True, "skipped": True}
+    elif b_loc is None or a_loc is None:
         loc_passed = False
         errors.append("LOC check requires before_loc/after_loc or before_files/after_files.")
         loc_check = {
@@ -309,7 +351,12 @@ def verify_refactor_gate(
                     if decl not in axioms_map:
                         missing_decls.append(decl)
                     else:
-                        bad = [a for a in axioms_map[decl] if a not in allowed]
+                        permitted = (
+                            set(baseline_axioms[decl])
+                            if baseline_axioms is not None and decl in baseline_axioms
+                            else allowed
+                        )
+                        bad = [a for a in axioms_map[decl] if a not in permitted]
                         if bad:
                             disallowed[decl] = bad
 

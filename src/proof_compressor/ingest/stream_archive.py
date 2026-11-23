@@ -167,8 +167,12 @@ def iter_lean_sources(
     kind, paths = resolve_input_source(source)
 
     if kind == "files":
+        # Paths relative to the inputs' common directory: `RH/A/Basic.lean` and
+        # `RH/B/Basic.lean` must not both collapse to module `Basic`.
+        base = Path(os.path.commonpath([str(p.resolve().parent) for p in paths]))
         for p in paths:
-            yield (p.name, p.read_text(encoding="utf-8", errors="replace"))
+            rel = p.resolve().relative_to(base).as_posix()
+            yield (rel, p.read_text(encoding="utf-8", errors="replace"))
         return
 
     if kind == "dir":
@@ -326,17 +330,24 @@ class TransitiveImportIndex:
                 in_progress.add(node)
                 stack.append((node, True))
                 for dep in direct.get(node, ()):
-                    if dep not in pinned and dep not in lru and dep not in local_bits and dep not in in_progress:
-                        stack.append((dep, False))
+                    if dep in pinned or dep in local_bits or dep in in_progress:
+                        continue
+                    cached_dep = lru.get(dep)
+                    if cached_dep is not None:
+                        # Snapshot now: computing a sibling subtree can evict it from the
+                        # LRU before this node is finished, which would drop its closure.
+                        local_bits[dep] = cached_dep
+                        continue
+                    stack.append((dep, False))
             else:
                 in_progress.discard(node)
                 bits = 1 << topo_bit[node]
                 for dep in direct.get(node, ()):
                     db = pinned.get(dep)
                     if db is None:
-                        db = lru.get(dep)
-                    if db is None:
                         db = local_bits.get(dep)
+                    if db is None:
+                        db = lru.get(dep)
                     if db is None:
                         db = 1 << topo_bit[dep]
                     bits |= db
@@ -407,6 +418,16 @@ def ingest_source(
     filter_re = re.compile(path_filter) if path_filter else None
 
     conn = init_db(db_path, bulk=True, create_idx=False)
+
+    # Name resolution state below starts empty, so ingesting on top of existing rows would
+    # silently drop colliding modules/declarations while still writing edges for them.
+    existing_mods = conn.execute("SELECT COUNT(*) FROM modules").fetchone()[0]
+    if existing_mods:
+        conn.close()
+        raise ValueError(
+            f"{db_path} already contains {existing_mods} modules; ingest into a fresh "
+            "database (delete it first, or pass --skip-ingest to reuse it)."
+        )
 
     next_mod_id = (conn.execute("SELECT COALESCE(MAX(id), 0) FROM modules").fetchone()[0]) + 1
     next_decl_id = (

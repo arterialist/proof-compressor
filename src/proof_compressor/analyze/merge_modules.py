@@ -29,7 +29,7 @@ from __future__ import annotations
 import re
 import sqlite3
 from collections import defaultdict, deque
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Sequence
 
 from proof_compressor.analyze.consolidate import (
@@ -88,6 +88,11 @@ class MergeUnit:
     is_standalone: bool
     has_nonlocal_attr_or_inst: bool
     dup_group_key: int | None = None
+    # Namespaces this unit declares, and the project namespaces that would hijack one of
+    # its `open X` lines (`open Real` inside `namespace A.B` resolves to `A.B.Real` or
+    # `A.Real` when visible). Units with intersecting sets must not share a file.
+    declared_namespaces: frozenset[str] = frozenset()
+    open_shadow_keys: frozenset[str] = frozenset()
 
 
 @dataclass
@@ -202,13 +207,24 @@ def _extract_imports_and_body(source_text: str) -> tuple[list[str], list[str]]:
     imports: list[str] = []
     body_lines: list[str] = []
     in_header = True
+    comment_depth = 0
     for line in source_text.splitlines():
         if in_header:
+            s = line.strip()
+            # Leading copyright/module-doc comments may precede the imports. Keep them in
+            # the body (comments are harmless inside a section) and keep scanning, or the
+            # imports below them would land mid-file inside `section __pc_u_*`.
+            if comment_depth or s.startswith("/-"):
+                comment_depth = max(0, comment_depth + s.count("/-") - s.count("-/"))
+                body_lines.append(line)
+                continue
+            if s.startswith("--"):
+                body_lines.append(line)
+                continue
             m = _IMPORT_LINE_RE.match(line)
             if m:
                 imports.append(m.group(1))
                 continue
-            s = line.strip()
             if not s:
                 continue
             in_header = False
@@ -292,7 +308,7 @@ def _compute_unclosed_ends(body_lines: list[str]) -> tuple[list[str], bool]:
         return [], False
 
     closing: list[str] = []
-    for k, segs in reversed(stack):
+    for _k, segs in reversed(stack):
         if segs:
             closing.append(f"end {'.'.join(segs)}")
         else:
@@ -315,10 +331,19 @@ def _analyze_unit(
     parsed = parse_lean_source(source_text, mod_name)
     decl_names: set[str] = set()
     private_names: set[str] = set()
+    declared_ns: set[str] = set()
+    shadow_keys: set[str] = set()
     for d in parsed.declarations:
         decl_names.add(d.name)
         if d.is_private:
             private_names.add(d.name)
+        segs = d.name.split(".")
+        for i in range(1, len(segs) + 1):
+            declared_ns.add(".".join(segs[:i]))
+        ns = list(d.namespace_stack)
+        for opened in d.open_namespaces:
+            for i in range(1, len(ns) + 1):
+                shadow_keys.add(".".join(ns[:i]) + "." + opened)
 
     has_standalone_cmd = False
     has_nonlocal = False
@@ -354,6 +379,8 @@ def _analyze_unit(
         is_standalone=is_standalone,
         has_nonlocal_attr_or_inst=has_nonlocal,
         dup_group_key=dup_group_key,
+        declared_namespaces=frozenset(declared_ns),
+        open_shadow_keys=frozenset(shadow_keys),
     )
 
 
@@ -543,6 +570,10 @@ def _run_phase_b_consolidation(
                 continue
             ph = parse_signature_structure(d.type_sig)
             if ph is None:
+                continue
+            if type_refs_by_name and d.name not in type_refs_by_name:
+                # Without resolved type refs, equal header text under different `open`s
+                # (`exp` from Real vs Complex) would be grouped as duplicates.
                 continue
             tref_key = (
                 type_refs_by_name.get(d.name, frozenset())
@@ -780,7 +811,7 @@ def merge_project_modules(
     if conn is not None and plan is not None:
         cur = conn.cursor()
         by_hash_mods: dict[str, list[str]] = defaultdict(list)
-        for did, mid, kind, h in cur.execute(
+        for did, mid, _kind, h in cur.execute(
             "SELECT id, module_id, kind, canonical_type_hash FROM declarations "
             "WHERE is_mathlib = 0 AND kind IN ('theorem', 'lemma') "
             "AND canonical_type_hash IS NOT NULL AND canonical_type_hash != ''"
@@ -817,6 +848,18 @@ def merge_project_modules(
     b_members: dict[str, list[str]] = {m: [m] for m in kept_set}
     b_decls = {m: set(u.decl_names) for m, u in units.items()}
     b_privs = {m: set(u.private_names) for m, u in units.items()}
+    b_ns = {m: set(u.declared_namespaces) for m, u in units.items()}
+    b_shadow = {m: set(u.open_shadow_keys) for m, u in units.items()}
+
+    def _shadow_conflict(x: str, y: str) -> bool:
+        """True if merging bundles `x` and `y` would let one hijack the other's `open`s."""
+        return not (b_shadow[x].isdisjoint(b_ns[y]) and b_shadow[y].isdisjoint(b_ns[x]))
+
+    def _absorb_scope_sets(dst: str, src: str) -> None:
+        b_ns[dst] |= b_ns[src]
+        b_shadow[dst] |= b_shadow[src]
+        b_ns[src].clear()
+        b_shadow[src].clear()
     b_standalone = {m: u.is_standalone for m, u in units.items()}
     b_lib = {m: u.lib_root for m, u in units.items()}
 
@@ -857,6 +900,8 @@ def merge_project_modules(
                     continue
                 if not b_privs[rc].isdisjoint(b_privs[rp]):
                     continue
+                if _shadow_conflict(rc, rp):
+                    continue
 
                 # Fuse child `rc` BEFORE consumer `rp`
                 parent[rc] = rp
@@ -864,6 +909,7 @@ def merge_project_modules(
                 b_members[rp] = b_members[rc] + b_members[rp]
                 b_decls[rp] |= b_decls[rc]
                 b_privs[rp] |= b_privs[rc]
+                _absorb_scope_sets(rp, rc)
                 b_deps[rp].discard(rc)
                 for d in b_deps[rc]:
                     rd = _find(d)
@@ -920,6 +966,7 @@ def merge_project_modules(
                 or b_loc[rep_b] + b_loc[b] > target_module_loc
                 or not b_decls[rep_b].isdisjoint(b_decls[b])
                 or not b_privs[rep_b].isdisjoint(b_privs[b])
+                or _shadow_conflict(rep_b, b)
             ):
                 rep_b = b
                 continue
@@ -928,6 +975,7 @@ def merge_project_modules(
             b_members[rep_b].extend(b_members[b])
             b_decls[rep_b] |= b_decls[b]
             b_privs[rep_b] |= b_privs[b]
+            _absorb_scope_sets(rep_b, b)
             for d in b_deps[b]:
                 rd = _find(d)
                 if rd != rep_b:
@@ -1039,6 +1087,14 @@ def merge_project_modules(
     bundle_locs: list[int] = []
     merged_files: dict[str, tuple[str, str]] = {}
 
+    # Keep each bundle under its members' source root (`src/`, ``, `Proj/`...) so lake's
+    # srcDir still finds it; default to `src/` when no member path reveals the root.
+    bundle_root: dict[str, str] = {}
+    for mod_name, (orig_rel, _src) in module_sources.items():
+        suffix = mod_name.replace(".", "/") + ".lean"
+        if orig_rel.endswith(suffix):
+            bundle_root.setdefault(mod_rename_map.get(mod_name, mod_name), orig_rel[: -len(suffix)])
+
     for bname, btxt in bundle_texts.items():
         lns = btxt.splitlines()
         nb = sum(1 for l in lns if l.strip())
@@ -1052,7 +1108,7 @@ def merge_project_modules(
                 imp = mm.group(1)
                 if imp in mod_rename_map and imp not in final_names:
                     dangling_imports += 1
-        rel_path = f"src/{bname.replace('.', '/')}.lean"
+        rel_path = f"{bundle_root.get(bname, 'src/')}{bname.replace('.', '/')}.lean"
         merged_files[bname] = (rel_path, btxt)
 
     in_cnt = len(module_sources)

@@ -25,6 +25,7 @@ from proof_compressor.analyze.consolidate import (
 )
 from proof_compressor.analyze.merge_modules import MergeReport, merge_project_modules
 from proof_compressor.analyze.prune import resolve_roots
+from proof_compressor.ingest.stream_archive import _natural_part_key
 from proof_compressor.schema import connect_db, set_meta
 
 VALID_MATERIALIZE_MODES = ("instance-aware", "import-closure", "decl-exact")
@@ -412,6 +413,11 @@ def _is_ident_char(ch: str) -> bool:
     return ch.isalnum() or ch in ("_", "'") or ord(ch) >= 0x80
 
 
+# Private-use placeholder for newlines inside string literals during blank-line collapsing.
+_STRING_NL = "\ue000"
+_LIBRARY_NOTE_TAIL_RE = re.compile(r'\blibrary_note2?\s+(?:"[^"\n]*"|«[^»]*»|\S+)\s*$')
+
+
 def strip_lean_comments(
     source_text: str,
     *,
@@ -434,6 +440,19 @@ def strip_lean_comments(
     while i < n:
         ch = source_text[i]
 
+        # 0. Raw string literal `r"..."` / `r#"..."#` (no escapes: `r"C:\"` ends at its 2nd quote)
+        if ch == "r" and (i == 0 or not _is_ident_char(source_text[i - 1])):
+            j = i + 1
+            while j < n and source_text[j] == "#":
+                j += 1
+            if j < n and source_text[j] == '"':
+                closer = '"' + "#" * (j - i - 1)
+                end_r = source_text.find(closer, j + 1)
+                end_r = n if end_r == -1 else end_r + len(closer)
+                out.append(source_text[i:end_r].replace("\n", _STRING_NL))
+                i = end_r
+                continue
+
         # 1. Double-quoted string literal (handles `s!"..."` and `\"` / `\\` escapes)
         if ch == '"':
             start = i
@@ -447,7 +466,9 @@ def strip_lean_comments(
                     i += 1
                     break
                 i += 1
-            out.append(source_text[start:i])
+            # Newlines inside strings are masked so the blank-line pass below cannot
+            # change the string's value.
+            out.append(source_text[start:i].replace("\n", _STRING_NL))
             continue
 
         # 2. Guillemet-quoted identifier `«...»`
@@ -511,6 +532,11 @@ def strip_lean_comments(
                         probe += 1
                     if source_text.startswith("add_decl_doc", probe):
                         must_preserve = True
+                    # `library_note "name"/-- text -/`: the docstring is the note's body
+                    elif _LIBRARY_NOTE_TAIL_RE.search(
+                        source_text, max(0, block_start - 400), block_start
+                    ):
+                        must_preserve = True
 
             if must_preserve:
                 out.append(block_text)
@@ -570,11 +596,11 @@ def strip_lean_comments(
     while final_lines and not final_lines[-1]:
         final_lines.pop()
 
-    new_text = "\n".join(final_lines)
+    new_text = "\n".join(final_lines).replace(_STRING_NL, "\n")
     if new_text and source_text.endswith("\n"):
         new_text += "\n"
 
-    removed_lines = max(0, len(orig_lines) - len(final_lines))
+    removed_lines = max(0, len(orig_lines) - len(new_text.splitlines()))
     return new_text, removed_lines
 
 
@@ -1576,6 +1602,10 @@ def _rewrite_open_line(
     tokens = rest_body.split()
     if not tokens:
         return line, False
+    if any(t in ("hiding", "renaming") for t in tokens):
+        # `open Foo hiding x` / `open Foo renaming a → b` name exactly one namespace;
+        # dropping it token-wise would leave `open hiding x`, which does not parse.
+        return ((None, True) if _is_dropped_ns(tokens[0]) else (line, False))
     kept_tokens = [t for t in tokens if not _is_dropped_ns(t)]
     if len(kept_tokens) == len(tokens):
         return line, False
@@ -1838,7 +1868,8 @@ def _resolve_source_parts(source: str | Path | Sequence[str | Path]) -> tuple[st
         return "parts", paths
     s = str(source)
     if any(ch in s for ch in ("*", "?", "[")):
-        matched = sorted(Path(p) for p in glob.glob(s))
+        # Numeric part order: plain string sort puts part10 before part2.
+        matched = sorted((Path(p) for p in glob.glob(s)), key=_natural_part_key)
         if not matched:
             raise FileNotFoundError(f"No files matched glob: {s}")
         return "parts", matched
@@ -1847,7 +1878,7 @@ def _resolve_source_parts(source: str | Path | Sequence[str | Path]) -> tuple[st
         return "dir", [p]
     if re.search(r"\.part\d+$", p.name):
         base = re.sub(r"\.part\d+$", ".part*", str(p))
-        siblings = sorted(Path(x) for x in glob.glob(base))
+        siblings = sorted((Path(x) for x in glob.glob(base)), key=_natural_part_key)
         return "parts", siblings or [p]
     return "archive", [p]
 
@@ -1875,14 +1906,23 @@ def _iter_source_entries(
             for member in tf:
                 if not member.isfile():
                     continue
-                name = member.name.lstrip("./")
+                name = member.name
+                while name.startswith("./"):
+                    name = name[2:]
+                # Members are later written under the output dir; refuse absolute or `..`
+                # paths so a crafted archive cannot write outside it.
+                if name.startswith("/") or ".." in name.split("/"):
+                    continue
                 base = name.rsplit("/", 1)[-1]
                 if base in _CONFIG_FILENAMES or name.endswith(".lean"):
                     extracted = tf.extractfile(member)
                     if extracted is not None:
                         yield name, extracted.read()
-    except (tarfile.ReadError, zlib.error, EOFError):
-        pass
+    except (tarfile.ReadError, zlib.error, EOFError) as exc:
+        # Swallowing this would emit a silently truncated project.
+        raise RuntimeError(
+            f"Failed reading source archive {[str(p) for p in paths]}: {exc}"
+        ) from exc
     finally:
         buf_stream.close()
 
@@ -2083,7 +2123,7 @@ def _compute_per_module_dropped_open_ns(
     for mid, ql in open_queries.items():
         bad_keys = {
             f"{cur_ns}::{tok}"
-            for (tok, cur_ns, _), is_ok in zip(ql, ok_map[mid])
+            for (tok, cur_ns, _), is_ok in zip(ql, ok_map[mid], strict=True)
             if not is_ok
         }
         if bad_keys:

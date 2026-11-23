@@ -17,16 +17,15 @@ integrated directly with :func:`proof_compressor.refactor.gate.verify_refactor_g
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
-import signal
 import sqlite3
-import subprocess
 import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Sequence
 
 from proof_compressor.ingest.lean_parser import (
     ParsedDecl,
@@ -42,8 +41,14 @@ from proof_compressor.refactor.gate import (
     find_lake_binary,
     parse_check_signatures,
     parse_print_axioms,
+    run_subprocess_clean,
     verify_refactor_gate,
 )
+
+# Kept as module-level aliases for existing callers/tests; the gate now parses primed
+# names and kills process groups itself.
+_parse_print_axioms_safe = parse_print_axioms
+_run_subprocess_clean = run_subprocess_clean
 
 # Tactics that inspect the local context implicitly; if present later in the
 # same scope, dropping a `have`/`let` still requires kernel verification.
@@ -228,53 +233,6 @@ def count_proof_steps(source: str) -> int:
     return steps
 
 
-def _parse_print_axioms_safe(output: str) -> dict[str, list[str]]:
-    """Parse `#print axioms` output, handling primed Lean identifiers like `C2'`."""
-    result = parse_print_axioms(output)
-    if not output:
-        return result
-    for m in re.finditer(
-        r"^'(.+?)'\s+depends on axioms:\s*\[([^\]]*)\]", output, re.MULTILINE
-    ):
-        name = m.group(1).strip()
-        axs = [a.strip() for a in m.group(2).split(",") if a.strip()]
-        result[name] = axs
-    for m in re.finditer(
-        r"^'(.+?)'\s+does not depend on any axioms", output, re.MULTILINE
-    ):
-        result.setdefault(m.group(1).strip(), [])
-    return result
-
-
-def _run_subprocess_clean(
-    cmd: list[str], cwd: Path, env: dict[str, str], timeout_s: int
-) -> tuple[int, str, str]:
-    """Run subprocess in its own process group and kill the whole tree on timeout."""
-    try:
-        proc = subprocess.Popen(
-            cmd,
-            cwd=str(cwd),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            start_new_session=True,
-        )
-    except OSError as exc:
-        return 127, "", str(exc)
-
-    try:
-        out, err = proc.communicate(timeout=timeout_s)
-        return proc.returncode, out, err
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-        except OSError:
-            proc.kill()
-        out, err = proc.communicate()
-        return 124, out or "", f"Command timed out after {timeout_s}s"
-
-
 def _wrap_runner_with_env(
     env_overrides: dict[str, str] | None,
     command_runner: CommandRunner | None,
@@ -298,6 +256,16 @@ def _wrap_runner_with_env(
         return _run_subprocess_clean(cmd, cwd, merged, timeout_s)
 
     return _wrapped
+
+
+def _read_source(fpath: Path) -> tuple[str, str | None]:
+    """Read `fpath` and return `(text, newline)` so writes keep the original line endings."""
+    raw = fpath.read_bytes()
+    return raw.decode("utf-8").replace("\r\n", "\n"), ("\r\n" if b"\r\n" in raw else None)
+
+
+def _write_source(fpath: Path, text: str, newline: str | None) -> None:
+    fpath.write_text(text, encoding="utf-8", newline=newline)
 
 
 def _resolve_module_file(project_dir: Path, module_name: str, file_path: str | Path | None) -> Path:
@@ -447,74 +415,32 @@ def _run_gate_with_primed_check(
     timeout_s: int,
     command_runner: CommandRunner | None,
     env_overrides: dict[str, str] | None,
+    baseline_axioms: dict[str, list[str]] | None = None,
 ) -> GateResult:
-    """Run `verify_refactor_gate` plus post-edit `#check`/`#print axioms` for primed decls."""
-    gate_decls = [d for d in exported_decls if not d.split(".")[-1].endswith("'")]
-    primed_decls = [d for d in exported_decls if d.split(".")[-1].endswith("'")]
+    """Run `verify_refactor_gate` with exact `#check` signatures and per-decl axiom invariance.
+
+    Primed names (`C2'`) used to need a separate pass; the gate parser now handles them.
+    """
     gate_sigs = (
-        {k: v for k, v in baseline_sigs.items() if k in gate_decls}
+        {k: v for k, v in baseline_sigs.items() if k in exported_decls}
         if baseline_sigs
         else None
     )
-    wrapped_runner = _wrap_runner_with_env(env_overrides, command_runner)
-    gate = verify_refactor_gate(
+    return verify_refactor_gate(
         proj_path,
         target_modules=[module_name],
-        exported_decls=gate_decls or None,
+        exported_decls=list(exported_decls) or None,
         expected_signatures=gate_sigs,
         before_loc=before_loc,
         after_loc=after_loc,
         allowed_axioms=STANDARD_LEAN_AXIOMS,
+        baseline_axioms=baseline_axioms or None,
         min_loc_reduction=1,
         run_lake=True,
         lake_bin=lake_bin,
         timeout_s=timeout_s,
-        command_runner=wrapped_runner,
+        command_runner=_wrap_runner_with_env(env_overrides, command_runner),
     )
-    if not gate.passed or not primed_decls:
-        return gate
-
-    runner, env, resolved_lake = _build_lean_env_and_lake(
-        lake_bin, command_runner, env_overrides
-    )
-    if not resolved_lake:
-        gate.passed = False
-        gate.errors.append("Could not locate `lake` binary for primed decl verification.")
-        return gate
-
-    arc, primed_sigs, primed_axioms, detail = _inspect_module_decls(
-        proj_path, module_name, primed_decls, resolved_lake, env, timeout_s, runner
-    )
-    if arc != 0:
-        gate.passed = False
-        gate.errors.append(
-            f"Primed decl `#check`/`#print axioms` failed (rc={arc}): {detail}"
-        )
-        return gate
-
-    for decl in primed_decls:
-        if decl not in primed_sigs:
-            gate.passed = False
-            gate.errors.append(f"Missing `#check` signature for primed decl `{decl}`.")
-        elif decl in baseline_sigs and primed_sigs[decl] != baseline_sigs[decl]:
-            gate.passed = False
-            gate.errors.append(
-                f"Type signature changed for primed decl `{decl}`: "
-                f"expected `{baseline_sigs[decl]}`, got `{primed_sigs[decl]}`"
-            )
-        if decl not in primed_axioms:
-            gate.passed = False
-            gate.errors.append(f"Missing `#print axioms` output for primed decl `{decl}`.")
-        else:
-            bad = sorted(set(primed_axioms[decl]) - STANDARD_LEAN_AXIOMS)
-            if bad:
-                gate.passed = False
-                gate.errors.append(f"Disallowed axioms detected: {decl}: {bad}")
-
-    merged_axioms = dict(gate.axiom_check.get("axioms") or {})
-    merged_axioms.update({d: primed_axioms[d] for d in primed_decls if d in primed_axioms})
-    gate.axiom_check["axioms"] = merged_axioms
-    return gate
 
 
 def _indent_of(line: str) -> int:
@@ -1179,7 +1105,7 @@ def simplify_module(
             errors=[f"Module source file not found: {fpath}"],
         )
 
-    original_source = fpath.read_text(encoding="utf-8")
+    original_source, newline = _read_source(fpath)
     before_loc = count_effective_loc(original_source)
     before_steps = count_proof_steps(original_source)
     exported_decls = extract_exported_decls(original_source, module_name)
@@ -1234,8 +1160,6 @@ def simplify_module(
         for cand in candidates:
             if probes_used >= max_candidates:
                 break
-            import hashlib
-
             ch = hashlib.sha1(cand.new_source.encode("utf-8")).hexdigest()
             if ch in tried_hashes:
                 continue
@@ -1260,21 +1184,30 @@ def simplify_module(
                 round_accepted = True
                 break
 
-            # Transactional write + kernel gate check + automatic revert on failure
+            # Transactional write + kernel gate check + automatic revert on failure.
+            # The revert sits in `finally` so Ctrl-C or a runner exception mid-build
+            # never leaves an unverified rewrite on disk.
             t_edit = time.perf_counter()
-            fpath.write_text(cand.new_source, encoding="utf-8")
-            gate = _run_gate_with_primed_check(
-                proj_path,
-                module_name,
-                exported_decls,
-                baseline_sigs,
-                before_loc=current_loc,
-                after_loc=cand_loc,
-                lake_bin=lake_bin,
-                timeout_s=timeout_s,
-                command_runner=command_runner,
-                env_overrides=env_overrides,
-            )
+            _write_source(fpath, cand.new_source, newline)
+            gate_ok = False
+            try:
+                gate = _run_gate_with_primed_check(
+                    proj_path,
+                    module_name,
+                    exported_decls,
+                    baseline_sigs,
+                    before_loc=current_loc,
+                    after_loc=cand_loc,
+                    lake_bin=lake_bin,
+                    timeout_s=timeout_s,
+                    command_runner=command_runner,
+                    env_overrides=env_overrides,
+                    baseline_axioms=baseline_axioms,
+                )
+                gate_ok = gate.passed
+            finally:
+                if not gate_ok:
+                    _write_source(fpath, current_source, newline)
             dt = round(time.perf_counter() - t_edit, 3)
 
             if gate.passed:
@@ -1296,8 +1229,6 @@ def simplify_module(
                 round_accepted = True
                 break
             else:
-                # Automatic revert on failure
-                fpath.write_text(current_source, encoding="utf-8")
                 rejected.append(
                     RejectedEdit(
                         rule=cand.rule,
@@ -1311,8 +1242,8 @@ def simplify_module(
             break
 
     # Guarantee file on disk matches final accepted source (and re-run final clean check if changed)
-    if not dry_run and fpath.read_text(encoding="utf-8") != current_source:
-        fpath.write_text(current_source, encoding="utf-8")
+    if not dry_run and _read_source(fpath)[0] != current_source:
+        _write_source(fpath, current_source, newline)
 
     after_steps = count_proof_steps(current_source)
     return SimplifyResult(
@@ -1331,7 +1262,9 @@ def simplify_module(
         accepted_edits=accepted,
         rejected_edits=rejected,
         build_time_s=baseline_time,
-        gate_passed=True,
+        # Non-dry runs only get here after the baseline built and every kept edit passed
+        # the gate. A dry run never ran the gate.
+        gate_passed=not dry_run,
     )
 
 
@@ -1353,7 +1286,7 @@ def verify_manual_rewrite(
     """
     proj_path = Path(project_dir)
     fpath = _resolve_module_file(proj_path, module_name, file_path)
-    original_source = fpath.read_text(encoding="utf-8")
+    original_source, newline = _read_source(fpath)
     before_loc = count_effective_loc(original_source)
     after_loc = count_effective_loc(new_source)
     exported_decls = extract_exported_decls(original_source, module_name)
@@ -1372,22 +1305,27 @@ def verify_manual_rewrite(
         return False, fail_gate, base_sigs, base_axioms, base_t
 
     t0 = time.perf_counter()
-    fpath.write_text(new_source, encoding="utf-8")
-    gate = _run_gate_with_primed_check(
-        proj_path,
-        module_name,
-        exported_decls,
-        base_sigs,
-        before_loc=before_loc,
-        after_loc=after_loc,
-        lake_bin=lake_bin,
-        timeout_s=timeout_s,
-        command_runner=command_runner,
-        env_overrides=env_overrides,
-    )
+    _write_source(fpath, new_source, newline)
+    gate_ok = False
+    try:
+        gate = _run_gate_with_primed_check(
+            proj_path,
+            module_name,
+            exported_decls,
+            base_sigs,
+            before_loc=before_loc,
+            after_loc=after_loc,
+            lake_bin=lake_bin,
+            timeout_s=timeout_s,
+            command_runner=command_runner,
+            env_overrides=env_overrides,
+            baseline_axioms=base_axioms,
+        )
+        gate_ok = gate.passed
+    finally:
+        if not gate_ok:
+            _write_source(fpath, original_source, newline)
     dt = round(time.perf_counter() - t0, 3)
-    if not gate.passed:
-        fpath.write_text(original_source, encoding="utf-8")
     return gate.passed, gate, base_sigs, gate.axiom_check.get("axioms", base_axioms), dt
 
 

@@ -309,7 +309,7 @@ def test_materialize_real_alpo_rh_slice_compiles_with_lake(tmp_path: Path) -> No
         encoding="utf-8",
     )
 
-    for mod, (raw_path, text) in extracted.items():
+    for _mod, (raw_path, text) in extracted.items():
         rel = raw_path[len("lean/") :] if raw_path.startswith("lean/") else raw_path
         dest = slice_proj / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -439,7 +439,7 @@ def test_materialize_real_alpo_main_supplements_spine_compiles_with_lake(tmp_pat
     )
 
     # Write verbatim Main.lean and Supplements.Kernels.MainTheorems*
-    for mod, (raw_path, text) in extracted.items():
+    for _mod, (raw_path, text) in extracted.items():
         rel = raw_path[len("lean/") :] if raw_path.startswith("lean/") else raw_path
         dest = spine_proj / rel
         dest.parent.mkdir(parents=True, exist_ok=True)

@@ -96,7 +96,7 @@ _STANDARD_TEX_MACROS = frozenset(
         "varnothing", "aleph", "beth", "hbar", "ell", "wp", "angle", "triangle",
         "square", "blacksquare", "qed", "qedhere", "prime", "backprime", "flat",
         "natural", "sharp", "clubsuit", "diamondsuit", "heartsuit", "spadesuit",
-        "top", "bot", "colon", "quad", "qquad",
+        "top", "bot", "colon",
         # Greek letters
         "alpha", "beta", "gamma", "delta", "epsilon", "varepsilon", "zeta",
         "eta", "theta", "vartheta", "iota", "kappa", "varkappa", "lambda", "mu",
@@ -560,20 +560,26 @@ def audit_latex(
         preamble_split = tex_text.split(r"\begin{document}", 1)
         preamble = preamble_split[0] if len(preamble_split) == 2 else ""
         body = preamble_split[1] if len(preamble_split) == 2 else tex_text
-        body_offset = tex_text.find(r"\begin{document}") if len(preamble_split) == 2 else 0
+        body_offset = (
+            tex_text.find(r"\begin{document}") + len(r"\begin{document}")
+            if len(preamble_split) == 2
+            else 0
+        )
 
         declared_in_preamble = set(_MACRO_DEF_RE.findall(preamble))
         registered_macros = {m.lstrip("\\") for m in registry.macros_set()}
         allowed_macros = _STANDARD_TEX_MACROS | declared_in_preamble | registered_macros
 
-        # Remove comments and \detokenize{...} arguments before scanning macros
-        body_no_comments_lines: list[str] = []
-        for ln in body.splitlines():
-            body_no_comments_lines.append(re.sub(r"(?<!\\)%.*$", "", ln))
-        body_clean = "\n".join(body_no_comments_lines)
-        body_clean = re.sub(r"\\detokenize\{[^}]*\}", "", body_clean)
-        body_clean = re.sub(r"\\leanlink(?:\[[^\]]*\])?\{[^}]*\}", "", body_clean)
-        body_clean = re.sub(r"\\leanmod\{[^}]*\}", "", body_clean)
+        # Blank out comments and \detokenize/\leanlink/\leanmod arguments before scanning
+        # macros. Replacing with same-length whitespace keeps offsets aligned with
+        # `tex_text`, so reported line numbers stay correct.
+        def _blank(m: re.Match[str]) -> str:
+            return re.sub(r"[^\n]", " ", m.group(0))
+
+        body_clean = re.sub(r"(?<!\\)%[^\n]*", _blank, body)
+        body_clean = re.sub(r"\\detokenize\{[^}]*\}", _blank, body_clean)
+        body_clean = re.sub(r"\\leanlink(?:\[[^\]]*\])?\{[^}]*\}", _blank, body_clean)
+        body_clean = re.sub(r"\\leanmod\{[^}]*\}", _blank, body_clean)
 
         symbol_drift: list[dict[str, Any]] = []
         seen_drift: set[str] = set()
